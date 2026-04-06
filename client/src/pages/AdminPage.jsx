@@ -502,7 +502,8 @@ function TransferModal({ ticket, services, onTransfer, onClose }) {
 const FIELD_INPUT_TYPES_ADMIN = { text: 'text', phone: 'tel', number: 'number', date: 'date', email: 'email' };
 
 function ManualRegModal({ services, onClose }) {
-  const [serviceId, setServiceId] = useState('');
+  const defaultService = services.find(s => s.is_default) || (services.length === 1 ? services[0] : null);
+  const [serviceId, setServiceId] = useState(defaultService ? String(defaultService.id) : '');
   const [serviceFields, setServiceFields] = useState([]);
   const [fieldValues, setFieldValues] = useState({});
   const [done, setDone] = useState(null);
@@ -545,7 +546,7 @@ function ManualRegModal({ services, onClose }) {
     setDone(data);
   };
 
-  const reset = () => { setDone(null); setServiceId(''); setServiceFields([]); setFieldValues({}); setError(''); };
+  const reset = () => { setDone(null); setServiceId(defaultService ? String(defaultService.id) : ''); setServiceFields([]); setFieldValues({}); setError(''); };
 
   if (done) return (
     <Modal title="Талон выдан" onClose={onClose}>
