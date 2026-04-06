@@ -89,10 +89,8 @@ const CANCEL_REASONS = ['Отмена по запросу', 'Дублирующ�
 function QueueTab() {
   const [queue, setQueue] = useState({ current: null, waiting: [] });
   const [loading, setLoading] = useState(false);
-  const [cancelModal, setCancelModal] = useState(false);
   const [manualModal, setManualModal] = useState(false);
   const [callConfirm, setCallConfirm] = useState(null);
-  const [cancelReason, setCancelReason] = useState('');
   const [services, setServices] = useState([]);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterService, setFilterService] = useState('');
@@ -124,17 +122,6 @@ function QueueTab() {
     setLoading(false);
   };
 
-  const complete = async () => {
-    await apiFetch('/api/queue/complete', { method: 'POST' });
-  };
-
-  const doCancel = async () => {
-    await apiFetch('/api/queue/cancel-current', {
-      method: 'POST', body: JSON.stringify({ reason: cancelReason })
-    });
-    setCancelModal(false); setCancelReason('');
-  };
-
   const callSpecific = async (ticket) => {
     if (queue.current) {
       setCallConfirm(ticket);
@@ -164,7 +151,7 @@ function QueueTab() {
     <div className="space-y-5">
       {/* Current */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Сейчас обслуживается</h3>
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Вызван талон</h3>
         {queue.current ? (
           <div className="flex flex-wrap items-start gap-4">
             <div className="flex-1 min-w-0">
@@ -187,14 +174,6 @@ function QueueTab() {
               <button onClick={callNext} disabled={loading || !hasNext}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                 <Icon d={P.next} cls="w-4 h-4" /> Следующий
-              </button>
-              <button onClick={complete}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                <Icon d={P.check} cls="w-4 h-4" /> Завершить
-              </button>
-              <button onClick={() => setCancelModal(true)}
-                className="flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-800 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                <Icon d={P.cancel} cls="w-4 h-4" /> Отменить
               </button>
             </div>
           </div>
@@ -343,34 +322,6 @@ function QueueTab() {
       </div>
 
       {/* Modals */}
-      {cancelModal && (
-        <Modal title="Отменить талон" onClose={() => setCancelModal(false)}>
-          <div className="space-y-3">
-            <p className="text-sm text-gray-500">Укажите причину отмены:</p>
-            {CANCEL_REASONS.map(r => (
-              <label key={r} className="flex items-center gap-3 cursor-pointer">
-                <input type="radio" name="cancel_reason" value={r} checked={cancelReason === r}
-                  onChange={e => setCancelReason(e.target.value)} className="text-blue-600" />
-                <span className="text-sm">{r}</span>
-              </label>
-            ))}
-            <input type="text" value={cancelReason} onChange={e => setCancelReason(e.target.value)}
-              placeholder="Или введите свою причину..."
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-            <div className="flex gap-2 pt-2">
-              <button onClick={doCancel}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl">
-                Отменить талон
-              </button>
-              <button onClick={() => setCancelModal(false)}
-                className="flex-1 border border-gray-200 rounded-xl py-2.5 text-gray-600 hover:bg-gray-50">
-                Назад
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
       {manualModal && (
         <ManualRegModal services={services} onClose={() => setManualModal(false)} />
       )}
