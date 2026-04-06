@@ -294,7 +294,7 @@ app.get('/api/tickets/:id', (req, res) => {
     const queue = getQueueState();
     const idx = queue.waiting.findIndex(t => t.id === ticket.id);
     position = idx >= 0 ? idx + 1 : 0;
-    estimatedWait = position * (ticket.avg_duration_minutes || 5);
+    estimatedWait = ticket.avg_duration_minutes > 0 ? position * ticket.avg_duration_minutes : null;
   }
 
   const parsedFieldValues = ticket.field_values ? JSON.parse(ticket.field_values) : [];

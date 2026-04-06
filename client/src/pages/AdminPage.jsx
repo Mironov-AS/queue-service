@@ -276,9 +276,11 @@ function QueueTab() {
                       <div className="text-sm font-medium text-gray-700 truncate">{t.service_name || '—'}</div>
                       {t.name && <div className="text-xs text-gray-500 truncate">{t.name}</div>}
                     </div>
-                    <span className="text-xs text-gray-400 flex items-center gap-1 shrink-0">
-                      <Icon d={P.clock} cls="w-3.5 h-3.5" />~{(i + 1) * (t.avg_duration_minutes || 5)} мин
-                    </span>
+                    {t.avg_duration_minutes > 0 && (
+                      <span className="text-xs text-gray-400 flex items-center gap-1 shrink-0">
+                        <Icon d={P.clock} cls="w-3.5 h-3.5" />~{(i + 1) * t.avg_duration_minutes} мин
+                      </span>
+                    )}
                     <button onClick={() => callSpecific(t)} disabled={loading}
                       className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg disabled:opacity-40 shrink-0 transition" title="Вызвать этого клиента">
                       <Icon d={P.next} cls="w-3.5 h-3.5" /> Вызвать
@@ -909,9 +911,11 @@ function ServicesTab() {
                   {s.description && <div className="text-xs text-gray-400 mt-0.5">{s.description}</div>}
                 </td>
                 <td className="px-4 py-4 text-center text-gray-600">
-                  <span className="flex items-center justify-center gap-1">
-                    <Icon d={P.clock} cls="w-4 h-4 text-gray-400" />{s.avg_duration_minutes} мин
-                  </span>
+                  {s.avg_duration_minutes > 0 ? (
+                    <span className="flex items-center justify-center gap-1">
+                      <Icon d={P.clock} cls="w-4 h-4 text-gray-400" />{s.avg_duration_minutes} мин
+                    </span>
+                  ) : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="px-4 py-4 text-center text-gray-600">{s.priority || 0}</td>
                 <td className="px-4 py-4 text-center text-gray-500">{s.daily_limit || '∞'}</td>

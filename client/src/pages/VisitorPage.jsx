@@ -101,7 +101,7 @@ function GetTicket({ preService }) {
                       <span className="font-semibold text-sm text-blue-700">{services[0].name}</span>
                       {services[0].description && <p className="text-xs text-gray-400 mt-0.5">{services[0].description}</p>}
                     </div>
-                    <span className="text-xs text-gray-400 shrink-0 ml-2">~{services[0].avg_duration_minutes} мин</span>
+                    {services[0].avg_duration_minutes > 0 && <span className="text-xs text-gray-400 shrink-0 ml-2">~{services[0].avg_duration_minutes} мин</span>}
                   </div>
                 ) : (
                   <>
@@ -118,7 +118,7 @@ function GetTicket({ preService }) {
                             </span>
                             {s.description && <p className="text-xs text-gray-400 mt-0.5">{s.description}</p>}
                           </div>
-                          <span className="text-xs text-gray-400 shrink-0 ml-2">~{s.avg_duration_minutes} мин</span>
+                          {s.avg_duration_minutes > 0 && <span className="text-xs text-gray-400 shrink-0 ml-2">~{s.avg_duration_minutes} мин</span>}
                         </button>
                       ))}
                     </div>
@@ -292,7 +292,8 @@ function TicketStatus({ ticketId }) {
 
   // Waiting
   const pos = ticket.position || 0;
-  const estimatedWait = pos * (ticket.avg_duration_minutes || 5);
+  const showWait = ticket.avg_duration_minutes > 0;
+  const estimatedWait = showWait ? pos * ticket.avg_duration_minutes : null;
   const totalWaiting = queue?.waiting?.length || pos;
   const progressPct = totalWaiting > 1 ? Math.max(0, 100 - ((pos - 1) / totalWaiting) * 100) : (pos <= 1 ? 80 : 0);
 
@@ -338,7 +339,7 @@ function TicketStatus({ ticketId }) {
           </div>
           <div className="bg-white/15 backdrop-blur rounded-2xl p-4 text-center">
             <p className="text-blue-100 text-xs mb-1">Ожидание</p>
-            <p className="text-3xl font-black text-white">{pos > 0 ? `~${estimatedWait}м` : '—'}</p>
+            <p className="text-3xl font-black text-white">{showWait && pos > 0 ? `~${estimatedWait}м` : '—'}</p>
           </div>
         </div>
 
