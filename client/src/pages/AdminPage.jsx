@@ -280,8 +280,8 @@ function QueueTab() {
                       <Icon d={P.clock} cls="w-3.5 h-3.5" />~{(i + 1) * (t.avg_duration_minutes || 5)} мин
                     </span>
                     <button onClick={() => callSpecific(t)} disabled={loading}
-                      className="p-1.5 text-gray-300 hover:text-green-600 rounded shrink-0" title="Вызвать этого клиента">
-                      <Icon d={P.next} cls="w-4 h-4" />
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg disabled:opacity-40 shrink-0 transition" title="Вызвать этого клиента">
+                      <Icon d={P.next} cls="w-3.5 h-3.5" /> Вызвать
                     </button>
                     <button onClick={() => setTransferModal(t)} className="p-1.5 text-gray-300 hover:text-blue-500 rounded shrink-0">
                       <Icon d={P.transfer} cls="w-4 h-4" />
