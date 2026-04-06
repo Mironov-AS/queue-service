@@ -1147,6 +1147,7 @@ function QRTab() {
   const [selectedService, setSelectedService] = useState('');
   const [customUrl, setCustomUrl] = useState('');
   const [qrData, setQrData] = useState(null);
+  const [dashboardQr, setDashboardQr] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -1154,6 +1155,10 @@ function QRTab() {
       setServices(data);
       generateQR(null);
     });
+    // Generate dashboard QR
+    const dashUrl = window.location.origin + '/dashboard';
+    fetch(`/api/qrcode?url=${encodeURIComponent(dashUrl)}`)
+      .then(r => r.json()).then(setDashboardQr);
   }, []);
 
   const generateQR = async (serviceId) => {
@@ -1234,6 +1239,37 @@ function QRTab() {
           </div>
         </div>
       )}
+
+      {/* Dashboard section */}
+      <div className="bg-gray-950 rounded-2xl p-6 flex flex-col gap-5">
+        <div>
+          <h3 className="text-white font-semibold text-base">Табло для посетителей</h3>
+          <p className="text-gray-400 text-sm mt-1">
+            Откройте на экране в зоне ожидания — показывает текущий вызванный талон и очередь в реальном времени.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <a href="/dashboard" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
+            <Icon d={P.eye} cls="w-4 h-4" /> Открыть табло
+          </a>
+        </div>
+        {dashboardQr && (
+          <div className="flex gap-6 items-center flex-wrap">
+            <div className="bg-white p-3 rounded-xl border border-gray-700 shrink-0">
+              <img src={dashboardQr.qrcode} alt="Dashboard QR" className="w-32 h-32" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-gray-400 text-xs mb-1 uppercase tracking-wide">QR-код дашборда</p>
+              <p className="font-mono text-xs text-blue-400 break-all">{dashboardQr.url}</p>
+              <a href={dashboardQr.qrcode} download="dashboard-qrcode.png"
+                className="inline-flex items-center gap-1.5 mt-3 text-xs text-gray-400 hover:text-white transition">
+                <Icon d={P.download} cls="w-3.5 h-3.5" /> Скачать QR
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
