@@ -135,6 +135,20 @@ app.put('/api/services/:id', requireAuth, (req, res) => {
   res.json(svc);
 });
 
+app.put('/api/services/:id/set-default', requireAuth, (req, res) => {
+  const svc = db.prepare('SELECT * FROM services WHERE id = ? AND active = 1').get(req.params.id);
+  if (!svc) return res.status(404).json({ error: 'Not found' });
+  if (svc.is_default) {
+    db.prepare('UPDATE services SET is_default = 0 WHERE id = ?').run(req.params.id);
+    log(req, 'service.unset_default', svc.name);
+  } else {
+    db.prepare('UPDATE services SET is_default = 0').run();
+    db.prepare('UPDATE services SET is_default = 1 WHERE id = ?').run(req.params.id);
+    log(req, 'service.set_default', svc.name);
+  }
+  res.json(db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id));
+});
+
 app.put('/api/services/:id/toggle', requireAuth, (req, res) => {
   const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id);
   if (!svc) return res.status(404).json({ error: 'Not found' });
@@ -353,6 +367,30 @@ function doCallNext(req) {
 
 app.post('/api/queue/next', requireAuth, (req, res) => {
   res.json(doCallNext(req));
+});
+
+app.post('/api/queue/call/:id', requireAuth, (req, res) => {
+  const d = today();
+  const target = db.prepare(
+    "SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.date = ? AND t.status = 'waiting'"
+  ).get(req.params.id, d);
+  if (!target) return res.status(404).json({ error: 'Талон не найден в очереди' });
+
+  // Complete current if any
+  const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
+  if (current) {
+    db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE id=?").run(current.id);
+  }
+
+  db.prepare("UPDATE tickets SET status='called', called_at=CURRENT_TIMESTAMP WHERE id=?").run(target.id);
+  const updated = db.prepare(
+    "SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?"
+  ).get(target.id);
+  io.emit('ticket:called', updated);
+  log(req, 'ticket.called', `#${target.number}`);
+
+  emitQueueUpdate();
+  res.json(getQueueState());
 });
 
 app.post('/api/queue/repeat', requireAuth, (req, res) => {

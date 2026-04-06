@@ -86,6 +86,7 @@ addCol('tickets', 'phone', 'TEXT');
 addCol('tickets', 'skip_reason', 'TEXT');
 addCol('tickets', 'cancel_reason', 'TEXT');
 addCol('tickets', 'field_values', 'TEXT');
+addCol('services', 'is_default', 'INTEGER DEFAULT 0');
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 

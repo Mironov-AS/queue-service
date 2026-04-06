@@ -27,8 +27,14 @@ function GetTicket({ preService }) {
   useEffect(() => {
     fetch('/api/services').then(r => r.json()).then(data => {
       setServices(data);
-      if (!selected && data.length === 1) setSelected(String(data[0].id));
-      if (preService) setSelected(preService);
+      if (preService) {
+        setSelected(preService);
+      } else if (data.length === 1) {
+        setSelected(String(data[0].id));
+      } else {
+        const def = data.find(s => s.is_default);
+        if (def) setSelected(String(def.id));
+      }
     });
   }, []);
 
@@ -89,25 +95,35 @@ function GetTicket({ preService }) {
             <>
               {/* Service selection */}
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Выберите услугу</p>
-                <div className="space-y-2">
-                  {services.map(s => (
-                    <button key={s.id} onClick={() => setSelected(String(s.id))}
-                      className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 text-left transition ${
-                        selected === String(s.id) ? 'border-blue-600 bg-blue-50' : 'border-gray-100 hover:border-gray-200 active:bg-gray-50'
-                      }`}>
-                      <div>
-                        <span className={`font-semibold text-sm ${selected === String(s.id) ? 'text-blue-700' : 'text-gray-800'}`}>
-                          {s.name}
-                        </span>
-                        {s.description && (
-                          <p className="text-xs text-gray-400 mt-0.5">{s.description}</p>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-400 shrink-0 ml-2">~{s.avg_duration_minutes} мин</span>
-                    </button>
-                  ))}
-                </div>
+                {services.length === 1 ? (
+                  <div className="flex items-center justify-between p-4 rounded-2xl border-2 border-blue-600 bg-blue-50">
+                    <div>
+                      <span className="font-semibold text-sm text-blue-700">{services[0].name}</span>
+                      {services[0].description && <p className="text-xs text-gray-400 mt-0.5">{services[0].description}</p>}
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0 ml-2">~{services[0].avg_duration_minutes} мин</span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Выберите услугу</p>
+                    <div className="space-y-2">
+                      {services.map(s => (
+                        <button key={s.id} onClick={() => setSelected(String(s.id))}
+                          className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 text-left transition ${
+                            selected === String(s.id) ? 'border-blue-600 bg-blue-50' : 'border-gray-100 hover:border-gray-200 active:bg-gray-50'
+                          }`}>
+                          <div>
+                            <span className={`font-semibold text-sm ${selected === String(s.id) ? 'text-blue-700' : 'text-gray-800'}`}>
+                              {s.name}
+                            </span>
+                            {s.description && <p className="text-xs text-gray-400 mt-0.5">{s.description}</p>}
+                          </div>
+                          <span className="text-xs text-gray-400 shrink-0 ml-2">~{s.avg_duration_minutes} мин</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Dynamic fields */}

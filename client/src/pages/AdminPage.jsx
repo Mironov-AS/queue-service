@@ -37,6 +37,7 @@ const P = {
   fields: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01',
   up: 'M5 15l7-7 7 7',
   down: 'M19 9l-7 7-7-7',
+  star: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',
 };
 
 function fmtDate(d) {
@@ -92,6 +93,7 @@ function QueueTab() {
   const [cancelModal, setCancelModal] = useState(false);
   const [transferModal, setTransferModal] = useState(null);
   const [manualModal, setManualModal] = useState(false);
+  const [callConfirm, setCallConfirm] = useState(null);
   const [skipReason, setSkipReason] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [services, setServices] = useState([]);
@@ -145,6 +147,24 @@ function QueueTab() {
       method: 'POST', body: JSON.stringify({ reason: cancelReason })
     });
     setCancelModal(false); setCancelReason('');
+  };
+
+  const callSpecific = async (ticket) => {
+    if (queue.current) {
+      setCallConfirm(ticket);
+    } else {
+      setLoading(true);
+      await apiFetch(`/api/queue/call/${ticket.id}`, { method: 'POST' });
+      setLoading(false);
+    }
+  };
+
+  const doCallSpecific = async () => {
+    if (!callConfirm) return;
+    setLoading(true);
+    await apiFetch(`/api/queue/call/${callConfirm.id}`, { method: 'POST' });
+    setCallConfirm(null);
+    setLoading(false);
   };
 
   const doTransfer = async (ticketId, serviceId) => {
@@ -259,6 +279,10 @@ function QueueTab() {
                     <span className="text-xs text-gray-400 flex items-center gap-1 shrink-0">
                       <Icon d={P.clock} cls="w-3.5 h-3.5" />~{(i + 1) * (t.avg_duration_minutes || 5)} мин
                     </span>
+                    <button onClick={() => callSpecific(t)} disabled={loading}
+                      className="p-1.5 text-gray-300 hover:text-green-600 rounded shrink-0" title="Вызвать этого клиента">
+                      <Icon d={P.next} cls="w-4 h-4" />
+                    </button>
                     <button onClick={() => setTransferModal(t)} className="p-1.5 text-gray-300 hover:text-blue-500 rounded shrink-0">
                       <Icon d={P.transfer} cls="w-4 h-4" />
                     </button>
@@ -420,6 +444,26 @@ function QueueTab() {
 
       {manualModal && (
         <ManualRegModal services={services} onClose={() => setManualModal(false)} />
+      )}
+
+      {callConfirm && (
+        <Modal title={`Вызвать талон №${callConfirm.number}`} onClose={() => setCallConfirm(null)}>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Сейчас обслуживается <strong>№{queue.current?.number}</strong>. Текущий посетитель будет отмечен как обслуженный, а <strong>№{callConfirm.number}</strong> вызван внеочередно.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={doCallSpecific}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-xl">
+                Вызвать
+              </button>
+              <button onClick={() => setCallConfirm(null)}
+                className="flex-1 border border-gray-200 rounded-xl py-2.5 text-gray-600 hover:bg-gray-50">
+                Отмена
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
@@ -789,6 +833,11 @@ function ServicesTab() {
     load();
   };
 
+  const setDefault = async (s) => {
+    await apiFetch(`/api/services/${s.id}/set-default`, { method: 'PUT' });
+    load();
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -851,6 +900,7 @@ function ServicesTab() {
               <th className="text-center px-4 py-3 text-gray-500 font-semibold">Приоритет</th>
               <th className="text-center px-4 py-3 text-gray-500 font-semibold">Лимит/день</th>
               <th className="text-center px-4 py-3 text-gray-500 font-semibold">Поля</th>
+              <th className="text-center px-4 py-3 text-gray-500 font-semibold">По умолчанию</th>
               <th className="text-center px-4 py-3 text-gray-500 font-semibold">Статус</th>
               <th className="px-4 py-3 w-28"></th>
             </tr>
@@ -877,6 +927,12 @@ function ServicesTab() {
                     className="inline-flex items-center gap-1.5 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 font-medium px-3 py-1.5 rounded-lg transition">
                     <Icon d={P.fields} cls="w-3.5 h-3.5" />
                     Поля
+                  </button>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <button onClick={() => setDefault(s)} title={s.is_default ? 'Снять метку' : 'Сделать по умолчанию'}
+                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition ${s.is_default ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-gray-300 hover:text-amber-400 hover:bg-amber-50'}`}>
+                    <Icon d={P.star} cls="w-4 h-4" />
                   </button>
                 </td>
                 <td className="px-4 py-4 text-center">
