@@ -851,9 +851,9 @@ function ServicesTab() {
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Среднее время (мин)</label>
-            <input type="number" min={1} max={120} value={form.avg_duration_minutes}
-              onChange={e => setForm(f => ({ ...f, avg_duration_minutes: parseInt(e.target.value) || 1 }))}
+            <label className="text-xs text-gray-500 mb-1 block">Среднее время (мин, 0 = не отображать)</label>
+            <input type="number" min={0} max={120} value={form.avg_duration_minutes}
+              onChange={e => setForm(f => ({ ...f, avg_duration_minutes: Math.max(0, parseInt(e.target.value) || 0) }))}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
