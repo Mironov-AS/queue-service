@@ -1364,11 +1364,21 @@ const TABS = [
 export default function AdminPage() {
   const [tab, setTab] = useState('queue');
   const [time, setTime] = useState(new Date());
+  const [regOpen, setRegOpen] = useState(true);
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    fetch('/api/settings/registration').then(r => r.json()).then(d => setRegOpen(d.open));
+  }, []);
+
+  const toggleRegistration = async () => {
+    const r = await apiFetch('/api/settings/registration', { method: 'PUT' });
+    if (r) { const d = await r.json(); setRegOpen(d.open); }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1378,12 +1388,23 @@ export default function AdminPage() {
             <h1 className="text-xl font-bold text-gray-900">Электронная очередь</h1>
             <p className="text-xs text-gray-400">Панель администратора</p>
           </div>
-          <div className="text-right hidden sm:block">
-            <div className="text-2xl font-bold text-blue-600 tabular-nums">
-              {time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </div>
-            <div className="text-xs text-gray-400">
-              {time.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
+          <div className="flex items-center gap-4">
+            <button onClick={toggleRegistration}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border-2 transition ${
+                regOpen
+                  ? 'border-green-400 bg-green-50 text-green-700 hover:bg-green-100'
+                  : 'border-red-300 bg-red-50 text-red-600 hover:bg-red-100'
+              }`}>
+              <span className={`w-2.5 h-2.5 rounded-full ${regOpen ? 'bg-green-500' : 'bg-red-500'}`} />
+              {regOpen ? 'Запись открыта' : 'Запись закрыта'}
+            </button>
+            <div className="text-right hidden sm:block">
+              <div className="text-2xl font-bold text-blue-600 tabular-nums">
+                {time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+              <div className="text-xs text-gray-400">
+                {time.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </div>
             </div>
           </div>
         </div>

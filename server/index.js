@@ -89,6 +89,20 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json(req.user);
 });
 
+app.get('/api/settings/registration', (req, res) => {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
+  res.json({ open: row?.value === '1' });
+});
+
+app.put('/api/settings/registration', requireAuth, (req, res) => {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
+  const newVal = row?.value === '1' ? '0' : '1';
+  db.prepare("UPDATE settings SET value = ? WHERE key = 'registration_open'").run(newVal);
+  log(req, 'settings.registration', newVal === '1' ? 'opened' : 'closed');
+  io.emit('registration:changed', { open: newVal === '1' });
+  res.json({ open: newVal === '1' });
+});
+
 app.put('/api/settings/password', requireAuth, (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
@@ -220,6 +234,12 @@ app.delete('/api/service-fields/:id', requireAuth, (req, res) => {
 app.post('/api/tickets', (req, res) => {
   const { service_id, name, phone, field_values } = req.body;
   const d = today();
+
+  // Check registration open
+  const regRow = db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
+  if (regRow?.value !== '1') {
+    return res.status(403).json({ error: 'Самостоятельная запись временно недоступна' });
+  }
 
   // Check daily limit
   if (service_id) {

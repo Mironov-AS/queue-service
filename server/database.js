@@ -113,4 +113,10 @@ if (!jwtSetting) {
   db.prepare("INSERT INTO settings (key, value) VALUES ('jwt_secret', ?)").run(secret);
 }
 
+// Default registration open setting
+const regSetting = db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
+if (!regSetting) {
+  db.prepare("INSERT INTO settings (key, value) VALUES ('registration_open', '1')").run();
+}
+
 module.exports = db;

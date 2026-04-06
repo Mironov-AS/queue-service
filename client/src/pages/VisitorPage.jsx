@@ -22,9 +22,11 @@ function GetTicket({ preService }) {
   const [fieldValues, setFieldValues] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [regOpen, setRegOpen] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
+    fetch('/api/settings/registration').then(r => r.json()).then(d => setRegOpen(d.open));
     fetch('/api/services').then(r => r.json()).then(data => {
       setServices(data);
       if (preService) {
@@ -36,6 +38,11 @@ function GetTicket({ preService }) {
         if (def) setSelected(String(def.id));
       }
     });
+
+    // Listen for real-time registration status changes
+    const handler = (d) => setRegOpen(d.open);
+    socket.on('registration:changed', handler);
+    return () => socket.off('registration:changed', handler);
   }, []);
 
   // Load fields whenever selected service changes
@@ -80,6 +87,16 @@ function GetTicket({ preService }) {
       setLoading(false);
     }
   };
+
+  if (!regOpen) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-600 to-gray-800 flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-sm text-center space-y-4">
+        <div className="text-6xl">🔒</div>
+        <p className="text-white text-2xl font-bold">Запись временно закрыта</p>
+        <p className="text-gray-300 text-sm">Обратитесь к сотруднику</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-900 flex flex-col items-center justify-center p-5">
