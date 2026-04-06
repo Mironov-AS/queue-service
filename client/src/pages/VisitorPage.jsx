@@ -259,13 +259,13 @@ function TicketStatus({ ticketId }) {
   );
 
   if (ticket.status === 'served') return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-500 to-gray-700 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-900 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center space-y-5">
-        <div className="text-5xl">✅</div>
-        <p className="text-white text-xl font-semibold">Обслуживание завершено</p>
-        <p className="text-gray-200">Спасибо за ожидание!</p>
+        <div className="text-6xl">🙏</div>
+        <p className="text-white text-2xl font-bold">Спасибо за визит!</p>
+        <p className="text-blue-100 text-base">Благодарим вас за обращение.<br />Будем рады видеть вас снова!</p>
         <button onClick={() => navigate('/visitor', { replace: true })}
-          className="bg-white text-gray-800 font-semibold px-8 py-3 rounded-2xl shadow">
+          className="bg-white text-blue-700 font-semibold px-8 py-3 rounded-2xl shadow">
           Получить новый талон
         </button>
       </div>
