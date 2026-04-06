@@ -502,16 +502,18 @@ function TransferModal({ ticket, services, onTransfer, onClose }) {
 const FIELD_INPUT_TYPES_ADMIN = { text: 'text', phone: 'tel', number: 'number', date: 'date', email: 'email' };
 
 function ManualRegModal({ services, onClose }) {
-  const [form, setForm] = useState({ service_id: '', name: '', phone: '', is_priority: false });
+  const [serviceId, setServiceId] = useState('');
   const [serviceFields, setServiceFields] = useState([]);
   const [fieldValues, setFieldValues] = useState({});
   const [done, setDone] = useState(null);
   const [error, setError] = useState('');
 
+  const selectedService = services.find(s => String(s.id) === String(serviceId)) || null;
+
   // Load service fields when service changes
   useEffect(() => {
-    if (!form.service_id) { setServiceFields([]); setFieldValues({}); return; }
-    fetch(`/api/services/${form.service_id}/fields`)
+    if (!serviceId) { setServiceFields([]); setFieldValues({}); return; }
+    fetch(`/api/services/${serviceId}/fields`)
       .then(r => r.json())
       .then(data => {
         setServiceFields(data);
@@ -519,11 +521,11 @@ function ManualRegModal({ services, onClose }) {
         data.forEach(f => { init[f.id] = ''; });
         setFieldValues(init);
       });
-  }, [form.service_id]);
+  }, [serviceId]);
 
   const submit = async () => {
     setError('');
-    // Validate required fields
+    if (!serviceId) { setError('Выберите услугу'); return; }
     for (const f of serviceFields) {
       if (f.required && !fieldValues[f.id]?.trim()) {
         setError(`Поле «${f.label}» обязательно для заполнения`);
@@ -534,7 +536,8 @@ function ManualRegModal({ services, onClose }) {
       .map(f => ({ field_id: f.id, label: f.label, value: fieldValues[f.id] || '' }))
       .filter(fv => fv.value.trim() !== '');
 
-    const body = { ...form, field_values: fvArray.length ? fvArray : undefined };
+    const is_priority = selectedService?.priority > 0 ? 1 : 0;
+    const body = { service_id: serviceId, is_priority, field_values: fvArray.length ? fvArray : undefined };
     const r = await apiFetch('/api/tickets/manual', { method: 'POST', body: JSON.stringify(body) });
     if (!r) return;
     const data = await r.json();
@@ -542,13 +545,18 @@ function ManualRegModal({ services, onClose }) {
     setDone(data);
   };
 
+  const reset = () => { setDone(null); setServiceId(''); setServiceFields([]); setFieldValues({}); setError(''); };
+
   if (done) return (
     <Modal title="Талон выдан" onClose={onClose}>
       <div className="text-center space-y-4 py-4">
         <div className="text-6xl font-black text-blue-600">№{done.number}</div>
         <div className="text-gray-600 font-medium">{done.service_name || '—'}</div>
-        {done.name && <div className="text-sm text-gray-500">{done.name}</div>}
-        {done.phone && <div className="text-sm text-gray-400">{done.phone}</div>}
+        {done.is_priority === 1 && (
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-700 bg-orange-50 px-3 py-1 rounded-full">
+            <Icon d={P.priority} cls="w-3.5 h-3.5" /> Приоритетный
+          </div>
+        )}
         {Array.isArray(done.field_values) && done.field_values.filter(fv => fv.value).length > 0 && (
           <div className="text-left bg-gray-50 rounded-xl px-4 py-3 space-y-1">
             {done.field_values.filter(fv => fv.value).map((fv, i) => (
@@ -560,7 +568,7 @@ function ManualRegModal({ services, onClose }) {
           </div>
         )}
         <div className="flex gap-2 pt-1">
-          <button onClick={() => { setDone(null); setForm({ service_id: '', name: '', phone: '', is_priority: false }); setFieldValues({}); }}
+          <button onClick={reset}
             className="flex-1 border border-gray-200 rounded-xl py-2.5 text-gray-600 hover:bg-gray-50 text-sm">
             Ещё один
           </button>
@@ -578,53 +586,37 @@ function ManualRegModal({ services, onClose }) {
         {/* Service */}
         <div>
           <label className="text-xs text-gray-500 font-medium mb-1 block">Услуга</label>
-          <select value={form.service_id} onChange={e => setForm(f => ({ ...f, service_id: e.target.value }))}
+          <select value={serviceId} onChange={e => setServiceId(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <option value="">Без услуги</option>
+            <option value="">Выберите услугу...</option>
             {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
 
-        {/* Service-specific fields */}
-        {serviceFields.length > 0 && (
-          <div className="space-y-2.5 bg-blue-50 rounded-xl p-3">
-            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Поля услуги</p>
-            {serviceFields.map(f => (
-              <div key={f.id}>
-                <label className="text-xs text-gray-600 font-medium mb-1 block">
-                  {f.label}
-                  {f.required && <span className="text-red-500 ml-1">*</span>}
-                </label>
-                <input
-                  type={FIELD_INPUT_TYPES_ADMIN[f.field_type] || 'text'}
-                  value={fieldValues[f.id] || ''}
-                  onChange={e => setFieldValues(v => ({ ...v, [f.id]: e.target.value }))}
-                  placeholder={`Введите ${f.label.toLowerCase()}`}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                />
-              </div>
-            ))}
+        {/* Priority badge (auto, when service has priority > 0) */}
+        {selectedService?.priority > 0 && (
+          <div className="flex items-center gap-2 text-sm text-orange-700 bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
+            <Icon d={P.priority} cls="w-4 h-4 shrink-0" />
+            Талон будет помечен как приоритетный
           </div>
         )}
 
-        {/* General info */}
-        <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Имя посетителя (опционально)</label>
-          <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="Иванов Иван Иванович"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Телефон (опционально)</label>
-          <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-            placeholder="+7 900 000 00 00"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-        </div>
-        <label className="flex items-center gap-3 cursor-pointer py-1.5">
-          <input type="checkbox" checked={form.is_priority} onChange={e => setForm(f => ({ ...f, is_priority: e.target.checked }))}
-            className="w-4 h-4 rounded text-orange-500" />
-          <span className="text-sm font-medium text-orange-700">Приоритетный (льготная категория)</span>
-        </label>
+        {/* Service-specific fields */}
+        {serviceFields.length > 0 && serviceFields.map(f => (
+          <div key={f.id}>
+            <label className="text-xs text-gray-600 font-medium mb-1 block">
+              {f.label}
+              {f.required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            <input
+              type={FIELD_INPUT_TYPES_ADMIN[f.field_type] || 'text'}
+              value={fieldValues[f.id] || ''}
+              onChange={e => setFieldValues(v => ({ ...v, [f.id]: e.target.value }))}
+              placeholder={`Введите ${f.label.toLowerCase()}`}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+        ))}
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
         <div className="flex gap-2 pt-1">
