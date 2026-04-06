@@ -332,15 +332,17 @@ function TicketStatus({ ticketId }) {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${showWait ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <div className="bg-white/15 backdrop-blur rounded-2xl p-4 text-center">
             <p className="text-blue-100 text-xs mb-1">Позиция</p>
             <p className="text-3xl font-black text-white">{pos || '—'}</p>
           </div>
-          <div className="bg-white/15 backdrop-blur rounded-2xl p-4 text-center">
-            <p className="text-blue-100 text-xs mb-1">Ожидание</p>
-            <p className="text-3xl font-black text-white">{showWait && pos > 0 ? `~${estimatedWait}м` : '—'}</p>
-          </div>
+          {showWait && (
+            <div className="bg-white/15 backdrop-blur rounded-2xl p-4 text-center">
+              <p className="text-blue-100 text-xs mb-1">Ожидание</p>
+              <p className="text-3xl font-black text-white">{pos > 0 ? `~${estimatedWait}м` : '—'}</p>
+            </div>
+          )}
         </div>
 
         {/* Current being served */}
