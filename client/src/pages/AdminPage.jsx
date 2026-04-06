@@ -89,12 +89,9 @@ const CANCEL_REASONS = ['Отмена по запросу', 'Дублирующ�
 function QueueTab() {
   const [queue, setQueue] = useState({ current: null, waiting: [] });
   const [loading, setLoading] = useState(false);
-  const [skipModal, setSkipModal] = useState(false);
   const [cancelModal, setCancelModal] = useState(false);
-  const [transferModal, setTransferModal] = useState(null);
   const [manualModal, setManualModal] = useState(false);
   const [callConfirm, setCallConfirm] = useState(null);
-  const [skipReason, setSkipReason] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [services, setServices] = useState([]);
   const [filterStatus, setFilterStatus] = useState('');
@@ -106,7 +103,7 @@ function QueueTab() {
     fetch('/api/queue').then(r => r.json()).then(setQueue);
     fetch('/api/services?all=1').then(r => r.json()).then(setServices);
     socket.on('queue:updated', setQueue);
-    return () => socket.off('queue:updated', setQueue);
+    return () => { socket.off('queue:updated', setQueue); };
   }, []);
 
   const loadAllTickets = useCallback(async () => {
@@ -129,17 +126,6 @@ function QueueTab() {
 
   const complete = async () => {
     await apiFetch('/api/queue/complete', { method: 'POST' });
-  };
-
-  const repeat = async () => {
-    await apiFetch('/api/queue/repeat', { method: 'POST' });
-  };
-
-  const doSkip = async () => {
-    await apiFetch('/api/queue/skip', {
-      method: 'POST', body: JSON.stringify({ reason: skipReason })
-    });
-    setSkipModal(false); setSkipReason('');
   };
 
   const doCancel = async () => {
@@ -165,13 +151,6 @@ function QueueTab() {
     await apiFetch(`/api/queue/call/${callConfirm.id}`, { method: 'POST' });
     setCallConfirm(null);
     setLoading(false);
-  };
-
-  const doTransfer = async (ticketId, serviceId) => {
-    await apiFetch(`/api/tickets/${ticketId}/transfer`, {
-      method: 'PUT', body: JSON.stringify({ service_id: serviceId })
-    });
-    setTransferModal(null);
   };
 
   const resetQueue = async () => {
@@ -213,21 +192,9 @@ function QueueTab() {
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                 <Icon d={P.check} cls="w-4 h-4" /> Завершить
               </button>
-              <button onClick={repeat}
-                className="flex items-center gap-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                <Icon d={P.repeat} cls="w-4 h-4" /> Повторить
-              </button>
-              <button onClick={() => setSkipModal(true)}
-                className="flex items-center gap-2 bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                <Icon d={P.skip} cls="w-4 h-4" /> Пропустить
-              </button>
               <button onClick={() => setCancelModal(true)}
                 className="flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-800 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                 <Icon d={P.cancel} cls="w-4 h-4" /> Отменить
-              </button>
-              <button onClick={() => setTransferModal(queue.current)}
-                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                <Icon d={P.transfer} cls="w-4 h-4" /> Перевести
               </button>
             </div>
           </div>
@@ -284,9 +251,6 @@ function QueueTab() {
                     <button onClick={() => callSpecific(t)} disabled={loading}
                       className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg disabled:opacity-40 shrink-0 transition" title="Вызвать этого клиента">
                       <Icon d={P.next} cls="w-3.5 h-3.5" /> Вызвать
-                    </button>
-                    <button onClick={() => setTransferModal(t)} className="p-1.5 text-gray-300 hover:text-blue-500 rounded shrink-0">
-                      <Icon d={P.transfer} cls="w-4 h-4" />
                     </button>
                   </div>
                   {filledFields.length > 0 && (
@@ -379,34 +343,6 @@ function QueueTab() {
       </div>
 
       {/* Modals */}
-      {skipModal && (
-        <Modal title="Пропустить посетителя" onClose={() => setSkipModal(false)}>
-          <div className="space-y-3">
-            <p className="text-sm text-gray-500">Укажите причину пропуска:</p>
-            {SKIP_REASONS.map(r => (
-              <label key={r} className="flex items-center gap-3 cursor-pointer">
-                <input type="radio" name="skip_reason" value={r} checked={skipReason === r}
-                  onChange={e => setSkipReason(e.target.value)} className="text-blue-600" />
-                <span className="text-sm">{r}</span>
-              </label>
-            ))}
-            <input type="text" value={skipReason} onChange={e => setSkipReason(e.target.value)}
-              placeholder="Или введите свою причину..."
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-            <div className="flex gap-2 pt-2">
-              <button onClick={doSkip}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl">
-                Пропустить
-              </button>
-              <button onClick={() => setSkipModal(false)}
-                className="flex-1 border border-gray-200 rounded-xl py-2.5 text-gray-600 hover:bg-gray-50">
-                Отмена
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
       {cancelModal && (
         <Modal title="Отменить талон" onClose={() => setCancelModal(false)}>
           <div className="space-y-3">
@@ -433,15 +369,6 @@ function QueueTab() {
             </div>
           </div>
         </Modal>
-      )}
-
-      {transferModal && (
-        <TransferModal
-          ticket={transferModal}
-          services={services}
-          onTransfer={doTransfer}
-          onClose={() => setTransferModal(null)}
-        />
       )}
 
       {manualModal && (
