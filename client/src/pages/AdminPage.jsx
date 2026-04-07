@@ -1305,7 +1305,6 @@ function SettingsTab() {
 
 const TABS = [
   { id: 'queue', label: 'Очередь', icon: P.queue },
-  { id: 'settings', label: 'Настройки', icon: P.settings },
 ];
 
 const SETTINGS_TABS = [
@@ -1344,7 +1343,7 @@ export default function AdminPage() {
             <h1 className="text-xl font-bold text-gray-900">Электронная очередь</h1>
             <p className="text-xs text-gray-400">Панель администратора</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button onClick={toggleRegistration}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border-2 transition ${
                 regOpen
@@ -1362,6 +1361,11 @@ export default function AdminPage() {
                 {time.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
               </div>
             </div>
+            <button onClick={() => setTab(t => t === 'settings' ? 'queue' : 'settings')}
+              title="Настройки"
+              className={`p-2 rounded-xl transition ${tab === 'settings' ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}>
+              <Icon d={P.settings} cls="w-5 h-5" />
+            </button>
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 overflow-x-auto">
