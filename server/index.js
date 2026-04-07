@@ -32,6 +32,15 @@ const loginLimiter = rateLimit({
   message: { error: 'Слишком много попыток входа. Попробуйте через 15 минут.' }
 });
 
+const ticketLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip || req.socket.remoteAddress,
+  message: { error: 'Слишком много запросов. Попробуйте позже.' }
+});
+
 function today() {
   return new Date().toISOString().split('T')[0];
 }
@@ -56,6 +65,18 @@ function getQueueState() {
   return { current: parse(current), waiting: waiting.map(parse) };
 }
 
+function getPublicQueueState() {
+  const state = getQueueState();
+  const stripPii = (t) => t ? {
+    id: t.id, number: t.number, service_name: t.service_name,
+    status: t.status, called_at: t.called_at, is_priority: t.is_priority
+  } : null;
+  return {
+    current: stripPii(state.current),
+    waiting: state.waiting.map(t => stripPii(t))
+  };
+}
+
 function emitQueueUpdate() {
   io.emit('queue:updated', getQueueState());
 }
@@ -74,6 +95,10 @@ function requireAuth(req, res, next) {
   if (!token) return res.status(401).json({ error: 'Не авторизован' });
   try {
     req.user = jwt.verify(token, getJwtSecret());
+    // Block all admin actions until password is changed (except the password endpoint itself)
+    if (req.user.must_change_password && !req.path.endsWith('/password')) {
+      return res.status(403).json({ error: 'Требуется смена пароля', must_change_password: true });
+    }
     next();
   } catch {
     res.status(401).json({ error: 'Недействительный токен' });
@@ -91,13 +116,14 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Неверный логин или пароль' });
   }
+  const mustChangePwd = !!user.must_change_password;
   const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
+    { id: user.id, username: user.username, role: user.role, must_change_password: mustChangePwd },
     getJwtSecret(),
     { expiresIn: '24h' }
   );
   db.prepare('INSERT INTO action_logs (user_id, username, action) VALUES (?,?,?)').run(user.id, user.username, 'user.login');
-  res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+  res.json({ token, user: { id: user.id, username: user.username, role: user.role }, must_change_password: mustChangePwd });
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
@@ -127,9 +153,16 @@ app.put('/api/settings/password', requireAuth, (req, res) => {
   if (!newPassword || newPassword.length < 8) {
     return res.status(400).json({ error: 'Пароль должен быть не менее 8 символов' });
   }
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(newPassword, 10), req.user.id);
+  db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?').run(bcrypt.hashSync(newPassword, 10), req.user.id);
   log(req, 'settings.password_changed');
-  res.json({ success: true });
+  // Issue a fresh token with must_change_password: false
+  const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  const newToken = jwt.sign(
+    { id: updatedUser.id, username: updatedUser.username, role: updatedUser.role, must_change_password: false },
+    getJwtSecret(),
+    { expiresIn: '24h' }
+  );
+  res.json({ success: true, token: newToken });
 });
 
 // ─── Services ─────────────────────────────────────────────────────────────────
@@ -246,7 +279,7 @@ app.delete('/api/service-fields/:id', requireAuth, (req, res) => {
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
 
-app.post('/api/tickets', (req, res) => {
+app.post('/api/tickets', ticketLimiter, (req, res) => {
   const { service_id, name, phone, field_values } = req.body;
   const d = today();
 
@@ -385,11 +418,10 @@ app.put('/api/tickets/:id/transfer', requireAuth, (req, res) => {
 // ─── Queue ────────────────────────────────────────────────────────────────────
 
 app.get('/api/queue', (req, res) => {
-  res.json(getQueueState());
+  res.json(getPublicQueueState());
 });
 
-function doCallNext(req) {
-  const d = today();
+const _callNextTx = db.transaction((d) => {
   const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
   if (current) {
     db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE id=?").run(current.id);
@@ -400,9 +432,16 @@ function doCallNext(req) {
     WHERE t.date = ? AND t.status = 'waiting'
     ORDER BY t.is_priority DESC, t.created_at ASC LIMIT 1
   `).get(d);
-
   if (next) {
     db.prepare("UPDATE tickets SET status='called', called_at=CURRENT_TIMESTAMP WHERE id=?").run(next.id);
+  }
+  return next || null;
+});
+
+function doCallNext(req) {
+  const d = today();
+  const next = _callNextTx(d);
+  if (next) {
     const updated = db.prepare(`
       SELECT t.*, s.name AS service_name
       FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?
@@ -410,7 +449,6 @@ function doCallNext(req) {
     io.emit('ticket:called', updated);
     if (req) log(req, 'ticket.called', `#${next.number}`);
   }
-
   emitQueueUpdate();
   return getQueueState();
 }
@@ -421,18 +459,24 @@ app.post('/api/queue/next', requireAuth, (req, res) => {
 
 app.post('/api/queue/call/:id', requireAuth, (req, res) => {
   const d = today();
-  const target = db.prepare(
-    "SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.date = ? AND t.status = 'waiting'"
-  ).get(req.params.id, d);
+
+  const callSpecificTx = db.transaction(() => {
+    const target = db.prepare(
+      "SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.date = ? AND t.status = 'waiting'"
+    ).get(req.params.id, d);
+    if (!target) return null;
+
+    const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
+    if (current) {
+      db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE id=?").run(current.id);
+    }
+    db.prepare("UPDATE tickets SET status='called', called_at=CURRENT_TIMESTAMP WHERE id=?").run(target.id);
+    return target;
+  });
+
+  const target = callSpecificTx();
   if (!target) return res.status(404).json({ error: 'Талон не найден в очереди' });
 
-  // Complete current if any
-  const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
-  if (current) {
-    db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE id=?").run(current.id);
-  }
-
-  db.prepare("UPDATE tickets SET status='called', called_at=CURRENT_TIMESTAMP WHERE id=?").run(target.id);
   const updated = db.prepare(
     "SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?"
   ).get(target.id);
@@ -573,11 +617,17 @@ app.get('/api/stats/export', requireAuth, (req, res) => {
   const headers = ['Дата','Номер','Услуга','Статус','Имя','Телефон','Получен','Вызван','Обслужен','Причина пропуска','Причина отмены','Ожидание (мин)'];
   const csvRows = [headers.join(';')];
   for (const r of rows) {
+    const safeCsv = (v) => {
+      const s = String(v === null || v === undefined ? '' : v);
+      // Prefix formula injection chars
+      const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
     csvRows.push([
       r.date, r.number, r.service, r.status, r.visitor_name||'', r.phone||'',
       r.created_at||'', r.called_at||'', r.served_at||'',
       r.skip_reason||'', r.cancel_reason||'', r.wait_minutes||''
-    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';'));
+    ].map(safeCsv).join(';'));
   }
 
   const bom = '\uFEFF';
@@ -637,3 +687,14 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Queue server on http://0.0.0.0:${PORT}`);
 });
+
+function shutdown(signal) {
+  console.log(`${signal} received — shutting down gracefully`);
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10000);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

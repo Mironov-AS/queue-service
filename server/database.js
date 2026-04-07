@@ -2,7 +2,8 @@ const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, 'queue.db'));
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const db = new Database(path.join(DATA_DIR, 'queue.db'));
 
 db.pragma('journal_mode = WAL');
 
@@ -70,6 +71,14 @@ db.exec(`
   );
 `);
 
+// ─── Indexes ──────────────────────────────────────────────────────────────────
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_tickets_date ON tickets(date);
+  CREATE INDEX IF NOT EXISTS idx_tickets_date_status ON tickets(date, status);
+  CREATE INDEX IF NOT EXISTS idx_tickets_service_id ON tickets(service_id);
+  CREATE INDEX IF NOT EXISTS idx_action_logs_created ON action_logs(created_at DESC);
+`);
+
 // ─── Migrations (safe) ────────────────────────────────────────────────────────
 
 function addCol(table, col, def) {
@@ -87,6 +96,7 @@ addCol('tickets', 'skip_reason', 'TEXT');
 addCol('tickets', 'cancel_reason', 'TEXT');
 addCol('tickets', 'field_values', 'TEXT');
 addCol('services', 'is_default', 'INTEGER DEFAULT 0');
+addCol('users', 'must_change_password', 'INTEGER DEFAULT 0');
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
@@ -94,7 +104,13 @@ addCol('services', 'is_default', 'INTEGER DEFAULT 0');
 const adminExists = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
 if (!adminExists) {
   const hash = bcrypt.hashSync('admin', 10);
-  db.prepare("INSERT INTO users (username, password_hash, role) VALUES ('admin', ?, 'admin')").run(hash);
+  db.prepare("INSERT INTO users (username, password_hash, role, must_change_password) VALUES ('admin', ?, 'admin', 1)").run(hash);
+} else if (adminExists) {
+  // Flag existing admin if still using default password
+  const adminUser = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+  if (bcrypt.compareSync('admin', adminUser.password_hash)) {
+    db.prepare("UPDATE users SET must_change_password = 1 WHERE id = ?").run(adminUser.id);
+  }
 }
 
 // Default services
