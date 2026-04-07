@@ -97,26 +97,34 @@ export default function DashboardPage() {
           <div className="grid gap-3" style={{
             gridTemplateColumns: `repeat(auto-fill, minmax(${queue.waiting.length <= 6 ? '180px' : '140px'}, 1fr))`
           }}>
-            {queue.waiting.map((t, i) => (
-              <div key={t.id}
-                className={`rounded-2xl flex flex-col items-center justify-center py-5 px-3 transition-all ${
-                  i === 0 ? 'bg-blue-600/30 border border-blue-500/50' : 'bg-gray-800/80'
-                }`}>
-                <span className={`font-black leading-none text-white ${
-                  queue.waiting.length <= 6 ? 'text-5xl' : 'text-4xl'
-                }`}>
-                  №{t.number}
-                </span>
-                {t.service_name && (
-                  <span className="text-gray-400 text-xs mt-2 text-center leading-tight line-clamp-2">
-                    {t.service_name}
+            {queue.waiting.map((t, i) => {
+              const filledFields = Array.isArray(t.field_values) ? t.field_values.filter(fv => fv.value) : [];
+              return (
+                <div key={t.id}
+                  className={`rounded-2xl flex flex-col items-center justify-center py-5 px-3 transition-all ${
+                    i === 0 ? 'bg-blue-600/30 border border-blue-500/50' : 'bg-gray-800/80'
+                  }`}>
+                  <span className={`font-black leading-none text-white ${
+                    queue.waiting.length <= 6 ? 'text-5xl' : 'text-4xl'
+                  }`}>
+                    №{t.number}
                   </span>
-                )}
-                {t.is_priority === 1 && (
-                  <span className="mt-1.5 text-orange-400 text-xs">★</span>
-                )}
-              </div>
-            ))}
+                  {t.service_name && (
+                    <span className="text-gray-400 text-xs mt-2 text-center leading-tight line-clamp-2">
+                      {t.service_name}
+                    </span>
+                  )}
+                  {filledFields.map((fv, j) => (
+                    <span key={j} className="text-gray-300 text-xs mt-1 text-center leading-tight">
+                      {fv.value}
+                    </span>
+                  ))}
+                  {t.is_priority === 1 && (
+                    <span className="mt-1.5 text-orange-400 text-xs">★</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

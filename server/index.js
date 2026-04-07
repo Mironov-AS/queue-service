@@ -119,7 +119,7 @@ function getPublicQueueState() {
   } : null;
   return {
     current: currentPublic,
-    waiting: state.waiting.map(t => stripPii(t))
+    waiting: state.waiting.map(t => ({ ...stripPii(t), field_values: t.field_values || [] }))
   };
 }
 
