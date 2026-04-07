@@ -1305,15 +1305,20 @@ function SettingsTab() {
 
 const TABS = [
   { id: 'queue', label: 'Очередь', icon: P.queue },
+  { id: 'settings', label: 'Настройки', icon: P.settings },
+];
+
+const SETTINGS_TABS = [
   { id: 'services', label: 'Услуги', icon: P.services },
   { id: 'stats', label: 'Статистика', icon: P.stats },
   { id: 'qrcode', label: 'QR-коды', icon: P.qr },
   { id: 'logs', label: 'Журнал', icon: P.log },
-  { id: 'settings', label: 'Настройки', icon: P.settings },
+  { id: 'password', label: 'Пароль', icon: P.person },
 ];
 
 export default function AdminPage() {
   const [tab, setTab] = useState('queue');
+  const [settingsTab, setSettingsTab] = useState('services');
   const [time, setTime] = useState(new Date());
   const [regOpen, setRegOpen] = useState(true);
 
@@ -1376,11 +1381,28 @@ export default function AdminPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         {tab === 'queue' && <QueueTab />}
-        {tab === 'services' && <ServicesTab />}
-        {tab === 'stats' && <StatsTab />}
-        {tab === 'qrcode' && <QRTab />}
-        {tab === 'logs' && <LogsTab />}
-        {tab === 'settings' && <SettingsTab />}
+        {tab === 'settings' && (
+          <div className="space-y-4">
+            <div className="flex gap-1 flex-wrap border-b border-gray-200 pb-0">
+              {SETTINGS_TABS.map(t => (
+                <button key={t.id} onClick={() => setSettingsTab(t.id)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-t-xl border-b-2 transition whitespace-nowrap -mb-px ${
+                    settingsTab === t.id
+                      ? 'border-blue-600 text-blue-600 bg-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}>
+                  <Icon d={t.icon} cls="w-4 h-4" />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {settingsTab === 'services' && <ServicesTab />}
+            {settingsTab === 'stats' && <StatsTab />}
+            {settingsTab === 'qrcode' && <QRTab />}
+            {settingsTab === 'logs' && <LogsTab />}
+            {settingsTab === 'password' && <SettingsTab />}
+          </div>
+        )}
       </main>
     </div>
   );
