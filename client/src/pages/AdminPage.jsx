@@ -140,11 +140,6 @@ function QueueTab() {
     setLoading(false);
   };
 
-  const resetQueue = async () => {
-    if (!confirm('Сбросить всю очередь?')) return;
-    await apiFetch('/api/queue/reset', { method: 'POST' });
-  };
-
   const hasNext = queue.waiting.length > 0;
 
   return (
@@ -199,11 +194,6 @@ function QueueTab() {
               className="flex items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium px-3 py-1.5 rounded-lg">
               <Icon d={P.plus} cls="w-4 h-4" /> Ручная регистрация
             </button>
-            {queue.waiting.length > 0 && (
-              <button onClick={resetQueue} className="text-sm text-red-400 hover:text-red-600 flex items-center gap-1 px-3 py-1.5">
-                <Icon d={P.repeat} cls="w-4 h-4" /> Сбросить всех
-              </button>
-            )}
           </div>
         </div>
 
@@ -1231,7 +1221,15 @@ function SettingsTab() {
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirm: '' });
   const [pwError, setPwError] = useState('');
   const [pwOk, setPwOk] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
   const navigate = useNavigate();
+
+  const resetQueue = async () => {
+    if (!confirm('Сбросить всю очередь? Все ожидающие талоны будут отменены.')) return;
+    await apiFetch('/api/queue/reset', { method: 'POST' });
+    setResetDone(true);
+    setTimeout(() => setResetDone(false), 3000);
+  };
 
   const changePassword = async () => {
     setPwError(''); setPwOk(false);
@@ -1297,6 +1295,17 @@ function SettingsTab() {
         <button onClick={changePassword}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl">
           Сохранить пароль
+        </button>
+      </div>
+
+      {/* Reset queue */}
+      <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-6 space-y-3">
+        <h3 className="font-semibold text-gray-800">Сброс очереди</h3>
+        <p className="text-sm text-gray-500">Все ожидающие талоны сегодняшнего дня будут отменены. Действие необратимо.</p>
+        {resetDone && <p className="text-green-600 text-sm">Очередь сброшена</p>}
+        <button onClick={resetQueue}
+          className="flex items-center gap-2 text-sm text-red-600 border border-red-200 hover:bg-red-50 font-medium px-4 py-2.5 rounded-xl transition">
+          <Icon d={P.repeat} cls="w-4 h-4" /> Сбросить всех
         </button>
       </div>
     </div>
