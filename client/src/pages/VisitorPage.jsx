@@ -206,8 +206,13 @@ function TicketStatus({ ticketId }) {
     if (data.status === 'called') setCalled(true);
   }, [ticketId, navigate]);
 
+  const loadQueue = useCallback(() => {
+    fetch('/api/queue').then(r => r.json()).then(setQueue).catch(() => {});
+  }, []);
+
   useEffect(() => {
     loadTicket();
+    loadQueue();
 
     const handleQueue = (q) => { setQueue(q); loadTicket(); };
     const handleCalled = (t) => {
@@ -220,8 +225,16 @@ function TicketStatus({ ticketId }) {
 
     socket.on('queue:updated', handleQueue);
     socket.on('ticket:called', handleCalled);
-    return () => { socket.off('queue:updated', handleQueue); socket.off('ticket:called', handleCalled); };
-  }, [ticketId, loadTicket]);
+
+    // Polling fallback every 5s — keeps position current if socket event is missed
+    const timer = setInterval(() => { loadTicket(); loadQueue(); }, 5000);
+
+    return () => {
+      socket.off('queue:updated', handleQueue);
+      socket.off('ticket:called', handleCalled);
+      clearInterval(timer);
+    };
+  }, [ticketId, loadTicket, loadQueue]);
 
   const cancelTicket = async () => {
     if (!confirm('Отменить талон? Ваше место в очереди будет потеряно.')) return;
