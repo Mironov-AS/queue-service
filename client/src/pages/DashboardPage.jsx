@@ -130,7 +130,7 @@ export default function DashboardPage() {
       </div>
       {/* Logo — fixed bottom-right */}
       <img src="/logo.png" alt="Логотип"
-        className="fixed bottom-6 right-6 h-40 w-auto object-contain opacity-90 pointer-events-none" />
+        className="fixed bottom-6 right-6 h-30 w-auto object-contain opacity-90 pointer-events-none" />
     </div>
   );
 }
