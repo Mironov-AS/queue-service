@@ -486,6 +486,10 @@ app.get('/api/queue', (req, res) => {
   res.json(getPublicQueueState());
 });
 
+app.get('/api/queue/full', requireAuth, (req, res) => {
+  res.json(getQueueState());
+});
+
 const _callNextTx = db.transaction((d) => {
   const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
   if (current) {

@@ -98,7 +98,7 @@ function QueueTab() {
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
-    fetch('/api/queue').then(r => r.json()).then(setQueue);
+    apiFetch('/api/queue/full').then(r => r?.json()).then(d => d && setQueue(d));
     fetch('/api/services?all=1').then(r => r.json()).then(setServices);
     socket.on('queue:updated', setQueue);
     return () => { socket.off('queue:updated', setQueue); };
@@ -246,32 +246,38 @@ function QueueTab() {
               const filledFields = Array.isArray(t.field_values) ? t.field_values.filter(fv => fv.value) : [];
               return (
                 <div key={t.id} className={`px-4 py-3 rounded-xl ${i === 0 ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-2xl font-black w-14 shrink-0 ${i === 0 ? 'text-blue-700' : 'text-gray-700'}`}>№{t.number}</span>
+                  <div className="flex items-start gap-3">
+                    <span className={`text-2xl font-black w-14 shrink-0 pt-0.5 ${i === 0 ? 'text-blue-700' : 'text-gray-700'}`}>№{t.number}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-700 truncate">{t.service_name || '—'}</div>
-                      {t.name && <div className="text-xs text-gray-500 truncate">{t.name}</div>}
-                    </div>
-                    {t.avg_duration_minutes > 0 && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1 shrink-0">
-                        <Icon d={P.clock} cls="w-3.5 h-3.5" />~{(i + 1) * t.avg_duration_minutes} мин
-                      </span>
-                    )}
-                    <button onClick={() => callSpecific(t)} disabled={loading}
-                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg disabled:opacity-40 shrink-0 transition" title="Вызвать этого клиента">
-                      <Icon d={P.next} cls="w-3.5 h-3.5" /> Вызвать
-                    </button>
-                  </div>
-                  {filledFields.length > 0 && (
-                    <div className="mt-2 ml-[4.25rem] flex flex-wrap gap-x-4 gap-y-1">
-                      {filledFields.map((fv, j) => (
-                        <div key={j} className="text-xs">
-                          <span className="text-gray-400">{fv.label}:</span>
-                          <span className="ml-1 font-medium text-gray-600">{fv.value}</span>
+                      <div className="text-sm font-medium text-gray-700">{t.service_name || '—'}</div>
+                      {(t.name || t.phone) && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {t.name}{t.name && t.phone ? ' · ' : ''}{t.phone}
                         </div>
-                      ))}
+                      )}
+                      {filledFields.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5">
+                          {filledFields.map((fv, j) => (
+                            <div key={j} className="text-xs">
+                              <span className="text-gray-400">{fv.label}:</span>
+                              <span className="ml-1 font-medium text-gray-600">{fv.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
+                    <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                      {t.avg_duration_minutes > 0 && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Icon d={P.clock} cls="w-3.5 h-3.5" />~{(i + 1) * t.avg_duration_minutes} мин
+                        </span>
+                      )}
+                      <button onClick={() => callSpecific(t)} disabled={loading}
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg disabled:opacity-40 transition" title="Вызвать этого клиента">
+                        <Icon d={P.next} cls="w-3.5 h-3.5" /> Вызвать
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
