@@ -138,7 +138,7 @@ export default function DashboardPage() {
       </svg>
       {/* Logo — fixed bottom-right */}
       <img src="/logo.png" alt="Логотип"
-        className="fixed bottom-6 right-6 h-30 w-auto object-contain opacity-90 pointer-events-none"
+        className="fixed bottom-6 right-6 h-[138px] w-auto object-contain opacity-90 pointer-events-none"
         style={{ filter: 'url(#sharpen) hue-rotate(210deg) saturate(1.4) brightness(0.95)' }} />
     </div>
   );
