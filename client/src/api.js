@@ -18,5 +18,15 @@ export async function apiFetch(url, options = {}) {
     window.location.href = '/login';
     return null;
   }
+  if (res.status === 403) {
+    try {
+      const data = await res.clone().json();
+      if (data.must_change_password) {
+        localStorage.setItem('mustChangePassword', 'true');
+        window.location.href = '/admin';
+        return null;
+      }
+    } catch { /* ignore */ }
+  }
   return res;
 }

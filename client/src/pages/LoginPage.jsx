@@ -26,6 +26,8 @@ export default function LoginPage() {
       } else {
         localStorage.removeItem('mustChangePassword');
       }
+      // Reconnect socket with new auth token so admin gets full queue state
+      import('../socket').then(({ default: socket }) => socket.disconnect().connect());
       navigate('/admin', { replace: true });
     } catch {
       setError('Ошибка соединения с сервером');

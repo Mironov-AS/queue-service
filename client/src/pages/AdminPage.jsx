@@ -118,7 +118,11 @@ function QueueTab() {
 
   const callNext = async () => {
     setLoading(true);
-    await apiFetch('/api/queue/next', { method: 'POST' });
+    const r = await apiFetch('/api/queue/next', { method: 'POST' });
+    if (r && !r.ok) {
+      const d = await r.json().catch(() => ({}));
+      alert(d.error || 'Ошибка вызова талона');
+    }
     setLoading(false);
   };
 
@@ -127,7 +131,11 @@ function QueueTab() {
       setCallConfirm(ticket);
     } else {
       setLoading(true);
-      await apiFetch(`/api/queue/call/${ticket.id}`, { method: 'POST' });
+      const r = await apiFetch(`/api/queue/call/${ticket.id}`, { method: 'POST' });
+      if (r && !r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert(d.error || 'Ошибка вызова талона');
+      }
       setLoading(false);
     }
   };
