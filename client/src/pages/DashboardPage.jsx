@@ -62,6 +62,16 @@ export default function DashboardPage() {
             {queue.current.service_name && (
               <p className="text-white/70 text-xl font-medium mt-4 text-center">{queue.current.service_name}</p>
             )}
+            {Array.isArray(queue.current.field_values) && queue.current.field_values.filter(fv => fv.value).length > 0 && (
+              <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1">
+                {queue.current.field_values.filter(fv => fv.value).map((fv, i) => (
+                  <div key={i} className="text-white/70 text-base text-center">
+                    <span className="text-white/40 text-sm">{fv.label}: </span>
+                    <span className="font-semibold">{fv.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         ) : (
           <p className="text-white/40 text-2xl font-medium">Ожидание вызова</p>

@@ -113,8 +113,12 @@ function getPublicQueueState() {
     id: t.id, number: t.number, service_name: t.service_name,
     status: t.status, called_at: t.called_at, is_priority: t.is_priority
   } : null;
+  const currentPublic = state.current ? {
+    ...stripPii(state.current),
+    field_values: state.current.field_values || []
+  } : null;
   return {
-    current: stripPii(state.current),
+    current: currentPublic,
     waiting: state.waiting.map(t => stripPii(t))
   };
 }
