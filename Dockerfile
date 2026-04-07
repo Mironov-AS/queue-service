@@ -10,19 +10,25 @@ RUN npm run build
 FROM node:20-slim
 WORKDIR /app
 
+# Create non-root user
+RUN useradd -m -u 1001 appuser
+
 # Install server dependencies
 COPY server/package*.json ./server/
 RUN cd server && npm ci --production
 
-# Copy server code
+# Copy server code and built frontend
 COPY server/ ./server/
-RUN mkdir -p /app/server/data
-
-# Copy built frontend into server's public directory
 COPY --from=frontend-builder /app/client/dist ./server/public/
+
+# Prepare data directory and transfer ownership
+RUN mkdir -p /app/server/data && chown -R appuser:appuser /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV DATA_DIR=/app/server/data
+
+USER appuser
 
 EXPOSE 3000
 

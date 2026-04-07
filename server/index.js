@@ -18,7 +18,41 @@ const io = new Server(server, { cors: { origin: corsOrigin, methods: ['GET', 'PO
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: '100kb' }));
 
+// ─── Security headers ─────────────────────────────────────────────────────────
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:;"
+  );
+  next();
+});
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function parseId(val) {
+  const id = parseInt(val, 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function clampInt(val, min, max, def) {
+  const n = parseInt(val, 10);
+  return Number.isInteger(n) ? Math.min(Math.max(n, min), max) : def;
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const VALID_FIELD_TYPES = ['text', 'phone', 'number', 'date', 'email', 'textarea'];
+
+function sanitizeReason(val) {
+  if (!val || typeof val !== 'string') return null;
+  return val.trim().slice(0, 500) || null;
+}
 
 function getJwtSecret() {
   return process.env.JWT_SECRET || db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get().value;
@@ -77,7 +111,8 @@ function getPublicQueueState() {
 }
 
 function emitQueueUpdate() {
-  io.emit('queue:updated', getQueueState());
+  io.to('admins').emit('queue:updated', getQueueState());
+  io.except('admins').emit('queue:updated', getPublicQueueState());
 }
 
 function log(req, action, details = '') {
@@ -86,6 +121,10 @@ function log(req, action, details = '') {
   db.prepare('INSERT INTO action_logs (user_id, username, action, details) VALUES (?,?,?,?)')
     .run(userId, username, action, details);
 }
+
+// ─── Health check ─────────────────────────────────────────────────────────────
+
+app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
 // ─── Auth middleware ───────────────────────────────────────────────────────────
 
@@ -187,48 +226,55 @@ app.post('/api/services', requireAuth, (req, res) => {
 });
 
 app.put('/api/services/:id', requireAuth, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const { name, description, avg_duration_minutes, priority, daily_limit } = req.body;
   db.prepare(
     'UPDATE services SET name=?, description=?, avg_duration_minutes=?, priority=?, daily_limit=? WHERE id=?'
-  ).run(name, description || null, avg_duration_minutes, priority || 0, daily_limit || null, req.params.id);
-  const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id);
+  ).run(name, description || null, avg_duration_minutes, priority || 0, daily_limit || null, id);
+  const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
   log(req, 'service.updated', name);
   res.json(svc);
 });
 
 app.put('/api/services/:id/set-default', requireAuth, (req, res) => {
-  const svc = db.prepare('SELECT * FROM services WHERE id = ? AND active = 1').get(req.params.id);
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  const svc = db.prepare('SELECT * FROM services WHERE id = ? AND active = 1').get(id);
   if (!svc) return res.status(404).json({ error: 'Not found' });
   if (svc.is_default) {
-    db.prepare('UPDATE services SET is_default = 0 WHERE id = ?').run(req.params.id);
+    db.prepare('UPDATE services SET is_default = 0 WHERE id = ?').run(id);
     log(req, 'service.unset_default', svc.name);
   } else {
     db.prepare('UPDATE services SET is_default = 0').run();
-    db.prepare('UPDATE services SET is_default = 1 WHERE id = ?').run(req.params.id);
+    db.prepare('UPDATE services SET is_default = 1 WHERE id = ?').run(id);
     log(req, 'service.set_default', svc.name);
   }
-  res.json(db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id));
+  res.json(db.prepare('SELECT * FROM services WHERE id = ?').get(id));
 });
 
 app.put('/api/services/:id/toggle', requireAuth, (req, res) => {
-  const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id);
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
   if (!svc) return res.status(404).json({ error: 'Not found' });
   const newEnabled = svc.enabled ? 0 : 1;
-  db.prepare('UPDATE services SET enabled = ? WHERE id = ?').run(newEnabled, req.params.id);
+  db.prepare('UPDATE services SET enabled = ? WHERE id = ?').run(newEnabled, id);
   log(req, newEnabled ? 'service.enabled' : 'service.disabled', svc.name);
   res.json({ ...svc, enabled: newEnabled });
 });
 
 app.delete('/api/services/:id', requireAuth, (req, res) => {
-  const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id);
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
   if (!svc) return res.status(404).json({ error: 'Not found' });
-  // Move active tickets to null service
-  const transferTo = req.body.transfer_to;
+  const transferTo = parseId(req.body.transfer_to);
   if (transferTo) {
     db.prepare("UPDATE tickets SET service_id = ? WHERE service_id = ? AND status IN ('waiting','called')")
-      .run(transferTo, req.params.id);
+      .run(transferTo, id);
   }
-  db.prepare('UPDATE services SET active = 0 WHERE id = ?').run(req.params.id);
+  db.prepare('UPDATE services SET active = 0 WHERE id = ?').run(id);
   log(req, 'service.deleted', svc.name);
   emitQueueUpdate();
   res.json({ success: true });
@@ -237,42 +283,54 @@ app.delete('/api/services/:id', requireAuth, (req, res) => {
 // ─── Service fields ───────────────────────────────────────────────────────────
 
 app.get('/api/services/:id/fields', (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const fields = db.prepare(
     'SELECT * FROM service_fields WHERE service_id = ? ORDER BY order_index ASC, id ASC'
-  ).all(req.params.id);
+  ).all(id);
   res.json(fields);
 });
 
 app.post('/api/services/:id/fields', requireAuth, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const { label, field_type, required } = req.body;
   if (!label?.trim()) return res.status(400).json({ error: 'Название поля обязательно' });
+  const ft = field_type && VALID_FIELD_TYPES.includes(field_type) ? field_type : 'text';
   const maxOrder = db.prepare(
     'SELECT COALESCE(MAX(order_index), -1) AS m FROM service_fields WHERE service_id = ?'
-  ).get(req.params.id);
+  ).get(id);
   const r = db.prepare(
     'INSERT INTO service_fields (service_id, label, field_type, required, order_index) VALUES (?,?,?,?,?)'
-  ).run(req.params.id, label.trim(), field_type || 'text', required ? 1 : 0, maxOrder.m + 1);
+  ).run(id, label.trim(), ft, required ? 1 : 0, maxOrder.m + 1);
   res.json(db.prepare('SELECT * FROM service_fields WHERE id = ?').get(r.lastInsertRowid));
 });
 
 app.put('/api/service-fields/:id', requireAuth, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const { label, field_type, required, order_index } = req.body;
-  const field = db.prepare('SELECT * FROM service_fields WHERE id = ?').get(req.params.id);
+  const field = db.prepare('SELECT * FROM service_fields WHERE id = ?').get(id);
   if (!field) return res.status(404).json({ error: 'Not found' });
+  const ft = field_type
+    ? (VALID_FIELD_TYPES.includes(field_type) ? field_type : field.field_type)
+    : field.field_type;
   db.prepare(
     'UPDATE service_fields SET label=?, field_type=?, required=?, order_index=? WHERE id=?'
   ).run(
     label ?? field.label,
-    field_type ?? field.field_type,
+    ft,
     required !== undefined ? (required ? 1 : 0) : field.required,
     order_index !== undefined ? order_index : field.order_index,
-    req.params.id
+    id
   );
-  res.json(db.prepare('SELECT * FROM service_fields WHERE id = ?').get(req.params.id));
+  res.json(db.prepare('SELECT * FROM service_fields WHERE id = ?').get(id));
 });
 
 app.delete('/api/service-fields/:id', requireAuth, (req, res) => {
-  db.prepare('DELETE FROM service_fields WHERE id = ?').run(req.params.id);
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  db.prepare('DELETE FROM service_fields WHERE id = ?').run(id);
   res.json({ success: true });
 });
 
@@ -362,16 +420,20 @@ app.post('/api/tickets/manual', requireAuth, (req, res) => {
   res.json({ ...ticket, field_values: ticket.field_values ? JSON.parse(ticket.field_values) : [] });
 });
 
-app.get('/api/tickets/:id', (req, res) => {
+app.get('/api/tickets/:id', ticketLimiter, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const ticket = db.prepare(`
-    SELECT t.*, s.name AS service_name, s.avg_duration_minutes
+    SELECT t.id, t.number, t.date, t.status, t.service_id, t.is_priority,
+           t.created_at, t.called_at, t.served_at, t.field_values,
+           s.name AS service_name, s.avg_duration_minutes
     FROM tickets t LEFT JOIN services s ON t.service_id = s.id
     WHERE t.id = ?
-  `).get(req.params.id);
+  `).get(id);
 
   if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
 
-  let position = 0, estimatedWait = 0;
+  let position = 0, estimatedWait = null;
   if (ticket.status === 'waiting') {
     const queue = getQueueState();
     const idx = queue.waiting.findIndex(t => t.id === ticket.id);
@@ -379,39 +441,43 @@ app.get('/api/tickets/:id', (req, res) => {
     estimatedWait = ticket.avg_duration_minutes > 0 ? position * ticket.avg_duration_minutes : null;
   }
 
-  const parsedFieldValues = ticket.field_values ? JSON.parse(ticket.field_values) : [];
-
-  res.json({ ...ticket, field_values: parsedFieldValues, position, estimatedWait });
+  res.json({ ...ticket, field_values: ticket.field_values ? JSON.parse(ticket.field_values) : [], position, estimatedWait });
 });
 
 app.delete('/api/tickets/:id', (req, res) => {
-  const { reason } = req.body || {};
-  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  const reason = sanitizeReason(req.body?.reason);
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
   if (!ticket) return res.status(404).json({ error: 'Not found' });
   if (!['waiting', 'called'].includes(ticket.status)) {
     return res.status(400).json({ error: 'Талон уже не активен' });
   }
   db.prepare(
     "UPDATE tickets SET status = 'cancelled', cancel_reason = ? WHERE id = ?"
-  ).run(reason || null, req.params.id);
+  ).run(reason, id);
   emitQueueUpdate();
   res.json({ success: true });
 });
 
 app.put('/api/tickets/:id/transfer', requireAuth, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const { service_id } = req.body;
   const ticket = db.prepare(`
     SELECT t.*, s.name AS service_name
     FROM tickets t LEFT JOIN services s ON t.service_id = s.id
     WHERE t.id = ?
-  `).get(req.params.id);
+  `).get(id);
   if (!ticket) return res.status(404).json({ error: 'Not found' });
 
-  db.prepare('UPDATE tickets SET service_id = ? WHERE id = ?').run(service_id, req.params.id);
-  const newSvc = db.prepare('SELECT name FROM services WHERE id = ?').get(service_id);
+  const svcId = parseId(service_id);
+  if (!svcId) return res.status(400).json({ error: 'Некорректный service_id' });
+  db.prepare('UPDATE tickets SET service_id = ? WHERE id = ?').run(svcId, id);
+  const newSvc = db.prepare('SELECT name FROM services WHERE id = ?').get(svcId);
   log(req, 'ticket.transferred', `#${ticket.number}: ${ticket.service_name} → ${newSvc?.name}`);
   emitQueueUpdate();
-  res.json(db.prepare('SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?').get(req.params.id));
+  res.json(db.prepare('SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?').get(id));
 });
 
 // ─── Queue ────────────────────────────────────────────────────────────────────
@@ -502,11 +568,11 @@ app.post('/api/queue/repeat', requireAuth, (req, res) => {
 });
 
 app.post('/api/queue/skip', requireAuth, (req, res) => {
-  const { reason } = req.body || {};
+  const reason = sanitizeReason(req.body?.reason);
   const d = today();
   const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
   if (current) {
-    db.prepare("UPDATE tickets SET status='skipped', skip_reason=? WHERE id=?").run(reason || null, current.id);
+    db.prepare("UPDATE tickets SET status='skipped', skip_reason=? WHERE id=?").run(reason, current.id);
     log(req, 'ticket.skipped', `#${current.number}${reason ? ': ' + reason : ''}`);
   }
   emitQueueUpdate();
@@ -525,11 +591,11 @@ app.post('/api/queue/complete', requireAuth, (req, res) => {
 });
 
 app.post('/api/queue/cancel-current', requireAuth, (req, res) => {
-  const { reason } = req.body || {};
+  const reason = sanitizeReason(req.body?.reason);
   const d = today();
   const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
   if (current) {
-    db.prepare("UPDATE tickets SET status='cancelled', cancel_reason=? WHERE id=?").run(reason || null, current.id);
+    db.prepare("UPDATE tickets SET status='cancelled', cancel_reason=? WHERE id=?").run(reason, current.id);
     log(req, 'ticket.cancelled', `#${current.number}${reason ? ': ' + reason : ''}`);
   }
   emitQueueUpdate();
@@ -546,9 +612,11 @@ app.post('/api/queue/reset', requireAuth, (req, res) => {
 
 // All today's tickets (admin view)
 app.get('/api/tickets', requireAuth, (req, res) => {
-  const d = req.query.date || today();
-  const status = req.query.status;
-  const service_id = req.query.service_id;
+  const rawDate = req.query.date;
+  const d = rawDate && DATE_RE.test(rawDate) ? rawDate : today();
+  const VALID_STATUSES = ['waiting', 'called', 'served', 'skipped', 'cancelled'];
+  const status = req.query.status && VALID_STATUSES.includes(req.query.status) ? req.query.status : null;
+  const service_id = parseId(req.query.service_id) || null;
 
   let q = `SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.date = ?`;
   const params = [d];
@@ -566,7 +634,7 @@ app.get('/api/tickets', requireAuth, (req, res) => {
 // ─── Statistics ───────────────────────────────────────────────────────────────
 
 app.get('/api/stats', requireAuth, (req, res) => {
-  const days = parseInt(req.query.days) || 7;
+  const days = clampInt(req.query.days, 1, 365, 7);
   const rows = db.prepare(`
     SELECT
       t.date,
@@ -600,7 +668,7 @@ app.get('/api/stats', requireAuth, (req, res) => {
 });
 
 app.get('/api/stats/export', requireAuth, (req, res) => {
-  const days = parseInt(req.query.days) || 30;
+  const days = clampInt(req.query.days, 1, 365, 30);
   const rows = db.prepare(`
     SELECT t.date, t.number, COALESCE(s.name,'Без услуги') AS service,
       t.status, t.name AS visitor_name, t.phone,
@@ -638,7 +706,7 @@ app.get('/api/stats/export', requireAuth, (req, res) => {
 // ─── Logs ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/logs', requireAuth, (req, res) => {
-  const limit = parseInt(req.query.limit) || 100;
+  const limit = clampInt(req.query.limit, 1, 1000, 100);
   const rows = db.prepare(
     'SELECT * FROM action_logs ORDER BY created_at DESC LIMIT ?'
   ).all(limit);
@@ -649,15 +717,17 @@ app.get('/api/logs', requireAuth, (req, res) => {
 
 app.get('/api/qrcode', async (req, res) => {
   const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'url required' });
+  if (!url || typeof url !== 'string' || url.length > 2048) {
+    return res.status(400).json({ error: 'Некорректный url' });
+  }
   try {
     const dataUrl = await QRCode.toDataURL(url, {
       width: 400, margin: 2,
       color: { dark: '#1e3a5f', light: '#ffffff' }
     });
     res.json({ qrcode: dataUrl, url });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch {
+    res.status(500).json({ error: 'Ошибка генерации QR-кода' });
   }
 });
 
@@ -676,8 +746,29 @@ if (fs.existsSync(publicDir)) {
 
 // ─── Socket.io ────────────────────────────────────────────────────────────────
 
+// Optional auth: admins get full queue state (with PII), public gets stripped
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (token) {
+      socket.data.user = jwt.verify(token, getJwtSecret());
+      socket.data.isAdmin = true;
+    } else {
+      socket.data.isAdmin = false;
+    }
+  } catch {
+    socket.data.isAdmin = false;
+  }
+  next();
+});
+
 io.on('connection', (socket) => {
-  socket.emit('queue:updated', getQueueState());
+  if (socket.data.isAdmin) {
+    socket.join('admins');
+    socket.emit('queue:updated', getQueueState());
+  } else {
+    socket.emit('queue:updated', getPublicQueueState());
+  }
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

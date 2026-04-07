@@ -107,7 +107,7 @@ function Clock() {
   useEffect(() => {
     const t = setInterval(() => {
       setTime(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
-    }, 10000);
+    }, 1000);
     return () => clearInterval(t);
   }, []);
   return <span className="text-gray-400 text-lg font-mono">{time}</span>;
