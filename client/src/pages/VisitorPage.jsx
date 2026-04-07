@@ -204,6 +204,7 @@ function TicketStatus({ ticketId }) {
     const data = await res.json();
     setTicket(data);
     if (data.status === 'called') setCalled(true);
+    if (data.status === 'waiting') setCalled(false);
   }, [ticketId, navigate]);
 
   const loadQueue = useCallback(() => {
