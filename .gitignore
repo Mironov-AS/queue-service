@@ -4,3 +4,4 @@ server/queue.db-shm
 server/queue.db-wal
 client/dist/
 .env.local
+server/.env

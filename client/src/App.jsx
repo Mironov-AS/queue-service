@@ -20,6 +20,7 @@ export default function App() {
         <Route path="/visitor" element={<VisitorPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/" element={<Navigate to="/visitor" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

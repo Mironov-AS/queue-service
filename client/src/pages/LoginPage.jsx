@@ -75,9 +75,6 @@ export default function LoginPage() {
             {loading ? 'Вход...' : 'Войти'}
           </button>
 
-          <p className="text-center text-xs text-gray-400">
-            По умолчанию: admin / admin
-          </p>
         </form>
       </div>
     </div>

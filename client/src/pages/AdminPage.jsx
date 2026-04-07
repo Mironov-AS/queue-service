@@ -891,15 +891,12 @@ function StatsTab() {
   }, [days]);
 
   const exportCSV = async () => {
-    const token = localStorage.getItem('adminToken');
-    window.open(`/api/stats/export?days=${days}&_t=${token}`, '_blank');
-    // fallback: use anchor
     const res = await apiFetch(`/api/stats/export?days=${days}`);
     if (!res) return;
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `queue_stats.csv`; a.click();
+    a.href = url; a.download = `queue_stats_${days}d.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -1240,6 +1237,7 @@ function SettingsTab() {
   const changePassword = async () => {
     setPwError(''); setPwOk(false);
     if (pwForm.newPassword !== pwForm.confirm) { setPwError('Пароли не совпадают'); return; }
+    if (pwForm.newPassword.length < 8) { setPwError('Пароль должен быть не менее 8 символов'); return; }
     const r = await apiFetch('/api/settings/password', { method: 'PUT', body: JSON.stringify(pwForm) });
     if (!r) return;
     const data = await r.json();
@@ -1315,11 +1313,33 @@ const SETTINGS_TABS = [
   { id: 'password', label: 'Пароль', icon: P.person },
 ];
 
+const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+
 export default function AdminPage() {
   const [tab, setTab] = useState('queue');
   const [settingsTab, setSettingsTab] = useState('services');
   const [time, setTime] = useState(new Date());
   const [regOpen, setRegOpen] = useState(true);
+  const inactivityTimer = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const resetTimer = () => {
+      clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = setTimeout(() => {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        navigate('/login', { replace: true });
+      }, INACTIVITY_MS);
+    };
+    const events = ['mousemove', 'keydown', 'click', 'touchstart'];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+    return () => {
+      clearTimeout(inactivityTimer.current);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+    };
+  }, [navigate]);
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);

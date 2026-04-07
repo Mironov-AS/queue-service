@@ -1,7 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const QRCode = require('qrcode');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -9,16 +11,26 @@ const db = require('./database');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE'] } });
 
-app.use(cors());
-app.use(express.json());
+const corsOrigin = process.env.CORS_ORIGIN || '*';
+const io = new Server(server, { cors: { origin: corsOrigin, methods: ['GET', 'POST', 'PUT', 'DELETE'] } });
+
+app.use(cors({ origin: corsOrigin }));
+app.use(express.json({ limit: '100kb' }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getJwtSecret() {
-  return db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get().value;
+  return process.env.JWT_SECRET || db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get().value;
 }
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много попыток входа. Попробуйте через 15 минут.' }
+});
 
 function today() {
   return new Date().toISOString().split('T')[0];
@@ -70,8 +82,11 @@ function requireAuth(req, res, next) {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
+  if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Логин и пароль обязательны' });
+  }
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Неверный логин или пароль' });
@@ -109,8 +124,8 @@ app.put('/api/settings/password', requireAuth, (req, res) => {
   if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
     return res.status(400).json({ error: 'Неверный текущий пароль' });
   }
-  if (!newPassword || newPassword.length < 4) {
-    return res.status(400).json({ error: 'Пароль должен быть не менее 4 символов' });
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: 'Пароль должен быть не менее 8 символов' });
   }
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(newPassword, 10), req.user.id);
   log(req, 'settings.password_changed');
@@ -235,6 +250,14 @@ app.post('/api/tickets', (req, res) => {
   const { service_id, name, phone, field_values } = req.body;
   const d = today();
 
+  // Basic input validation
+  if (name && (typeof name !== 'string' || name.length > 100)) {
+    return res.status(400).json({ error: 'Некорректное имя' });
+  }
+  if (phone && (typeof phone !== 'string' || phone.length > 30)) {
+    return res.status(400).json({ error: 'Некорректный телефон' });
+  }
+
   // Check registration open
   const regRow = db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
   if (regRow?.value !== '1') {
@@ -280,6 +303,13 @@ app.post('/api/tickets', (req, res) => {
 app.post('/api/tickets/manual', requireAuth, (req, res) => {
   const { service_id, name, phone, is_priority, field_values } = req.body;
   const d = today();
+
+  if (name && (typeof name !== 'string' || name.length > 100)) {
+    return res.status(400).json({ error: 'Некорректное имя' });
+  }
+  if (phone && (typeof phone !== 'string' || phone.length > 30)) {
+    return res.status(400).json({ error: 'Некорректный телефон' });
+  }
 
   const last = db.prepare('SELECT MAX(number) AS max FROM tickets WHERE date = ?').get(d);
   const number = (last.max || 0) + 1;
@@ -606,5 +636,4 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Queue server on http://0.0.0.0:${PORT}`);
-  console.log(`Default admin login: admin / admin`);
 });
