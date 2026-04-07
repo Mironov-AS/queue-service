@@ -67,8 +67,8 @@ const loginLimiter = rateLimit({
 });
 
 const ticketLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 10,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Слишком много запросов. Попробуйте позже.' }
@@ -420,7 +420,7 @@ app.post('/api/tickets/manual', requireAuth, (req, res) => {
   res.json({ ...ticket, field_values: ticket.field_values ? JSON.parse(ticket.field_values) : [] });
 });
 
-app.get('/api/tickets/:id', ticketLimiter, (req, res) => {
+app.get('/api/tickets/:id', (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const ticket = db.prepare(`
