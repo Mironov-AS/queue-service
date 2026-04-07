@@ -37,9 +37,12 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-950 flex flex-col p-6 gap-6 select-none">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-white text-2xl font-bold tracking-widest uppercase opacity-70">
-          Электронная очередь
-        </h1>
+        <div className="flex items-center gap-4">
+          <img src="/logo.png" alt="Логотип" className="h-10 w-auto object-contain" />
+          <h1 className="text-white text-2xl font-bold tracking-widest uppercase opacity-70">
+            Электронная очередь
+          </h1>
+        </div>
         <div className="text-gray-500 text-sm tabular-nums">
           <Clock />
         </div>
