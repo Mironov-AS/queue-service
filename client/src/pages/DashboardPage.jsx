@@ -128,18 +128,9 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      {/* SVG sharpen filter */}
-      <svg style={{ display: 'none' }}>
-        <defs>
-          <filter id="sharpen">
-            <feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 6 -1 -1 -1 -1" preserveAlpha="true" />
-          </filter>
-        </defs>
-      </svg>
       {/* Logo — fixed bottom-right */}
-      <img src="/logo.png" alt="Логотип"
-        className="fixed bottom-6 right-6 h-[138px] w-auto object-contain opacity-90 pointer-events-none"
-        style={{ filter: 'url(#sharpen) hue-rotate(210deg) saturate(1.4) brightness(0.95)' }} />
+      <img src="/logo.webp" alt="Логотип"
+        className="fixed bottom-6 right-6 h-[138px] w-auto object-contain opacity-90 pointer-events-none" />
     </div>
   );
 }
