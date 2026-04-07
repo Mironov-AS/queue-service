@@ -6,19 +6,31 @@ export default function DashboardPage() {
   const [prevNumber, setPrevNumber] = useState(null);
   const [flash, setFlash] = useState(false);
 
+  const applyUpdate = (q, prev) => {
+    if (q.current?.number !== prev.current?.number) {
+      setPrevNumber(prev.current?.number || null);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 2000);
+    }
+    return q;
+  };
+
   useEffect(() => {
-    fetch('/api/queue').then(r => r.json()).then(setQueue);
-    socket.on('queue:updated', (q) => {
-      setQueue(prev => {
-        if (q.current?.number !== prev.current?.number) {
-          setPrevNumber(prev.current?.number || null);
-          setFlash(true);
-          setTimeout(() => setFlash(false), 2000);
-        }
-        return q;
-      });
-    });
-    return () => socket.off('queue:updated');
+    const refresh = () =>
+      fetch('/api/queue').then(r => r.json()).then(q => setQueue(prev => applyUpdate(q, prev)));
+
+    refresh();
+
+    // Socket for instant updates
+    socket.on('queue:updated', (q) => setQueue(prev => applyUpdate(q, prev)));
+
+    // Polling fallback every 5 s (covers missed socket events)
+    const timer = setInterval(refresh, 5000);
+
+    return () => {
+      socket.off('queue:updated');
+      clearInterval(timer);
+    };
   }, []);
 
   return (
