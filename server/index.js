@@ -79,10 +79,10 @@ function today() {
 }
 
 function nextTicketNumber(d) {
-  const resetRow = db.prepare("SELECT value FROM settings WHERE key='queue_reset_at'").get();
-  const resetAt = resetRow?.value;
-  const row = resetAt
-    ? db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=? AND created_at > ?").get(d, resetAt)
+  const idRow = db.prepare("SELECT value FROM settings WHERE key='queue_reset_last_id'").get();
+  const lastId = parseInt(idRow?.value || '0', 10);
+  const row = lastId
+    ? db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=? AND id > ?").get(d, lastId)
     : db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=?").get(d);
   return (row?.max || 0) + 1;
 }
@@ -618,7 +618,8 @@ app.post('/api/queue/cancel-current', requireAuth, (req, res) => {
 app.post('/api/queue/reset', requireAuth, (req, res) => {
   const d = today();
   db.prepare("UPDATE tickets SET status='skipped' WHERE date=? AND status IN ('waiting','called')").run(d);
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('queue_reset_at', ?)").run(new Date().toISOString());
+  const lastTicket = db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=?").get(d);
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('queue_reset_last_id', ?)").run(String(lastTicket?.max_id || 0));
   log(req, 'queue.reset', d);
   emitQueueUpdate();
   res.json({ success: true });
