@@ -353,7 +353,8 @@ function QueueTab() {
 
       {/* Modals */}
       {manualModal && (
-        <ManualRegModal services={services} onClose={() => setManualModal(false)} />
+        <ManualRegModal services={services} onClose={() => setManualModal(false)}
+          onCreated={() => apiFetch('/api/queue').then(r => r?.json()).then(d => d && setQueue(d))} />
       )}
 
       {callConfirm && (
@@ -411,7 +412,7 @@ function TransferModal({ ticket, services, onTransfer, onClose }) {
 
 const FIELD_INPUT_TYPES_ADMIN = { text: 'text', phone: 'tel', number: 'number', date: 'date', email: 'email' };
 
-function ManualRegModal({ services, onClose }) {
+function ManualRegModal({ services, onClose, onCreated }) {
   const defaultService = services.find(s => s.is_default) || (services.length === 1 ? services[0] : null);
   const [serviceId, setServiceId] = useState(defaultService ? String(defaultService.id) : '');
   const [serviceFields, setServiceFields] = useState([]);
@@ -454,6 +455,7 @@ function ManualRegModal({ services, onClose }) {
     const data = await r.json();
     if (!r.ok) { setError(data.error); return; }
     setDone(data);
+    onCreated?.();
   };
 
   const reset = () => { setDone(null); setServiceId(defaultService ? String(defaultService.id) : ''); setServiceFields([]); setFieldValues({}); setError(''); };
