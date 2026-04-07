@@ -1049,6 +1049,19 @@ function StatsTab() {
 
 // ─── QR Tab ───────────────────────────────────────────────────────────────────
 
+function downloadDataUrl(dataUrl, filename) {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bytes = atob(arr[1]);
+  const u8 = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) u8[i] = bytes.charCodeAt(i);
+  const blob = new Blob([u8], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 function QRTab() {
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState('');
@@ -1139,10 +1152,10 @@ function QRTab() {
               className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl">
               <Icon d={P.print} /> Печать A4
             </button>
-            <a href={qrData.qrcode} download="queue-qrcode.png"
+            <button onClick={() => downloadDataUrl(qrData.qrcode, 'queue-qrcode.png')}
               className="flex-1 flex items-center justify-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-3 rounded-xl">
               <Icon d={P.download} cls="w-5 h-5" /> Скачать
-            </a>
+            </button>
           </div>
         </div>
       )}
@@ -1169,10 +1182,10 @@ function QRTab() {
             <div className="min-w-0">
               <p className="text-gray-400 text-xs mb-1 uppercase tracking-wide">QR-код дашборда</p>
               <p className="font-mono text-xs text-blue-400 break-all">{dashboardQr.url}</p>
-              <a href={dashboardQr.qrcode} download="dashboard-qrcode.png"
+              <button onClick={() => downloadDataUrl(dashboardQr.qrcode, 'dashboard-qrcode.png')}
                 className="inline-flex items-center gap-1.5 mt-3 text-xs text-gray-400 hover:text-white transition">
                 <Icon d={P.download} cls="w-3.5 h-3.5" /> Скачать QR
-              </a>
+              </button>
             </div>
           </div>
         )}
