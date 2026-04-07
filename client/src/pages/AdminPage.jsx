@@ -216,7 +216,6 @@ function QueueTab() {
               return (
                 <div key={t.id} className={`px-4 py-3 rounded-xl ${i === 0 ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
                   <div className="flex items-center gap-3">
-                    {t.is_priority && <Icon d={P.priority} cls="w-4 h-4 text-orange-500 shrink-0" />}
                     <span className={`text-2xl font-black w-14 shrink-0 ${i === 0 ? 'text-blue-700' : 'text-gray-700'}`}>№{t.number}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-700 truncate">{t.service_name || '—'}</div>
@@ -290,7 +289,7 @@ function QueueTab() {
                   {allTickets.map(t => (
                     <tr key={t.id} className="hover:bg-gray-50 align-top">
                       <td className="px-3 py-2 font-bold text-gray-700">
-                        {t.is_priority ? '★ ' : ''}№{t.number}
+                        №{t.number}
                       </td>
                       <td className="px-3 py-2 text-gray-600">{t.service_name || '—'}</td>
                       <td className="px-3 py-2 text-gray-500">
