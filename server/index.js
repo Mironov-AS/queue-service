@@ -37,7 +37,6 @@ const ticketLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip || req.socket.remoteAddress,
   message: { error: 'Слишком много запросов. Попробуйте позже.' }
 });
 
