@@ -584,6 +584,17 @@ app.post('/api/queue/repeat', requireAuth, (req, res) => {
   res.json(getQueueState());
 });
 
+app.post('/api/queue/return', requireAuth, (req, res) => {
+  const d = today();
+  const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
+  if (current) {
+    db.prepare("UPDATE tickets SET status='waiting', called_at=NULL WHERE id=?").run(current.id);
+    log(req, 'ticket.returned', `#${current.number}`);
+  }
+  emitQueueUpdate();
+  res.json(getQueueState());
+});
+
 app.post('/api/queue/skip', requireAuth, (req, res) => {
   const reason = sanitizeReason(req.body?.reason);
   const d = today();
