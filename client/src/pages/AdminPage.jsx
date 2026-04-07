@@ -1050,16 +1050,26 @@ function StatsTab() {
 // ─── QR Tab ───────────────────────────────────────────────────────────────────
 
 function downloadDataUrl(dataUrl, filename) {
-  const arr = dataUrl.split(',');
-  const mime = arr[0].match(/:(.*?);/)[1];
-  const bytes = atob(arr[1]);
-  const u8 = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) u8[i] = bytes.charCodeAt(i);
-  const blob = new Blob([u8], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  try {
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bytes = atob(arr[1]);
+    const u8 = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) u8[i] = bytes.charCodeAt(i);
+    const blob = new Blob([u8], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  } catch {
+    // Fallback: open image in new tab so user can save manually
+    window.open(dataUrl, '_blank');
+  }
 }
 
 function QRTab() {
