@@ -78,6 +78,15 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
+function nextTicketNumber(d) {
+  const resetRow = db.prepare("SELECT value FROM settings WHERE key='queue_reset_at'").get();
+  const resetAt = resetRow?.value;
+  const row = resetAt
+    ? db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=? AND created_at > ?").get(d, resetAt)
+    : db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=?").get(d);
+  return (row?.max || 0) + 1;
+}
+
 function getQueueState() {
   const d = today();
   const current = db.prepare(`
@@ -366,8 +375,7 @@ app.post('/api/tickets', ticketLimiter, (req, res) => {
     }
   }
 
-  const last = db.prepare('SELECT MAX(number) AS max FROM tickets WHERE date = ?').get(d);
-  const number = (last.max || 0) + 1;
+  const number = nextTicketNumber(d);
 
   const fvJson = field_values ? JSON.stringify(field_values) : null;
 
@@ -401,8 +409,7 @@ app.post('/api/tickets/manual', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Некорректный телефон' });
   }
 
-  const last = db.prepare('SELECT MAX(number) AS max FROM tickets WHERE date = ?').get(d);
-  const number = (last.max || 0) + 1;
+  const number = nextTicketNumber(d);
   const fvJson = field_values?.length ? JSON.stringify(field_values) : null;
 
   const r = db.prepare(
@@ -611,6 +618,7 @@ app.post('/api/queue/cancel-current', requireAuth, (req, res) => {
 app.post('/api/queue/reset', requireAuth, (req, res) => {
   const d = today();
   db.prepare("UPDATE tickets SET status='skipped' WHERE date=? AND status IN ('waiting','called')").run(d);
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('queue_reset_at', ?)").run(new Date().toISOString());
   log(req, 'queue.reset', d);
   emitQueueUpdate();
   res.json({ success: true });
