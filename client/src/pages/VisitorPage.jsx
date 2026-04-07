@@ -208,7 +208,7 @@ function TicketStatus({ ticketId }) {
     if (data.status === 'called') setCalled(true);
     if (data.status === 'waiting') setCalled(false);
     if (data.status === 'served' && !servedTimerRef.current) {
-      servedTimerRef.current = setTimeout(() => setShowThankYou(true), 5 * 60 * 1000);
+      servedTimerRef.current = setTimeout(() => setShowThankYou(true), 1 * 60 * 1000);
     }
   }, [ticketId, navigate]);
 

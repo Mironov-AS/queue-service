@@ -195,6 +195,21 @@ app.put('/api/settings/registration', requireAuth, (req, res) => {
   res.json({ open: newVal === '1' });
 });
 
+app.get('/api/settings/auto-reset', requireAuth, (req, res) => {
+  const enabled = db.prepare("SELECT value FROM settings WHERE key='auto_reset_enabled'").get();
+  const time = db.prepare("SELECT value FROM settings WHERE key='auto_reset_time'").get();
+  res.json({ enabled: enabled?.value === '1', time: time?.value || '00:00' });
+});
+
+app.put('/api/settings/auto-reset', requireAuth, (req, res) => {
+  const { enabled, time } = req.body;
+  const timeVal = typeof time === 'string' && /^\d{2}:\d{2}$/.test(time) ? time : '00:00';
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_reset_enabled', ?)").run(enabled ? '1' : '0');
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_reset_time', ?)").run(timeVal);
+  log(req, 'settings.auto_reset', `${enabled ? 'on' : 'off'} at ${timeVal}`);
+  res.json({ enabled: !!enabled, time: timeVal });
+});
+
 app.put('/api/settings/password', requireAuth, (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
@@ -818,6 +833,31 @@ io.on('connection', (socket) => {
     socket.emit('queue:updated', getPublicQueueState());
   }
 });
+
+// ─── Auto-reset scheduler ─────────────────────────────────────────────────────
+
+function runAutoReset() {
+  const enabled = db.prepare("SELECT value FROM settings WHERE key='auto_reset_enabled'").get();
+  if (enabled?.value !== '1') return;
+  const timeSetting = db.prepare("SELECT value FROM settings WHERE key='auto_reset_time'").get();
+  const resetTime = timeSetting?.value || '00:00';
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const currentTime = `${hh}:${mm}`;
+  if (currentTime !== resetTime) return;
+  const d = today();
+  const lastReset = db.prepare("SELECT value FROM settings WHERE key='auto_reset_last_date'").get();
+  if (lastReset?.value === d) return; // already reset today
+  db.prepare("UPDATE tickets SET status='skipped' WHERE date=? AND status IN ('waiting','called')").run(d);
+  const lastTicket = db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=?").get(d);
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('queue_reset_last_id', ?)").run(String(lastTicket?.max_id || 0));
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_reset_last_date', ?)").run(d);
+  console.log(`[auto-reset] Queue auto-reset executed at ${currentTime}`);
+  emitQueueUpdate();
+}
+
+setInterval(runAutoReset, 60 * 1000);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
