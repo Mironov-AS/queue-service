@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import socket from '../socket';
 
@@ -196,6 +196,8 @@ function TicketStatus({ ticketId }) {
   const [queue, setQueue] = useState(null);
   const [called, setCalled] = useState(false);
   const [cancelDone, setCancelDone] = useState(false);
+  const [showThankYou, setShowThankYou] = useState(false);
+  const servedTimerRef = useRef(null);
   const navigate = useNavigate();
 
   const loadTicket = useCallback(async () => {
@@ -205,6 +207,9 @@ function TicketStatus({ ticketId }) {
     setTicket(data);
     if (data.status === 'called') setCalled(true);
     if (data.status === 'waiting') setCalled(false);
+    if (data.status === 'served' && !servedTimerRef.current) {
+      servedTimerRef.current = setTimeout(() => setShowThankYou(true), 5 * 60 * 1000);
+    }
   }, [ticketId, navigate]);
 
   const loadQueue = useCallback(() => {
@@ -234,6 +239,7 @@ function TicketStatus({ ticketId }) {
       socket.off('queue:updated', handleQueue);
       socket.off('ticket:called', handleCalled);
       clearInterval(timer);
+      if (servedTimerRef.current) clearTimeout(servedTimerRef.current);
     };
   }, [ticketId, loadTicket, loadQueue]);
 
@@ -272,7 +278,7 @@ function TicketStatus({ ticketId }) {
     </div>
   );
 
-  if (ticket.status === 'served') return (
+  if (ticket.status === 'served' && showThankYou) return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-900 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center space-y-5">
         <div className="text-6xl">🙏</div>
@@ -300,7 +306,7 @@ function TicketStatus({ ticketId }) {
     </div>
   );
 
-  if (called || ticket.status === 'called') return (
+  if (called || ticket.status === 'called' || (ticket.status === 'served' && !showThankYou)) return (
     <div className="min-h-screen bg-gradient-to-br from-green-500 to-emerald-700 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center space-y-5">
         <div className="text-6xl animate-bounce">🔔</div>
