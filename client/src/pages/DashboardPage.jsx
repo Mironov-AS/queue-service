@@ -130,7 +130,12 @@ export default function DashboardPage() {
       </div>
       {/* Logo — fixed bottom-right */}
       <img src="/logo.webp" alt="Логотип"
-        className="fixed bottom-6 right-6 h-[138px] w-auto object-contain opacity-90 pointer-events-none" />
+        className="fixed bottom-6 right-6 h-[138px] w-auto object-contain pointer-events-none"
+        style={{
+          maskImage: 'radial-gradient(ellipse 80% 70% at 55% 50%, black 40%, transparent 75%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 80% 70% at 55% 50%, black 40%, transparent 75%)',
+          opacity: 0.92,
+        }} />
     </div>
   );
 }
