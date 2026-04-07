@@ -132,7 +132,7 @@ export default function DashboardPage() {
       <svg style={{ display: 'none' }}>
         <defs>
           <filter id="sharpen">
-            <feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 7 -1 -1 -1 -1" preserveAlpha="true" />
+            <feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 6 -1 -1 -1 -1" preserveAlpha="true" />
           </filter>
         </defs>
       </svg>
