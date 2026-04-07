@@ -523,12 +523,14 @@ app.post('/api/queue/next', requireAuth, (req, res) => {
 });
 
 app.post('/api/queue/call/:id', requireAuth, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const d = today();
 
   const callSpecificTx = db.transaction(() => {
     const target = db.prepare(
       "SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.date = ? AND t.status = 'waiting'"
-    ).get(req.params.id, d);
+    ).get(id, d);
     if (!target) return null;
 
     const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
@@ -788,3 +790,11 @@ function shutdown(signal) {
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  shutdown('uncaughtException');
+});

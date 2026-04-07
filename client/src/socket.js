@@ -9,4 +9,13 @@ const socket = io('/', {
   }
 });
 
+// Auto-logout if token is rejected by the server
+socket.on('connect_error', (err) => {
+  if (err.message === 'Недействительный токен' || err.data?.type === 'UnauthorizedError') {
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
+    window.location.href = '/login';
+  }
+});
+
 export default socket;
