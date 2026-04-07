@@ -428,10 +428,9 @@ function ManualRegModal({ services, onClose, onCreated }) {
 
   const selectedService = services.find(s => String(s.id) === String(serviceId)) || null;
 
-  // Load service fields when service changes
-  useEffect(() => {
-    if (!serviceId) { setServiceFields([]); setFieldValues({}); return; }
-    fetch(`/api/services/${serviceId}/fields`)
+  const loadFields = (sid) => {
+    if (!sid) { setServiceFields([]); setFieldValues({}); return; }
+    fetch(`/api/services/${sid}/fields`)
       .then(r => r.json())
       .then(data => {
         setServiceFields(data);
@@ -439,7 +438,10 @@ function ManualRegModal({ services, onClose, onCreated }) {
         data.forEach(f => { init[f.id] = ''; });
         setFieldValues(init);
       });
-  }, [serviceId]);
+  };
+
+  // Load service fields when service changes
+  useEffect(() => { loadFields(serviceId); }, [serviceId]);
 
   const submit = async () => {
     setError('');
@@ -464,7 +466,13 @@ function ManualRegModal({ services, onClose, onCreated }) {
     onCreated?.();
   };
 
-  const reset = () => { setDone(null); setServiceId(defaultService ? String(defaultService.id) : ''); setServiceFields([]); setFieldValues({}); setError(''); };
+  const reset = () => {
+    const sid = defaultService ? String(defaultService.id) : '';
+    setDone(null);
+    setServiceId(sid);
+    setError('');
+    loadFields(sid);
+  };
 
   if (done) return (
     <Modal title="Талон выдан" onClose={onClose}>
