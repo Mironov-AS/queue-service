@@ -118,12 +118,22 @@ function QueueTab() {
 
   const callNext = async () => {
     setLoading(true);
-    const r = await apiFetch('/api/queue/next', { method: 'POST' });
-    if (r && !r.ok) {
-      const d = await r.json().catch(() => ({}));
-      alert(d.error || 'Ошибка вызова талона');
+    try {
+      const r = await apiFetch('/api/queue/next', { method: 'POST' });
+      if (!r) return;
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert(d.error || 'Ошибка вызова талона');
+      } else {
+        const d = await r.json().catch(() => null);
+        if (d) setQueue(d);
+      }
+    } catch (err) {
+      console.error('callNext error:', err);
+      alert('Ошибка соединения с сервером');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const callSpecific = async (ticket) => {
@@ -131,21 +141,44 @@ function QueueTab() {
       setCallConfirm(ticket);
     } else {
       setLoading(true);
-      const r = await apiFetch(`/api/queue/call/${ticket.id}`, { method: 'POST' });
-      if (r && !r.ok) {
-        const d = await r.json().catch(() => ({}));
-        alert(d.error || 'Ошибка вызова талона');
+      try {
+        const r = await apiFetch(`/api/queue/call/${ticket.id}`, { method: 'POST' });
+        if (!r) return;
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          alert(d.error || 'Ошибка вызова талона');
+        } else {
+          const d = await r.json().catch(() => null);
+          if (d) setQueue(d);
+        }
+      } catch (err) {
+        console.error('callSpecific error:', err);
+        alert('Ошибка соединения с сервером');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
   };
 
   const doCallSpecific = async () => {
     if (!callConfirm) return;
     setLoading(true);
-    await apiFetch(`/api/queue/call/${callConfirm.id}`, { method: 'POST' });
-    setCallConfirm(null);
-    setLoading(false);
+    try {
+      const r = await apiFetch(`/api/queue/call/${callConfirm.id}`, { method: 'POST' });
+      if (r && r.ok) {
+        const d = await r.json().catch(() => null);
+        if (d) setQueue(d);
+      } else if (r && !r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert(d.error || 'Ошибка вызова талона');
+      }
+    } catch (err) {
+      console.error('doCallSpecific error:', err);
+      alert('Ошибка соединения с сервером');
+    } finally {
+      setCallConfirm(null);
+      setLoading(false);
+    }
   };
 
   const hasNext = queue.waiting.length > 0;
