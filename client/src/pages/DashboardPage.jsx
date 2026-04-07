@@ -129,12 +129,8 @@ export default function DashboardPage() {
         )}
       </div>
       {/* Logo — fixed bottom-right */}
-      <div className="fixed bottom-6 right-6 pointer-events-none" style={{ height: '138px', position: 'fixed' }}>
-        <img src="/logo.webp" alt="Логотип" style={{ height: '138px', width: 'auto', display: 'block', opacity: 0.95 }} />
-        {/* Edge fade overlays matching dashboard bg (#030712) */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #030712 0%, transparent 18%, transparent 85%, #030712 100%)' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, #030712 0%, transparent 15%, transparent 78%, #030712 100%)' }} />
-      </div>
+      <img src="/logo.png" alt="Логотип"
+        className="fixed bottom-6 right-6 h-[138px] w-auto object-contain pointer-events-none opacity-90" />
     </div>
   );
 }
