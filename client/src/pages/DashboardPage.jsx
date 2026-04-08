@@ -36,10 +36,13 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-100 to-blue-100 flex flex-col p-6 gap-6 select-none">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="relative flex items-center justify-between">
         <h1 className="text-slate-600 text-2xl font-bold tracking-widest uppercase">
           Электронная очередь
         </h1>
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <img src="/logo.png" alt="Логотип" className="h-[80px] w-auto object-contain" />
+        </div>
         <div className="text-slate-400 text-sm tabular-nums">
           <Clock />
         </div>
@@ -128,9 +131,11 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      {/* Logo — fixed bottom-right */}
-      <img src="/logo.png" alt="Логотип"
-        className="fixed bottom-6 right-6 h-[138px] w-auto object-contain pointer-events-none opacity-90" />
+      {/* Slogan — fixed bottom-right */}
+      <div className="fixed bottom-6 right-6 text-right pointer-events-none">
+        <p className="text-slate-500 text-sm font-semibold leading-snug">Автоматизация бизнес процессов</p>
+        <p className="text-blue-600 text-base font-bold">+7-916-158-68-26</p>
+      </div>
     </div>
   );
 }
