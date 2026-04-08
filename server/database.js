@@ -79,24 +79,53 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_action_logs_created ON action_logs(created_at DESC);
 `);
 
-// ─── Migrations (safe) ────────────────────────────────────────────────────────
+// ─── Versioned Migrations ─────────────────────────────────────────────────────
+// Each migration runs exactly once, tracked in schema_migrations table.
+// Safe to run on every startup — already-applied migrations are skipped.
 
-function addCol(table, col, def) {
-  try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); } catch (_) {}
-}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS schema_migrations (
+    version    INTEGER PRIMARY KEY,
+    name       TEXT    NOT NULL,
+    applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
-addCol('services', 'description', 'TEXT');
-addCol('services', 'priority', 'INTEGER DEFAULT 0');
-addCol('services', 'daily_limit', 'INTEGER');
-addCol('services', 'enabled', 'INTEGER DEFAULT 1');
-addCol('tickets', 'is_priority', 'INTEGER DEFAULT 0');
-addCol('tickets', 'name', 'TEXT');
-addCol('tickets', 'phone', 'TEXT');
-addCol('tickets', 'skip_reason', 'TEXT');
-addCol('tickets', 'cancel_reason', 'TEXT');
-addCol('tickets', 'field_values', 'TEXT');
-addCol('services', 'is_default', 'INTEGER DEFAULT 0');
-addCol('users', 'must_change_password', 'INTEGER DEFAULT 0');
+const MIGRATIONS = [
+  { version: 1,  name: 'add_services_description',       sql: `ALTER TABLE services ADD COLUMN description TEXT` },
+  { version: 2,  name: 'add_services_priority',          sql: `ALTER TABLE services ADD COLUMN priority INTEGER DEFAULT 0` },
+  { version: 3,  name: 'add_services_daily_limit',       sql: `ALTER TABLE services ADD COLUMN daily_limit INTEGER` },
+  { version: 4,  name: 'add_services_enabled',           sql: `ALTER TABLE services ADD COLUMN enabled INTEGER DEFAULT 1` },
+  { version: 5,  name: 'add_tickets_is_priority',        sql: `ALTER TABLE tickets ADD COLUMN is_priority INTEGER DEFAULT 0` },
+  { version: 6,  name: 'add_tickets_name',               sql: `ALTER TABLE tickets ADD COLUMN name TEXT` },
+  { version: 7,  name: 'add_tickets_phone',              sql: `ALTER TABLE tickets ADD COLUMN phone TEXT` },
+  { version: 8,  name: 'add_tickets_skip_reason',        sql: `ALTER TABLE tickets ADD COLUMN skip_reason TEXT` },
+  { version: 9,  name: 'add_tickets_cancel_reason',      sql: `ALTER TABLE tickets ADD COLUMN cancel_reason TEXT` },
+  { version: 10, name: 'add_tickets_field_values',       sql: `ALTER TABLE tickets ADD COLUMN field_values TEXT` },
+  { version: 11, name: 'add_services_is_default',        sql: `ALTER TABLE services ADD COLUMN is_default INTEGER DEFAULT 0` },
+  { version: 12, name: 'add_users_must_change_password', sql: `ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0` },
+  // ── Add new migrations here, incrementing version ──
+];
+
+const runMigrations = db.transaction(() => {
+  for (const m of MIGRATIONS) {
+    const already = db.prepare('SELECT version FROM schema_migrations WHERE version = ?').get(m.version);
+    if (already) continue;
+    try {
+      db.exec(m.sql);
+    } catch (err) {
+      // Column already exists in base schema (CREATE TABLE) — safe to skip
+      if (!err.message.includes('duplicate column name')) throw err;
+    }
+    db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)').run(m.version, m.name);
+    console.log(`[db] migration v${m.version} applied: ${m.name}`);
+  }
+});
+
+runMigrations();
+
+const dbVersion = db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get();
+console.log(`[db] schema version: ${dbVersion.v ?? 0}`);
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
