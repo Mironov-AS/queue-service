@@ -130,7 +130,7 @@ export default function DashboardPage() {
       </div>
       {/* Logo + Slogan — fixed bottom-right */}
       <div className="fixed bottom-6 right-6 text-right pointer-events-none flex flex-col items-end gap-1">
-        <img src="/logo.png" alt="Логотип" className="h-[60px] w-auto object-contain" />
+        <img src="/logo.png" alt="Логотип" className="h-[120px] w-auto object-contain" />
         <p className="text-slate-500 text-sm font-semibold leading-snug">Автоматизация бизнес процессов</p>
         <p className="text-blue-600 text-base font-bold">+7-916-158-68-26</p>
       </div>
