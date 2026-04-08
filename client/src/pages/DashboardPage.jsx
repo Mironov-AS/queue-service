@@ -130,7 +130,7 @@ export default function DashboardPage() {
       </div>
       {/* Slogan + Phone — fixed bottom-left */}
       <div className="fixed bottom-6 left-6 text-left pointer-events-none flex flex-col items-start gap-1">
-        <p className="text-slate-500 text-sm font-semibold leading-snug">Автоматизация бизнес процессов</p>
+        <p className="text-slate-500 text-sm font-semibold leading-snug">Меньше суеты — больше дела.</p>
         <p className="text-blue-600 text-base font-bold">+7-916-158-68-26</p>
       </div>
       {/* Logo — fixed bottom-right */}
