@@ -135,7 +135,7 @@ export default function DashboardPage() {
       </div>
       {/* Logo — fixed bottom-right */}
       <div className="fixed bottom-6 right-6 pointer-events-none">
-        <img src="/logo.png" alt="Логотип" className="h-[120px] w-auto object-contain" />
+        <img src="/logo.png" alt="Логотип" className="h-[156px] w-auto object-contain" />
       </div>
     </div>
   );
