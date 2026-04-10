@@ -670,21 +670,6 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
   return (
     <Modal title={`Редактировать талон №${ticket.number}`} onClose={onClose}>
       <div className="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-gray-500 font-medium mb-1 block">Имя</label>
-            <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Имя посетителя"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 font-medium mb-1 block">Телефон</label>
-            <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-              placeholder="+7..."
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-          </div>
-        </div>
-
         <div>
           <label className="text-xs text-gray-500 font-medium mb-1 block">Услуга</label>
           <select value={form.service_id} onChange={e => setForm(f => ({ ...f, service_id: e.target.value }))}
@@ -719,12 +704,6 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
         )}
-
-        <label className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 text-sm">
-          <input type="checkbox" checked={form.is_priority} onChange={e => setForm(f => ({ ...f, is_priority: e.target.checked }))}
-            className="rounded" />
-          Приоритетный талон
-        </label>
 
         {serviceFields.length > 0 && (
           <div className="border-t border-gray-100 pt-3 space-y-3">
