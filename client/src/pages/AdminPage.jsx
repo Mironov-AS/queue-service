@@ -624,32 +624,55 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
   });
   const [serviceFields, setServiceFields] = useState([]);
   const [fieldValues, setFieldValues] = useState({});
+  const [orphanedFields, setOrphanedFields] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!form.service_id) { setServiceFields([]); return; }
+    const storedFv = Array.isArray(ticket.field_values) ? ticket.field_values : [];
+
+    if (!form.service_id) {
+      setServiceFields([]);
+      // No service selected — show all stored values as-is
+      const init = {};
+      storedFv.forEach(fv => { init[`o_${fv.field_id}`] = fv.value || ''; });
+      setFieldValues(init);
+      setOrphanedFields(storedFv.filter(fv => fv.value));
+      return;
+    }
+
     fetch(`/api/services/${form.service_id}/fields`)
       .then(r => r.json())
       .then(fields => {
         setServiceFields(fields);
+        const templateIds = new Set(fields.map(f => f.id));
         const init = {};
+        // Pre-fill template fields from stored values (fix type with Number())
         fields.forEach(f => {
-          const existing = Array.isArray(ticket.field_values)
-            ? ticket.field_values.find(fv => fv.field_id === f.id)
-            : null;
+          const existing = storedFv.find(fv => Number(fv.field_id) === f.id);
           init[f.id] = existing ? existing.value : '';
         });
+        // Collect fields filled by client that are no longer in the template
+        const orphaned = storedFv.filter(fv => fv.value && !templateIds.has(Number(fv.field_id)));
+        orphaned.forEach(fv => { init[`o_${fv.field_id}`] = fv.value || ''; });
         setFieldValues(init);
+        setOrphanedFields(orphaned);
       });
-  }, [form.service_id]);
+  }, [form.service_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async () => {
     setError('');
     setSaving(true);
-    const fvArray = serviceFields
+
+    // Template fields
+    const templateFv = serviceFields
       .map(f => ({ field_id: f.id, label: f.label, value: fieldValues[f.id] || '' }))
       .filter(fv => fv.value.trim() !== '');
+
+    // Orphaned fields (client-filled, template removed)
+    const orphanFv = orphanedFields
+      .map(fv => ({ field_id: fv.field_id, label: fv.label, value: fieldValues[`o_${fv.field_id}`] ?? fv.value }))
+      .filter(fv => fv.value?.trim() !== '');
 
     const body = {
       name: form.name || null,
@@ -659,7 +682,7 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
       status: form.status,
       skip_reason: form.status === 'skipped' ? form.skip_reason || null : null,
       cancel_reason: form.status === 'cancelled' ? form.cancel_reason || null : null,
-      field_values: fvArray,
+      field_values: [...templateFv, ...orphanFv],
     };
 
     const r = await apiFetch(`/api/tickets/${ticket.id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -670,6 +693,8 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
     onSaved?.();
     onClose();
   };
+
+  const hasFields = serviceFields.length > 0 || orphanedFields.length > 0;
 
   return (
     <Modal title={`Редактировать талон №${ticket.number}`} onClose={onClose}>
@@ -709,9 +734,10 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
           </div>
         )}
 
-        {serviceFields.length > 0 && (
+        {hasFields && (
           <div className="border-t border-gray-100 pt-3 space-y-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Поля формы</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Поля услуги</p>
+
             {serviceFields.map(f => (
               <div key={f.id}>
                 <label className="text-xs text-gray-600 font-medium mb-1 block">
@@ -721,6 +747,18 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
                   type={FIELD_INPUT_TYPES_ADMIN[f.field_type] || 'text'}
                   value={fieldValues[f.id] || ''}
                   onChange={e => setFieldValues(v => ({ ...v, [f.id]: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            ))}
+
+            {orphanedFields.map(fv => (
+              <div key={`o_${fv.field_id}`}>
+                <label className="text-xs text-gray-600 font-medium mb-1 block">{fv.label}</label>
+                <input
+                  type="text"
+                  value={fieldValues[`o_${fv.field_id}`] ?? fv.value}
+                  onChange={e => setFieldValues(v => ({ ...v, [`o_${fv.field_id}`]: e.target.value }))}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
