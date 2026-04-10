@@ -259,17 +259,11 @@ function TicketStatus({ ticketId }) {
     </div>
   );
 
-  if (cancelDone || ticket.status === 'cancelled') return (
+  if (cancelDone) return (
     <div className="min-h-screen bg-gradient-to-br from-gray-500 to-gray-700 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center space-y-5">
         <div className="text-5xl">✖️</div>
         <p className="text-white text-xl font-semibold">Талон отменён</p>
-        {!cancelDone && ticket.cancel_reason && (
-          <div className="bg-white/15 backdrop-blur rounded-2xl px-5 py-4">
-            <p className="text-gray-200 text-xs uppercase tracking-wider mb-1">Причина</p>
-            <p className="text-white font-medium">{ticket.cancel_reason}</p>
-          </div>
-        )}
         <button onClick={() => navigate('/visitor', { replace: true })}
           className="bg-white text-gray-800 font-semibold px-8 py-3 rounded-2xl shadow">
           Получить новый талон
@@ -286,20 +280,6 @@ function TicketStatus({ ticketId }) {
         <p className="text-blue-100 text-base">Благодарим вас за обращение.<br />Будем рады видеть вас снова!</p>
         <button onClick={() => navigate('/visitor', { replace: true })}
           className="bg-white text-blue-700 font-semibold px-8 py-3 rounded-2xl shadow">
-          Получить новый талон
-        </button>
-      </div>
-    </div>
-  );
-
-  if (ticket.status === 'skipped') return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-500 to-orange-600 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-sm text-center space-y-5">
-        <div className="text-5xl">⏭️</div>
-        <p className="text-white text-xl font-semibold">Ваш номер был пропущен</p>
-        <p className="text-orange-100 text-sm">Обратитесь к сотруднику или получите новый талон</p>
-        <button onClick={() => navigate('/visitor', { replace: true })}
-          className="bg-white text-gray-800 font-semibold px-8 py-3 rounded-2xl shadow">
           Получить новый талон
         </button>
       </div>

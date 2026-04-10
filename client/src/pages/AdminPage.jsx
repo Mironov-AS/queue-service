@@ -51,13 +51,11 @@ function fmtTime(dt) {
   return new Date(dt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
-const STATUS_LABELS = { waiting: 'Ожидает', called: 'Вызван', served: 'Обслужен', skipped: 'Пропущен', cancelled: 'Отменён' };
+const STATUS_LABELS = { waiting: 'Ожидает', called: 'Вызван', served: 'Обслужен' };
 const STATUS_COLORS = {
   waiting: 'bg-blue-100 text-blue-800',
   called: 'bg-green-100 text-green-800',
   served: 'bg-gray-100 text-gray-600',
-  skipped: 'bg-amber-100 text-amber-800',
-  cancelled: 'bg-red-100 text-red-700',
 };
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
@@ -619,8 +617,6 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
     service_id: ticket.service_id ? String(ticket.service_id) : '',
     is_priority: !!ticket.is_priority,
     status: ticket.status || 'waiting',
-    skip_reason: ticket.skip_reason || '',
-    cancel_reason: ticket.cancel_reason || '',
   });
   const [serviceFields, setServiceFields] = useState([]);
   const [fieldValues, setFieldValues] = useState({});
@@ -680,8 +676,6 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
       service_id: form.service_id ? parseInt(form.service_id) : null,
       is_priority: form.is_priority ? 1 : 0,
       status: form.status,
-      skip_reason: form.status === 'skipped' ? form.skip_reason || null : null,
-      cancel_reason: form.status === 'cancelled' ? form.cancel_reason || null : null,
       field_values: [...templateFv, ...orphanFv],
     };
 
@@ -715,24 +709,6 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
             {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
-
-        {form.status === 'skipped' && (
-          <div>
-            <label className="text-xs text-gray-500 font-medium mb-1 block">Причина пропуска</label>
-            <input type="text" value={form.skip_reason} onChange={e => setForm(f => ({ ...f, skip_reason: e.target.value }))}
-              placeholder="Укажите причину"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-          </div>
-        )}
-
-        {form.status === 'cancelled' && (
-          <div>
-            <label className="text-xs text-gray-500 font-medium mb-1 block">Причина отмены</label>
-            <input type="text" value={form.cancel_reason} onChange={e => setForm(f => ({ ...f, cancel_reason: e.target.value }))}
-              placeholder="Укажите причину"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-          </div>
-        )}
 
         {hasFields && (
           <div className="border-t border-gray-100 pt-3 space-y-3">
@@ -1255,22 +1231,20 @@ function StatsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Дата','Всего','Обслужено','Пропущено','Отменено','Ср. ожидание'].map(h => (
+                {['Дата','Всего','Обслужено','Ср. ожидание'].map(h => (
                   <th key={h} className="px-4 py-3 text-gray-500 font-semibold text-left">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {stats.daily.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-gray-400">Нет данных</td></tr>
+                <tr><td colSpan={4} className="text-center py-8 text-gray-400">Нет данных</td></tr>
               )}
               {stats.daily.map(r => (
                 <tr key={r.date} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{fmtDate(r.date)}</td>
                   <td className="px-4 py-3">{r.total}</td>
                   <td className="px-4 py-3 text-green-600 font-medium">{r.served}</td>
-                  <td className="px-4 py-3 text-amber-600">{r.skipped}</td>
-                  <td className="px-4 py-3 text-red-500">{r.cancelled}</td>
                   <td className="px-4 py-3 text-gray-500">{r.avg_wait_minutes ? `${r.avg_wait_minutes} мин` : '—'}</td>
                 </tr>
               ))}
@@ -1416,8 +1390,6 @@ const ACTION_LABELS = {
   'ticket.called': 'Талон вызван',
   'ticket.called.repeat': 'Повтор вызова',
   'ticket.returned': 'Возврат в очередь',
-  'ticket.skipped': 'Талон пропущен',
-  'ticket.cancelled': 'Талон отменён',
   'ticket.transferred': 'Перевод талона',
   'ticket.manual': 'Ручная регистрация',
   'service.created': 'Услуга создана',
@@ -1432,8 +1404,6 @@ const ACTION_LABELS = {
 const ACTION_COLORS = {
   'user.login': 'text-blue-600 bg-blue-50',
   'ticket.called': 'text-green-700 bg-green-50',
-  'ticket.skipped': 'text-amber-700 bg-amber-50',
-  'ticket.cancelled': 'text-red-600 bg-red-50',
   'queue.reset': 'text-red-700 bg-red-50',
   'service.deleted': 'text-red-600 bg-red-50',
 };

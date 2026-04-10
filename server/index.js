@@ -475,8 +475,8 @@ app.delete('/api/tickets/:id', (req, res) => {
     return res.status(400).json({ error: 'Талон уже не активен' });
   }
   db.prepare(
-    "UPDATE tickets SET status = 'cancelled', cancel_reason = ? WHERE id = ?"
-  ).run(reason, id);
+    "UPDATE tickets SET status = 'served', served_at = CURRENT_TIMESTAMP WHERE id = ?"
+  ).run(id);
   emitQueueUpdate();
   res.json({ success: true });
 });
@@ -489,7 +489,7 @@ app.put('/api/tickets/:id', requireAuth, (req, res) => {
   const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
   if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
 
-  const { name, phone, service_id, is_priority, field_values, status, skip_reason, cancel_reason } = req.body;
+  const { name, phone, service_id, is_priority, field_values, status } = req.body;
 
   if (name !== undefined && name !== null && (typeof name !== 'string' || name.length > 100)) {
     return res.status(400).json({ error: 'Некорректное имя' });
@@ -498,7 +498,7 @@ app.put('/api/tickets/:id', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Некорректный телефон' });
   }
 
-  const VALID_STATUSES = ['waiting', 'called', 'served', 'skipped', 'cancelled'];
+  const VALID_STATUSES = ['waiting', 'called', 'served'];
   if (status !== undefined && !VALID_STATUSES.includes(status)) {
     return res.status(400).json({ error: 'Некорректный статус' });
   }
@@ -511,15 +511,12 @@ app.put('/api/tickets/:id', requireAuth, (req, res) => {
     ? (Array.isArray(field_values) && field_values.length ? JSON.stringify(field_values) : null)
     : ticket.field_values;
   const newStatus = status !== undefined ? status : ticket.status;
-  const newSkipReason = skip_reason !== undefined ? sanitizeReason(skip_reason) : ticket.skip_reason;
-  const newCancelReason = cancel_reason !== undefined ? sanitizeReason(cancel_reason) : ticket.cancel_reason;
 
   db.prepare(`
     UPDATE tickets SET
-      name=?, phone=?, service_id=?, is_priority=?, field_values=?,
-      status=?, skip_reason=?, cancel_reason=?
+      name=?, phone=?, service_id=?, is_priority=?, field_values=?, status=?
     WHERE id=?
-  `).run(newName, newPhone, svcId, newIsPriority, newFieldValues, newStatus, newSkipReason, newCancelReason, id);
+  `).run(newName, newPhone, svcId, newIsPriority, newFieldValues, newStatus, id);
 
   const updated = db.prepare(`
     SELECT t.*, s.name AS service_name
@@ -661,8 +658,8 @@ app.post('/api/queue/skip', requireAuth, (req, res) => {
   const d = today();
   const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
   if (current) {
-    db.prepare("UPDATE tickets SET status='skipped', skip_reason=? WHERE id=?").run(reason, current.id);
-    log(req, 'ticket.skipped', `#${current.number}${reason ? ': ' + reason : ''}`);
+    db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE id=?").run(current.id);
+    log(req, 'ticket.served', `#${current.number}`);
   }
   emitQueueUpdate();
   res.json(getQueueState());
@@ -684,8 +681,8 @@ app.post('/api/queue/cancel-current', requireAuth, (req, res) => {
   const d = today();
   const current = db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' LIMIT 1").get(d);
   if (current) {
-    db.prepare("UPDATE tickets SET status='cancelled', cancel_reason=? WHERE id=?").run(reason, current.id);
-    log(req, 'ticket.cancelled', `#${current.number}${reason ? ': ' + reason : ''}`);
+    db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE id=?").run(current.id);
+    log(req, 'ticket.served', `#${current.number}`);
   }
   emitQueueUpdate();
   res.json(getQueueState());
@@ -693,7 +690,7 @@ app.post('/api/queue/cancel-current', requireAuth, (req, res) => {
 
 app.post('/api/queue/reset', requireAuth, (req, res) => {
   const d = today();
-  db.prepare("UPDATE tickets SET status='skipped' WHERE date=? AND status IN ('waiting','called')").run(d);
+  db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE date=? AND status IN ('waiting','called')").run(d);
   const lastTicket = db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=?").get(d);
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('queue_reset_last_id', ?)").run(String(lastTicket?.max_id || 0));
   log(req, 'queue.reset', d);
@@ -705,7 +702,7 @@ app.post('/api/queue/reset', requireAuth, (req, res) => {
 app.get('/api/tickets', requireAuth, (req, res) => {
   const rawDate = req.query.date;
   const d = rawDate && DATE_RE.test(rawDate) ? rawDate : today();
-  const VALID_STATUSES = ['waiting', 'called', 'served', 'skipped', 'cancelled'];
+  const VALID_STATUSES = ['waiting', 'called', 'served'];
   const status = req.query.status && VALID_STATUSES.includes(req.query.status) ? req.query.status : null;
   const service_id = parseId(req.query.service_id) || null;
 
@@ -733,8 +730,6 @@ app.get('/api/stats', requireAuth, (req, res) => {
       COUNT(*) AS total,
       SUM(CASE WHEN t.status='served' THEN 1 ELSE 0 END) AS served,
       SUM(CASE WHEN t.status IN ('waiting','called') THEN 1 ELSE 0 END) AS in_queue,
-      SUM(CASE WHEN t.status='skipped' THEN 1 ELSE 0 END) AS skipped,
-      SUM(CASE WHEN t.status='cancelled' THEN 1 ELSE 0 END) AS cancelled,
       ROUND(AVG(CASE WHEN t.served_at IS NOT NULL
         THEN (julianday(t.served_at)-julianday(t.created_at))*1440 ELSE NULL END),1) AS avg_wait_minutes
     FROM tickets t LEFT JOIN services s ON t.service_id = s.id
@@ -746,8 +741,6 @@ app.get('/api/stats', requireAuth, (req, res) => {
     SELECT date,
       COUNT(*) AS total,
       SUM(CASE WHEN status='served' THEN 1 ELSE 0 END) AS served,
-      SUM(CASE WHEN status='skipped' THEN 1 ELSE 0 END) AS skipped,
-      SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cancelled,
       ROUND(AVG(CASE WHEN served_at IS NOT NULL
         THEN (julianday(served_at)-julianday(created_at))*1440 ELSE NULL END),1) AS avg_wait_minutes
     FROM tickets
@@ -895,7 +888,7 @@ function runAutoReset() {
   const d = today();
   const lastReset = db.prepare("SELECT value FROM settings WHERE key='auto_reset_last_date'").get();
   if (lastReset?.value === d) return; // already reset today
-  db.prepare("UPDATE tickets SET status='skipped' WHERE date=? AND status IN ('waiting','called')").run(d);
+  db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE date=? AND status IN ('waiting','called')").run(d);
   const lastTicket = db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=?").get(d);
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('queue_reset_last_id', ?)").run(String(lastTicket?.max_id || 0));
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_reset_last_date', ?)").run(d);
