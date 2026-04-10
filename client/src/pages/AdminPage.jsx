@@ -97,6 +97,7 @@ function QueueTab() {
   const [filterService, setFilterService] = useState('');
   const [allTickets, setAllTickets] = useState([]);
   const [showAll, setShowAll] = useState(false);
+  const [editTicket, setEditTicket] = useState(null);
 
   useEffect(() => {
     apiFetch('/api/queue/full').then(r => r?.json()).then(d => d && setQueue(d));
@@ -342,6 +343,7 @@ function QueueTab() {
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Статус</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Получен</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Вызван</th>
+                    <th className="px-3 py-2 w-12"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -373,6 +375,12 @@ function QueueTab() {
                       </td>
                       <td className="px-3 py-2 text-gray-400 tabular-nums">{fmtTime(t.created_at)}</td>
                       <td className="px-3 py-2 text-gray-400 tabular-nums">{fmtTime(t.called_at)}</td>
+                      <td className="px-3 py-2">
+                        <button onClick={() => setEditTicket(t)} title="Редактировать"
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                          <Icon d={P.edit} cls="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -386,6 +394,15 @@ function QueueTab() {
       {manualModal && (
         <ManualRegModal services={services} onClose={() => setManualModal(false)}
           onCreated={() => apiFetch('/api/queue').then(r => r?.json()).then(d => d && setQueue(d))} />
+      )}
+
+      {editTicket && (
+        <EditTicketModal
+          ticket={editTicket}
+          services={services}
+          onClose={() => setEditTicket(null)}
+          onSaved={() => { loadAllTickets(); apiFetch('/api/queue/full').then(r => r?.json()).then(d => d && setQueue(d)); }}
+        />
       )}
 
       {callConfirm && (
@@ -577,6 +594,160 @@ function ManualRegModal({ services, onClose, onCreated }) {
             Зарегистрировать
           </button>
           <button onClick={onClose} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-gray-600 hover:bg-gray-50">
+            Отмена
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Edit Ticket Modal ────────────────────────────────────────────────────────
+
+function EditTicketModal({ ticket, services, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: ticket.name || '',
+    phone: ticket.phone || '',
+    service_id: ticket.service_id ? String(ticket.service_id) : '',
+    is_priority: !!ticket.is_priority,
+    status: ticket.status || 'waiting',
+    skip_reason: ticket.skip_reason || '',
+    cancel_reason: ticket.cancel_reason || '',
+  });
+  const [serviceFields, setServiceFields] = useState([]);
+  const [fieldValues, setFieldValues] = useState({});
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!form.service_id) { setServiceFields([]); return; }
+    fetch(`/api/services/${form.service_id}/fields`)
+      .then(r => r.json())
+      .then(fields => {
+        setServiceFields(fields);
+        const init = {};
+        fields.forEach(f => {
+          const existing = Array.isArray(ticket.field_values)
+            ? ticket.field_values.find(fv => fv.field_id === f.id)
+            : null;
+          init[f.id] = existing ? existing.value : '';
+        });
+        setFieldValues(init);
+      });
+  }, [form.service_id]);
+
+  const submit = async () => {
+    setError('');
+    setSaving(true);
+    const fvArray = serviceFields
+      .map(f => ({ field_id: f.id, label: f.label, value: fieldValues[f.id] || '' }))
+      .filter(fv => fv.value.trim() !== '');
+
+    const body = {
+      name: form.name || null,
+      phone: form.phone || null,
+      service_id: form.service_id ? parseInt(form.service_id) : null,
+      is_priority: form.is_priority ? 1 : 0,
+      status: form.status,
+      skip_reason: form.status === 'skipped' ? form.skip_reason || null : null,
+      cancel_reason: form.status === 'cancelled' ? form.cancel_reason || null : null,
+      field_values: fvArray,
+    };
+
+    const r = await apiFetch(`/api/tickets/${ticket.id}`, { method: 'PUT', body: JSON.stringify(body) });
+    setSaving(false);
+    if (!r) return;
+    const data = await r.json();
+    if (!r.ok) { setError(data.error || 'Ошибка сохранения'); return; }
+    onSaved?.();
+    onClose();
+  };
+
+  return (
+    <Modal title={`Редактировать талон №${ticket.number}`} onClose={onClose}>
+      <div className="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-500 font-medium mb-1 block">Имя</label>
+            <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="Имя посетителя"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 font-medium mb-1 block">Телефон</label>
+            <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+              placeholder="+7..."
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-gray-500 font-medium mb-1 block">Услуга</label>
+          <select value={form.service_id} onChange={e => setForm(f => ({ ...f, service_id: e.target.value }))}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">Без услуги</option>
+            {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs text-gray-500 font-medium mb-1 block">Статус</label>
+          <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+
+        {form.status === 'skipped' && (
+          <div>
+            <label className="text-xs text-gray-500 font-medium mb-1 block">Причина пропуска</label>
+            <input type="text" value={form.skip_reason} onChange={e => setForm(f => ({ ...f, skip_reason: e.target.value }))}
+              placeholder="Укажите причину"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          </div>
+        )}
+
+        {form.status === 'cancelled' && (
+          <div>
+            <label className="text-xs text-gray-500 font-medium mb-1 block">Причина отмены</label>
+            <input type="text" value={form.cancel_reason} onChange={e => setForm(f => ({ ...f, cancel_reason: e.target.value }))}
+              placeholder="Укажите причину"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          </div>
+        )}
+
+        <label className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 text-sm">
+          <input type="checkbox" checked={form.is_priority} onChange={e => setForm(f => ({ ...f, is_priority: e.target.checked }))}
+            className="rounded" />
+          Приоритетный талон
+        </label>
+
+        {serviceFields.length > 0 && (
+          <div className="border-t border-gray-100 pt-3 space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Поля формы</p>
+            {serviceFields.map(f => (
+              <div key={f.id}>
+                <label className="text-xs text-gray-600 font-medium mb-1 block">
+                  {f.label}{f.required && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                <input
+                  type={FIELD_INPUT_TYPES_ADMIN[f.field_type] || 'text'}
+                  value={fieldValues[f.id] || ''}
+                  onChange={e => setFieldValues(v => ({ ...v, [f.id]: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+        <div className="flex gap-2 pt-1">
+          <button onClick={submit} disabled={saving}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl text-sm">
+            {saving ? 'Сохранение...' : 'Сохранить'}
+          </button>
+          <button onClick={onClose} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-gray-600 hover:bg-gray-50 text-sm">
             Отмена
           </button>
         </div>

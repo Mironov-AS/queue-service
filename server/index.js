@@ -481,6 +481,57 @@ app.delete('/api/tickets/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// Edit ticket (admin only)
+app.put('/api/tickets/:id', requireAuth, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
+
+  const { name, phone, service_id, is_priority, field_values, status, skip_reason, cancel_reason } = req.body;
+
+  if (name !== undefined && name !== null && (typeof name !== 'string' || name.length > 100)) {
+    return res.status(400).json({ error: 'Некорректное имя' });
+  }
+  if (phone !== undefined && phone !== null && (typeof phone !== 'string' || phone.length > 30)) {
+    return res.status(400).json({ error: 'Некорректный телефон' });
+  }
+
+  const VALID_STATUSES = ['waiting', 'called', 'served', 'skipped', 'cancelled'];
+  if (status !== undefined && !VALID_STATUSES.includes(status)) {
+    return res.status(400).json({ error: 'Некорректный статус' });
+  }
+
+  const svcId = service_id !== undefined ? (parseId(service_id) || null) : ticket.service_id;
+  const newName = name !== undefined ? (typeof name === 'string' ? name.trim() || null : null) : ticket.name;
+  const newPhone = phone !== undefined ? (typeof phone === 'string' ? phone.trim() || null : null) : ticket.phone;
+  const newIsPriority = is_priority !== undefined ? (is_priority ? 1 : 0) : ticket.is_priority;
+  const newFieldValues = field_values !== undefined
+    ? (Array.isArray(field_values) && field_values.length ? JSON.stringify(field_values) : null)
+    : ticket.field_values;
+  const newStatus = status !== undefined ? status : ticket.status;
+  const newSkipReason = skip_reason !== undefined ? sanitizeReason(skip_reason) : ticket.skip_reason;
+  const newCancelReason = cancel_reason !== undefined ? sanitizeReason(cancel_reason) : ticket.cancel_reason;
+
+  db.prepare(`
+    UPDATE tickets SET
+      name=?, phone=?, service_id=?, is_priority=?, field_values=?,
+      status=?, skip_reason=?, cancel_reason=?
+    WHERE id=?
+  `).run(newName, newPhone, svcId, newIsPriority, newFieldValues, newStatus, newSkipReason, newCancelReason, id);
+
+  const updated = db.prepare(`
+    SELECT t.*, s.name AS service_name
+    FROM tickets t LEFT JOIN services s ON t.service_id = s.id
+    WHERE t.id = ?
+  `).get(id);
+
+  log(req, 'ticket.edited', `#${ticket.number}`);
+  emitQueueUpdate();
+  res.json({ ...updated, field_values: updated.field_values ? JSON.parse(updated.field_values) : [] });
+});
+
 app.put('/api/tickets/:id/transfer', requireAuth, (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Некорректный id' });
