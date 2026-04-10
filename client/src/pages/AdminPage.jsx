@@ -298,6 +298,10 @@ function QueueTab() {
                           <Icon d={P.clock} cls="w-3.5 h-3.5" />~{(i + 1) * t.avg_duration_minutes} мин
                         </span>
                       )}
+                      <button onClick={() => setEditTicket(t)} title="Редактировать талон"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition">
+                        <Icon d={P.edit} cls="w-4 h-4" />
+                      </button>
                       <button onClick={() => callSpecific(t)} disabled={loading}
                         className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg disabled:opacity-40 transition" title="Вызвать этого клиента">
                         <Icon d={P.next} cls="w-3.5 h-3.5" /> Вызвать
