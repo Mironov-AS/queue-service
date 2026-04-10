@@ -104,6 +104,7 @@ const MIGRATIONS = [
   { version: 10, name: 'add_tickets_field_values',       sql: `ALTER TABLE tickets ADD COLUMN field_values TEXT` },
   { version: 11, name: 'add_services_is_default',        sql: `ALTER TABLE services ADD COLUMN is_default INTEGER DEFAULT 0` },
   { version: 12, name: 'add_users_must_change_password', sql: `ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0` },
+  { version: 13, name: 'seed_remont_gbo_service',        sql: `INSERT INTO services (name, description, avg_duration_minutes, priority) SELECT 'Ремонт ГБО', 'Ремонт и обслуживание газобаллонного оборудования', 30, 0 WHERE NOT EXISTS (SELECT 1 FROM services WHERE name = 'Ремонт ГБО')` },
   // ── Add new migrations here, incrementing version ──
 ];
 
@@ -147,6 +148,7 @@ if (svcCount.c === 0) {
   ins.run('Консультация', 'Общая консультация специалиста', 10, 0);
   ins.run('Оформление документов', 'Приём и оформление документов', 15, 0);
   ins.run('Оплата услуг', 'Оплата и кассовые операции', 5, 0);
+  ins.run('Ремонт ГБО', 'Ремонт и обслуживание газобаллонного оборудования', 30, 0);
 }
 
 // Default JWT secret
