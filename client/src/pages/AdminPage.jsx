@@ -229,6 +229,10 @@ function QueueTab() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              <button onClick={() => setEditTicket(queue.current)} disabled={loading}
+                className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                <Icon d={P.edit} cls="w-4 h-4" /> Редактировать
+              </button>
               <button onClick={returnToQueue} disabled={loading}
                 className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                 <Icon d={P.returnQueue} cls="w-4 h-4" /> Вернуть в очередь
