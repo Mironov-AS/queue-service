@@ -1512,8 +1512,6 @@ export default function AdminPage() {
     };
   }, [navigate]);
 
-  const [mustChangePwd, setMustChangePwd] = useState(localStorage.getItem('mustChangePassword') === 'true');
-
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
@@ -1530,18 +1528,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {mustChangePwd && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm space-y-5">
-            <div className="text-center">
-              <div className="text-4xl mb-3">🔐</div>
-              <h2 className="text-xl font-bold text-gray-900">Смените пароль</h2>
-              <p className="text-sm text-gray-500 mt-1">Используется пароль по умолчанию. Задайте новый пароль перед началом работы.</p>
-            </div>
-            <ForcePasswordChange onDone={() => setMustChangePwd(false)} />
-          </div>
-        </div>
-      )}
       <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>

@@ -130,16 +130,14 @@ console.log(`[db] schema version: ${dbVersion.v ?? 0}`);
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
 // Default admin user
-const adminExists = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
+const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
 if (!adminExists) {
-  const hash = bcrypt.hashSync('admin', 10);
-  db.prepare("INSERT INTO users (username, password_hash, role, must_change_password) VALUES ('admin', ?, 'admin', 1)").run(hash);
-} else if (adminExists) {
-  // Flag existing admin if still using default password
-  const adminUser = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
-  if (bcrypt.compareSync('admin', adminUser.password_hash)) {
-    db.prepare("UPDATE users SET must_change_password = 1 WHERE id = ?").run(adminUser.id);
-  }
+  const hash = bcrypt.hashSync('admin123456', 10);
+  db.prepare("INSERT INTO users (username, password_hash, role, must_change_password) VALUES ('admin', ?, 'admin', 0)").run(hash);
+} else if (adminExists.must_change_password) {
+  // Admin never changed the default password — reset to new default and clear the flag
+  const hash = bcrypt.hashSync('admin123456', 10);
+  db.prepare("UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?").run(hash, adminExists.id);
 }
 
 // Default services

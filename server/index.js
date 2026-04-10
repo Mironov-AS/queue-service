@@ -146,10 +146,6 @@ function requireAuth(req, res, next) {
   if (!token) return res.status(401).json({ error: 'Не авторизован' });
   try {
     req.user = jwt.verify(token, getJwtSecret());
-    // Block all admin actions until password is changed (except the password endpoint itself)
-    if (req.user.must_change_password && !req.path.endsWith('/password')) {
-      return res.status(403).json({ error: 'Требуется смена пароля', must_change_password: true });
-    }
     next();
   } catch {
     res.status(401).json({ error: 'Недействительный токен' });
@@ -167,14 +163,13 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Неверный логин или пароль' });
   }
-  const mustChangePwd = !!user.must_change_password;
   const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role, must_change_password: mustChangePwd },
+    { id: user.id, username: user.username, role: user.role },
     getJwtSecret(),
     { expiresIn: '24h' }
   );
   db.prepare('INSERT INTO action_logs (user_id, username, action) VALUES (?,?,?)').run(user.id, user.username, 'user.login');
-  res.json({ token, user: { id: user.id, username: user.username, role: user.role }, must_change_password: mustChangePwd });
+  res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {

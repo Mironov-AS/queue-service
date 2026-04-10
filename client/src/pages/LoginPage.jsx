@@ -21,11 +21,7 @@ export default function LoginPage() {
       if (!res.ok) { setError(data.error || 'Ошибка входа'); return; }
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminUser', JSON.stringify(data.user));
-      if (data.must_change_password) {
-        localStorage.setItem('mustChangePassword', 'true');
-      } else {
-        localStorage.removeItem('mustChangePassword');
-      }
+      localStorage.removeItem('mustChangePassword');
       // Reconnect socket with new auth token so admin gets full queue state
       import('../socket').then(({ default: socket }) => socket.disconnect().connect());
       navigate('/admin', { replace: true });
