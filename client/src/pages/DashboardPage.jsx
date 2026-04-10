@@ -128,10 +128,10 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      {/* Slogan + Phone — fixed bottom-left */}
-      <div className="fixed bottom-6 left-6 text-left pointer-events-none flex flex-col items-start gap-1">
-        <p className="text-slate-500 text-sm font-semibold leading-snug">Меньше суеты — больше дела.</p>
-        <p className="text-blue-600 text-base font-bold">+7 (916) 158 68 26</p>
+      {/* Slogan + Phone — fixed bottom-center */}
+      <div className="fixed bottom-6 left-0 right-0 flex flex-col items-center gap-1 pointer-events-none">
+        <p className="text-slate-500 text-2xl font-semibold leading-snug">Меньше суеты — больше дела.</p>
+        <p className="text-blue-600 text-3xl font-bold">+7 (916) 158 68 26</p>
       </div>
       {/* Logo — fixed bottom-right */}
       <div className="fixed bottom-6 right-6 pointer-events-none">
