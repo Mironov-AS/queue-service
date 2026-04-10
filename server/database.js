@@ -105,6 +105,7 @@ const MIGRATIONS = [
   { version: 11, name: 'add_services_is_default',        sql: `ALTER TABLE services ADD COLUMN is_default INTEGER DEFAULT 0` },
   { version: 12, name: 'add_users_must_change_password', sql: `ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0` },
   { version: 13, name: 'seed_remont_gbo_service',        sql: `INSERT INTO services (name, description, avg_duration_minutes, priority) SELECT 'Ремонт ГБО', 'Ремонт и обслуживание газобаллонного оборудования', 30, 0 WHERE NOT EXISTS (SELECT 1 FROM services WHERE name = 'Ремонт ГБО')` },
+  { version: 14, name: 'seed_remont_gbo_nomer_avto',     sql: `INSERT INTO service_fields (service_id, label, field_type, required, order_index) SELECT s.id, 'Номер авто', 'text', 1, 0 FROM services s WHERE s.name = 'Ремонт ГБО' AND NOT EXISTS (SELECT 1 FROM service_fields sf WHERE sf.service_id = s.id AND sf.label = 'Номер авто')` },
   // ── Add new migrations here, incrementing version ──
 ];
 
@@ -148,7 +149,8 @@ if (svcCount.c === 0) {
   ins.run('Консультация', 'Общая консультация специалиста', 10, 0);
   ins.run('Оформление документов', 'Приём и оформление документов', 15, 0);
   ins.run('Оплата услуг', 'Оплата и кассовые операции', 5, 0);
-  ins.run('Ремонт ГБО', 'Ремонт и обслуживание газобаллонного оборудования', 30, 0);
+  const gboInfo = ins.run('Ремонт ГБО', 'Ремонт и обслуживание газобаллонного оборудования', 30, 0);
+  db.prepare('INSERT INTO service_fields (service_id, label, field_type, required, order_index) VALUES (?, ?, ?, ?, ?)').run(gboInfo.lastInsertRowid, 'Номер авто', 'text', 1, 0);
 }
 
 // Default JWT secret
