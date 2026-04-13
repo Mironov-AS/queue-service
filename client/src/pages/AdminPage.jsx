@@ -201,6 +201,27 @@ function QueueTab() {
     }
   };
 
+  const returnTicketById = async (ticket) => {
+    setLoading(true);
+    try {
+      const r = await apiFetch(`/api/queue/return/${ticket.id}`, { method: 'POST' });
+      if (!r) return;
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert(d.error || 'Ошибка');
+      } else {
+        const d = await r.json().catch(() => null);
+        if (d) setQueue({ current: d.current, waiting: d.waiting });
+        loadAllTickets();
+      }
+    } catch (err) {
+      console.error('returnTicketById error:', err);
+      alert('Ошибка соединения с сервером');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const returnAllToQueue = async () => {
     if (!window.confirm('Вернуть все талоны за сегодня в очередь? Все обслуженные и вызванные талоны получат статус "В ожидании".')) return;
     setLoading(true);
@@ -377,7 +398,7 @@ function QueueTab() {
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Статус</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Получен</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Вызван</th>
-                    <th className="px-3 py-2 w-12"></th>
+                    <th className="px-3 py-2 w-24"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -410,10 +431,18 @@ function QueueTab() {
                       <td className="px-3 py-2 text-gray-400 tabular-nums">{fmtTime(t.created_at)}</td>
                       <td className="px-3 py-2 text-gray-400 tabular-nums">{fmtTime(t.called_at)}</td>
                       <td className="px-3 py-2">
-                        <button onClick={() => setEditTicket(t)} title="Редактировать"
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
-                          <Icon d={P.edit} cls="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setEditTicket(t)} title="Редактировать"
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                            <Icon d={P.edit} cls="w-4 h-4" />
+                          </button>
+                          {t.status !== 'waiting' && (
+                            <button onClick={() => returnTicketById(t)} disabled={loading} title="Вернуть в очередь"
+                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition disabled:opacity-40">
+                              <Icon d={P.returnQueue} cls="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

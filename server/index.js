@@ -653,6 +653,19 @@ app.post('/api/queue/return', requireAuth, (req, res) => {
   res.json(getQueueState());
 });
 
+app.post('/api/queue/return/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'Неверный id талона' });
+  const d = today();
+  const ticket = db.prepare("SELECT * FROM tickets WHERE id=? AND date=?").get(id, d);
+  if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
+  if (ticket.status === 'waiting') return res.status(400).json({ error: 'Талон уже в очереди' });
+  db.prepare("UPDATE tickets SET status='waiting', called_at=NULL, served_at=NULL WHERE id=?").run(id);
+  log(req, 'ticket.returned', `#${ticket.number}`);
+  emitQueueUpdate();
+  res.json({ success: true, ...getQueueState() });
+});
+
 app.post('/api/queue/return-all', requireAuth, (req, res) => {
   const d = today();
   const result = db.prepare(
