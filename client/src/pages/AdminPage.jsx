@@ -365,10 +365,6 @@ function QueueTab() {
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Все талоны за сегодня</h3>
           <div className="flex items-center gap-3">
-            <button onClick={returnAllToQueue} disabled={loading}
-              className="flex items-center gap-1.5 text-sm bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-semibold px-3 py-1.5 rounded-lg transition">
-              <Icon d={P.returnQueue} cls="w-3.5 h-3.5" /> Вернуть все в очередь
-            </button>
             <button onClick={() => setShowAll(v => !v)} className="text-sm text-blue-600 hover:underline">
               {showAll ? 'Скрыть' : 'Показать'}
             </button>
