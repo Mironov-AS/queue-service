@@ -201,6 +201,28 @@ function QueueTab() {
     }
   };
 
+  const returnAllToQueue = async () => {
+    if (!window.confirm('Вернуть все талоны за сегодня в очередь? Все обслуженные и вызванные талоны получат статус "В ожидании".')) return;
+    setLoading(true);
+    try {
+      const r = await apiFetch('/api/queue/return-all', { method: 'POST' });
+      if (!r) return;
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert(d.error || 'Ошибка');
+      } else {
+        const d = await r.json().catch(() => null);
+        if (d) setQueue({ current: d.current, waiting: d.waiting });
+        loadAllTickets();
+      }
+    } catch (err) {
+      console.error('returnAllToQueue error:', err);
+      alert('Ошибка соединения с сервером');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const hasNext = queue.waiting.length > 0;
 
   return (
@@ -321,9 +343,15 @@ function QueueTab() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Все талоны за сегодня</h3>
-          <button onClick={() => setShowAll(v => !v)} className="text-sm text-blue-600 hover:underline">
-            {showAll ? 'Скрыть' : 'Показать'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={returnAllToQueue} disabled={loading}
+              className="flex items-center gap-1.5 text-sm bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-semibold px-3 py-1.5 rounded-lg transition">
+              <Icon d={P.returnQueue} cls="w-3.5 h-3.5" /> Вернуть все в очередь
+            </button>
+            <button onClick={() => setShowAll(v => !v)} className="text-sm text-blue-600 hover:underline">
+              {showAll ? 'Скрыть' : 'Показать'}
+            </button>
+          </div>
         </div>
         {showAll && (
           <>

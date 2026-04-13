@@ -653,6 +653,16 @@ app.post('/api/queue/return', requireAuth, (req, res) => {
   res.json(getQueueState());
 });
 
+app.post('/api/queue/return-all', requireAuth, (req, res) => {
+  const d = today();
+  const result = db.prepare(
+    "UPDATE tickets SET status='waiting', called_at=NULL, served_at=NULL WHERE date=? AND status IN ('called','served')"
+  ).run(d);
+  log(req, 'queue.return_all', `${result.changes} талонов возвращено в очередь`);
+  emitQueueUpdate();
+  res.json({ success: true, returned: result.changes, ...getQueueState() });
+});
+
 app.post('/api/queue/skip', requireAuth, (req, res) => {
   const reason = sanitizeReason(req.body?.reason);
   const d = today();
