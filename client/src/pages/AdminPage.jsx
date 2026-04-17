@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import socket from '../socket';
 import { apiFetch, authHeaders } from '../api';
 
@@ -1706,8 +1706,11 @@ function ForcePasswordChange({ onDone }) {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('queue');
-  const [settingsTab, setSettingsTab] = useState('services');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'queue';
+  const SETTINGS_IDS = ['services','stats','qrcode','logs','password'];
+  const [tab, setTab] = useState(SETTINGS_IDS.includes(initialTab) ? 'settings' : initialTab);
+  const [settingsTab, setSettingsTab] = useState(SETTINGS_IDS.includes(initialTab) ? initialTab : 'services');
   const [time, setTime] = useState(new Date());
   const [regOpen, setRegOpen] = useState(true);
   const inactivityTimer = useRef(null);
