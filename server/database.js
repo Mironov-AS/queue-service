@@ -108,6 +108,8 @@ const MIGRATIONS = [
   { version: 14, name: 'seed_remont_gbo_nomer_avto',     sql: `INSERT INTO service_fields (service_id, label, field_type, required, order_index) SELECT s.id, 'Номер авто', 'text', 1, 0 FROM services s WHERE s.name = 'Ремонт ГБО' AND NOT EXISTS (SELECT 1 FROM service_fields sf WHERE sf.service_id = s.id AND sf.label = 'Номер авто')` },
   { version: 15, name: 'create_advertisements',          sql: `CREATE TABLE IF NOT EXISTS advertisements (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, file_key TEXT NOT NULL, file_type TEXT NOT NULL, mime_type TEXT, duration INTEGER DEFAULT 15, order_index INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)` },
   { version: 16, name: 'seed_ad_ticket_display_time',    sql: `INSERT OR IGNORE INTO settings (key, value) VALUES ('ad_ticket_display_time', '10')` },
+  { version: 17, name: 'add_ads_owner_id',               sql: `ALTER TABLE advertisements ADD COLUMN owner_id INTEGER` },
+  { version: 18, name: 'add_ads_owner_username',         sql: `ALTER TABLE advertisements ADD COLUMN owner_username TEXT` },
   // ── Add new migrations here, incrementing version ──
 ];
 

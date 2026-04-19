@@ -926,9 +926,14 @@ app.get('/api/ads', async (req, res) => {
   res.json(await enrichAds(ads));
 });
 
-// GET /api/ads/all — admin, all ads including inactive
+// GET /api/ads/all — admin sees all, others see only own
 app.get('/api/ads/all', requireAuth, async (req, res) => {
-  const ads = db.prepare('SELECT * FROM advertisements ORDER BY order_index ASC, id ASC').all();
+  let ads;
+  if (req.user.role === 'admin') {
+    ads = db.prepare('SELECT * FROM advertisements ORDER BY order_index ASC, id ASC').all();
+  } else {
+    ads = db.prepare('SELECT * FROM advertisements WHERE owner_id = ? ORDER BY order_index ASC, id ASC').all(req.user.id);
+  }
   res.json(await enrichAds(ads));
 });
 
@@ -966,8 +971,8 @@ app.post('/api/ads', requireAuth, (req, res) => {
 
       const maxOrder = db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements').get();
       const r = db.prepare(
-        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index) VALUES (?,?,?,?,?,?)'
-      ).run(name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, maxOrder.m + 1);
+        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username) VALUES (?,?,?,?,?,?,?,?)'
+      ).run(name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, maxOrder.m + 1, req.user.id, req.user.username);
 
       const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(r.lastInsertRowid);
       const url = await getAdUrl(key);
@@ -988,12 +993,22 @@ app.put('/api/ads/:id', requireAuth, (req, res) => {
   const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
   if (!ad) return res.status(404).json({ error: 'Not found' });
 
+  const isAdmin = req.user.role === 'admin';
+  if (!isAdmin && ad.owner_id !== req.user.id) {
+    return res.status(403).json({ error: 'Нет доступа' });
+  }
+
   const { name, duration, active, order_index } = req.body;
+  // Only admin can change order_index; non-admin can change name, duration, active
+  const newOrderIndex = (isAdmin && order_index !== undefined)
+    ? parseInt(order_index, 10)
+    : ad.order_index;
+
   db.prepare('UPDATE advertisements SET name=?, duration=?, active=?, order_index=? WHERE id=?').run(
     name !== undefined ? String(name).trim() || ad.name : ad.name,
     duration !== undefined ? (parseInt(duration, 10) || ad.duration) : ad.duration,
     active !== undefined ? (active ? 1 : 0) : ad.active,
-    order_index !== undefined ? parseInt(order_index, 10) : ad.order_index,
+    newOrderIndex,
     id
   );
   log(req, 'ad.updated', ad.name);
@@ -1007,6 +1022,11 @@ app.delete('/api/ads/:id', requireAuth, async (req, res) => {
   if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
   if (!ad) return res.status(404).json({ error: 'Not found' });
+
+  const isAdmin = req.user.role === 'admin';
+  if (!isAdmin && ad.owner_id !== req.user.id) {
+    return res.status(403).json({ error: 'Нет доступа' });
+  }
 
   if (USE_S3 && ad.file_key) {
     try { await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: ad.file_key })); }
