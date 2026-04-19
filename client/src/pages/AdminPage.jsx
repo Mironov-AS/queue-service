@@ -1864,18 +1864,24 @@ function MyCampaignsTab() {
                     }`}>
                       {isVideo(ad) ? 'Видео' : 'Картинка'}
                     </span>
+                    {ad.status && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${AD_STATUS_COLORS[ad.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {AD_STATUS_LABELS[ad.status] || ad.status}
+                      </span>
+                    )}
                     {!isVideo(ad) && (
                       <span className="text-xs text-gray-400">{ad.duration} сек</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {ad.active ? 'Показывается' : 'Отключено'}
+                    {ad.status === 'pending' ? 'Ожидает одобрения администратора' : ad.active ? 'Показывается' : 'Отключено'}
                   </p>
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  {/* Toggle active */}
+                  {/* Toggle active — only for approved campaigns */}
+                  {ad.status !== 'pending' && (
                   <button
                     onClick={() => handleToggle(ad)}
                     className={`p-1.5 rounded-lg transition ${
@@ -1887,6 +1893,7 @@ function MyCampaignsTab() {
                   >
                     <Icon d={P.eye} cls="w-4 h-4" />
                   </button>
+                  )}
 
                   {/* Edit */}
                   <button
@@ -1985,7 +1992,256 @@ function MyCampaignsTab() {
   );
 }
 
+// ─── Users Tab (admin only) ──────────────────────────────────────────────────
+
+const ROLE_LABELS = { admin: 'Администратор', operator: 'Оператор', advertiser: 'Рекламодатель' };
+const ROLE_COLORS = {
+  admin: 'bg-purple-100 text-purple-700',
+  operator: 'bg-blue-100 text-blue-700',
+  advertiser: 'bg-amber-100 text-amber-700',
+};
+
+function UsersTab() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ username: '', password: '', role: 'advertiser' });
+  const [formErr, setFormErr] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [resetPwModal, setResetPwModal] = useState(null); // { id, username }
+  const [resetPw, setResetPw] = useState('');
+  const [resetPwErr, setResetPwErr] = useState('');
+  const [resetPwOk, setResetPwOk] = useState(false);
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    const r = await apiFetch('/api/users');
+    if (r?.ok) setUsers(await r.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadUsers(); }, [loadUsers]);
+
+  const handleCreate = async () => {
+    setFormErr('');
+    if (!form.username.trim()) { setFormErr('Введите логин'); return; }
+    if (!form.password) { setFormErr('Введите пароль'); return; }
+    setCreating(true);
+    const r = await apiFetch('/api/users', {
+      method: 'POST',
+      body: JSON.stringify({ username: form.username.trim(), password: form.password, role: form.role }),
+    });
+    setCreating(false);
+    if (!r) return;
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setFormErr(d.error || 'Ошибка создания');
+      return;
+    }
+    setForm({ username: '', password: '', role: 'advertiser' });
+    loadUsers();
+  };
+
+  const handleDelete = async (id) => {
+    await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+    setDeleteConfirm(null);
+    loadUsers();
+  };
+
+  const handleResetPw = async () => {
+    setResetPwErr('');
+    if (!resetPw || resetPw.length < 8) { setResetPwErr('Минимум 8 символов'); return; }
+    const r = await apiFetch(`/api/users/${resetPwModal.id}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ password: resetPw }),
+    });
+    if (!r) return;
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setResetPwErr(d.error || 'Ошибка');
+      return;
+    }
+    setResetPwOk(true);
+    setTimeout(() => { setResetPwModal(null); setResetPw(''); setResetPwOk(false); }, 1500);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Create user form */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h3 className="text-base font-bold text-gray-900 mb-1">Создать пользователя</h3>
+        <p className="text-xs text-gray-400 mb-4">Рекламодатель может только загружать кампании. Оператор работает с очередью.</p>
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex-1 min-w-36">
+            <label className="text-xs text-gray-500 font-medium mb-1 block">Логин</label>
+            <input
+              type="text"
+              value={form.username}
+              onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+              placeholder="Логин"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="flex-1 min-w-36">
+            <label className="text-xs text-gray-500 font-medium mb-1 block">Пароль</label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+              placeholder="Минимум 8 символов"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="w-44">
+            <label className="text-xs text-gray-500 font-medium mb-1 block">Роль</label>
+            <select
+              value={form.role}
+              onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="advertiser">Рекламодатель</option>
+              <option value="operator">Оператор</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={handleCreate}
+              disabled={creating}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-xl transition"
+            >
+              {creating ? 'Создание...' : 'Создать'}
+            </button>
+          </div>
+        </div>
+        {formErr && <p className="text-red-500 text-sm mt-2">{formErr}</p>}
+      </div>
+
+      {/* Users list */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h3 className="text-base font-bold text-gray-900 mb-4">
+          Пользователи
+          {users.length > 0 && (
+            <span className="ml-2 bg-gray-100 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{users.length}</span>
+          )}
+        </h3>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <svg className="animate-spin w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {users.map(u => (
+              <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
+                <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                  <Icon d={P.person} cls="w-5 h-5 text-gray-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm text-gray-900">{u.username}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[u.role] || 'bg-gray-100 text-gray-600'}`}>
+                      {ROLE_LABELS[u.role] || u.role}
+                    </span>
+                    {u.campaigns_total > 0 && (
+                      <span className="text-xs text-gray-400">
+                        {u.campaigns_total} кампани{u.campaigns_total === 1 ? 'я' : u.campaigns_total < 5 ? 'и' : 'й'}
+                        {u.campaigns_pending > 0 && (
+                          <span className="ml-1 text-amber-600 font-medium">· {u.campaigns_pending} ожидают</span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{new Date(u.created_at).toLocaleDateString('ru-RU')}</p>
+                </div>
+                {u.role !== 'admin' && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => { setResetPwModal({ id: u.id, username: u.username }); setResetPw(''); setResetPwErr(''); setResetPwOk(false); }}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                      title="Сбросить пароль"
+                    >
+                      <Icon d={P.settings} cls="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(u)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                      title="Удалить"
+                    >
+                      <Icon d={P.trash} cls="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Delete confirm modal */}
+      {deleteConfirm && (
+        <Modal title="Удалить пользователя?" onClose={() => setDeleteConfirm(null)}>
+          <div className="space-y-4">
+            <p className="text-gray-600 text-sm">
+              Удалить пользователя <span className="font-semibold">«{deleteConfirm.username}»</span>?
+              Его аккаунт будет удалён, но загруженные кампании останутся.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => handleDelete(deleteConfirm.id)}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition">
+                Удалить
+              </button>
+              <button onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                Отмена
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Reset password modal */}
+      {resetPwModal && (
+        <Modal title={`Сбросить пароль: ${resetPwModal.username}`} onClose={() => setResetPwModal(null)}>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-gray-500 font-medium mb-1 block">Новый пароль</label>
+              <input
+                type="password"
+                value={resetPw}
+                onChange={e => setResetPw(e.target.value)}
+                placeholder="Минимум 8 символов"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {resetPwErr && <p className="text-red-500 text-sm">{resetPwErr}</p>}
+            {resetPwOk && <p className="text-green-600 text-sm">Пароль изменён</p>}
+            <div className="flex gap-2">
+              <button onClick={handleResetPw}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition">
+                Сохранить
+              </button>
+              <button onClick={() => setResetPwModal(null)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                Отмена
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // ─── Ads Tab ──────────────────────────────────────────────────────────────────
+
+const AD_STATUS_LABELS = { pending: 'На модерации', approved: 'Одобрено', rejected: 'Отклонено' };
+const AD_STATUS_COLORS = {
+  pending:  'bg-amber-100 text-amber-700',
+  approved: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700',
+};
 
 function AdsTab() {
   const [ads, setAds] = useState([]);
@@ -2075,6 +2331,14 @@ function AdsTab() {
     loadAds();
   };
 
+  const handleStatus = async (id, status) => {
+    await apiFetch(`/api/ads/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+    loadAds();
+  };
+
   const handleSaveSettings = async () => {
     const r = await apiFetch('/api/settings/ads', {
       method: 'PUT',
@@ -2087,6 +2351,8 @@ function AdsTab() {
   };
 
   const isVideo = (ad) => ad.file_type === 'video';
+  const pendingAds = ads.filter(a => a.status === 'pending');
+  const otherAds = ads.filter(a => a.status !== 'pending');
 
   return (
     <div className="space-y-6">
@@ -2194,7 +2460,7 @@ function AdsTab() {
           {uploadErr && <p className="text-red-500 text-sm">{uploadErr}</p>}
           <button
             onClick={handleUpload}
-            disabled={uploading || !settings.s3_configured}
+            disabled={uploading}
             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2"
           >
             {uploading ? (
@@ -2215,13 +2481,72 @@ function AdsTab() {
         </div>
       </div>
 
-      {/* Ads list */}
+      {/* Pending campaigns — moderation queue */}
+      {pendingAds.length > 0 && (
+        <div className="bg-amber-50 rounded-2xl p-6 shadow-sm border border-amber-200">
+          <h3 className="text-base font-bold text-amber-900 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+            Ожидают проверки
+            <span className="bg-amber-200 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">{pendingAds.length}</span>
+          </h3>
+          <div className="space-y-3">
+            {pendingAds.map(ad => (
+              <div key={ad.id} className="flex items-center gap-4 p-4 rounded-xl border border-amber-200 bg-white">
+                <div className="flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden bg-gray-200 flex items-center justify-center">
+                  {ad.url ? (
+                    isVideo(ad)
+                      ? <video src={ad.url} className="w-full h-full object-cover" muted preload="metadata" />
+                      : <img src={ad.url} alt={ad.name} className="w-full h-full object-cover" />
+                  ) : <Icon d={isVideo(ad) ? P.film : P.eye} cls="w-6 h-6 text-gray-400" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm text-gray-900 truncate">{ad.name}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isVideo(ad) ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {isVideo(ad) ? 'Видео' : 'Картинка'}
+                    </span>
+                    {ad.owner_username && (
+                      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{ad.owner_username}</span>
+                    )}
+                  </div>
+                  {!isVideo(ad) && <p className="text-xs text-gray-400 mt-0.5">{ad.duration} сек</p>}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleStatus(ad.id, 'approved')}
+                    className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition"
+                    title="Одобрить"
+                  >
+                    Одобрить
+                  </button>
+                  <button
+                    onClick={() => handleStatus(ad.id, 'rejected')}
+                    className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold transition"
+                    title="Отклонить"
+                  >
+                    Отклонить
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirm(ad)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                    title="Удалить"
+                  >
+                    <Icon d={P.trash} cls="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All ads list */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <h3 className="text-base font-bold text-gray-900 mb-4">
           Рекламные материалы
-          {ads.length > 0 && (
+          {otherAds.length > 0 && (
             <span className="ml-2 bg-blue-100 text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
-              {ads.length}
+              {otherAds.length}
             </span>
           )}
         </h3>
@@ -2233,33 +2558,24 @@ function AdsTab() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
             </svg>
           </div>
-        ) : ads.length === 0 ? (
+        ) : otherAds.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-8">Рекламных материалов нет</p>
         ) : (
           <div className="space-y-3">
-            {ads.map((ad, idx) => (
+            {otherAds.map((ad, idx) => (
               <div
                 key={ad.id}
                 className={`flex items-center gap-4 p-4 rounded-xl border transition ${
-                  ad.active ? 'border-gray-200 bg-gray-50' : 'border-gray-100 bg-gray-50/50 opacity-60'
+                  ad.active && ad.status === 'approved' ? 'border-gray-200 bg-gray-50' : 'border-gray-100 bg-gray-50/50 opacity-60'
                 }`}
               >
                 {/* Preview */}
                 <div className="flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden bg-gray-200 flex items-center justify-center">
                   {ad.url ? (
-                    isVideo(ad) ? (
-                      <video
-                        src={ad.url}
-                        className="w-full h-full object-cover"
-                        muted
-                        preload="metadata"
-                      />
-                    ) : (
-                      <img src={ad.url} alt={ad.name} className="w-full h-full object-cover" />
-                    )
-                  ) : (
-                    <Icon d={isVideo(ad) ? P.film : P.eye} cls="w-6 h-6 text-gray-400" />
-                  )}
+                    isVideo(ad)
+                      ? <video src={ad.url} className="w-full h-full object-cover" muted preload="metadata" />
+                      : <img src={ad.url} alt={ad.name} className="w-full h-full object-cover" />
+                  ) : <Icon d={isVideo(ad) ? P.film : P.eye} cls="w-6 h-6 text-gray-400" />}
                 </div>
 
                 {/* Info */}
@@ -2271,13 +2587,14 @@ function AdsTab() {
                     }`}>
                       {isVideo(ad) ? 'Видео' : 'Картинка'}
                     </span>
-                    {!isVideo(ad) && (
-                      <span className="text-xs text-gray-400">{ad.duration} сек</span>
-                    )}
-                    {ad.owner_username && (
-                      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                        {ad.owner_username}
+                    {ad.status && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${AD_STATUS_COLORS[ad.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {AD_STATUS_LABELS[ad.status] || ad.status}
                       </span>
+                    )}
+                    {!isVideo(ad) && <span className="text-xs text-gray-400">{ad.duration} сек</span>}
+                    {ad.owner_username && (
+                      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{ad.owner_username}</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -2291,7 +2608,7 @@ function AdsTab() {
                   <button
                     onClick={async () => {
                       if (idx === 0) return;
-                      const prev = ads[idx - 1];
+                      const prev = otherAds[idx - 1];
                       await apiFetch(`/api/ads/${ad.id}`, { method: 'PUT', body: JSON.stringify({ order_index: prev.order_index - 1 }) });
                       loadAds();
                     }}
@@ -2303,26 +2620,42 @@ function AdsTab() {
                   </button>
                   <button
                     onClick={async () => {
-                      if (idx === ads.length - 1) return;
-                      const next = ads[idx + 1];
+                      if (idx === otherAds.length - 1) return;
+                      const next = otherAds[idx + 1];
                       await apiFetch(`/api/ads/${ad.id}`, { method: 'PUT', body: JSON.stringify({ order_index: next.order_index + 1 }) });
                       loadAds();
                     }}
-                    disabled={idx === ads.length - 1}
+                    disabled={idx === otherAds.length - 1}
                     className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition"
                     title="Ниже"
                   >
                     <Icon d={P.down} cls="w-4 h-4" />
                   </button>
 
+                  {/* Status: re-open to pending or re-approve rejected */}
+                  {ad.status === 'rejected' && (
+                    <button
+                      onClick={() => handleStatus(ad.id, 'approved')}
+                      className="px-2 py-1 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold transition"
+                      title="Одобрить"
+                    >
+                      Одобрить
+                    </button>
+                  )}
+                  {ad.status === 'approved' && (
+                    <button
+                      onClick={() => handleStatus(ad.id, 'rejected')}
+                      className="px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold transition"
+                      title="Отклонить"
+                    >
+                      Откл.
+                    </button>
+                  )}
+
                   {/* Toggle active */}
                   <button
                     onClick={() => handleToggle(ad)}
-                    className={`p-1.5 rounded-lg transition ${
-                      ad.active
-                        ? 'text-green-600 hover:bg-green-50'
-                        : 'text-gray-400 hover:bg-gray-100'
-                    }`}
+                    className={`p-1.5 rounded-lg transition ${ad.active ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'}`}
                     title={ad.active ? 'Отключить' : 'Включить'}
                   >
                     <Icon d={P.eye} cls="w-4 h-4" />
@@ -2432,13 +2765,14 @@ const TABS = [
 ];
 
 const ALL_SETTINGS_TABS = [
-  { id: 'services',      label: 'Услуги',           icon: P.services, adminOnly: false },
-  { id: 'ads',           label: 'Реклама (все)',     icon: P.film,     adminOnly: true  },
-  { id: 'my-campaigns',  label: 'Мои кампании',      icon: P.film,     adminOnly: false },
-  { id: 'stats',         label: 'Статистика',        icon: P.stats,    adminOnly: false },
-  { id: 'qrcode',        label: 'QR-коды',           icon: P.qr,       adminOnly: false },
-  { id: 'logs',          label: 'Журнал',            icon: P.log,      adminOnly: false },
-  { id: 'password',      label: 'Пароль',            icon: P.person,   adminOnly: false },
+  { id: 'services',      label: 'Услуги',           icon: P.services, adminOnly: false, advertiserHidden: true  },
+  { id: 'users',         label: 'Пользователи',     icon: P.person,   adminOnly: true,  advertiserHidden: true  },
+  { id: 'ads',           label: 'Реклама (все)',     icon: P.film,     adminOnly: true,  advertiserHidden: true  },
+  { id: 'my-campaigns',  label: 'Мои кампании',      icon: P.film,     adminOnly: false, advertiserHidden: false },
+  { id: 'stats',         label: 'Статистика',        icon: P.stats,    adminOnly: false, advertiserHidden: true  },
+  { id: 'qrcode',        label: 'QR-коды',           icon: P.qr,       adminOnly: false, advertiserHidden: true  },
+  { id: 'logs',          label: 'Журнал',            icon: P.log,      adminOnly: false, advertiserHidden: true  },
+  { id: 'password',      label: 'Пароль',            icon: P.person,   adminOnly: false, advertiserHidden: false },
 ];
 
 const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
@@ -2487,11 +2821,14 @@ export default function AdminPage() {
   const [searchParams] = useSearchParams();
   const currentUser = (() => { try { return JSON.parse(localStorage.getItem('adminUser')); } catch { return null; } })();
   const isAdmin = currentUser?.role === 'admin';
-  const SETTINGS_TABS = ALL_SETTINGS_TABS.filter(t => !t.adminOnly || isAdmin);
-  const initialTab = searchParams.get('tab') || 'queue';
+  const isAdvertiser = currentUser?.role === 'advertiser';
+  const SETTINGS_TABS = ALL_SETTINGS_TABS.filter(t =>
+    (!t.adminOnly || isAdmin) && (!t.advertiserHidden || !isAdvertiser)
+  );
+  const initialTab = searchParams.get('tab') || (isAdvertiser ? 'my-campaigns' : 'queue');
   const SETTINGS_IDS = SETTINGS_TABS.map(t => t.id);
-  const [tab, setTab] = useState(SETTINGS_IDS.includes(initialTab) ? 'settings' : initialTab);
-  const [settingsTab, setSettingsTab] = useState(SETTINGS_IDS.includes(initialTab) ? initialTab : 'services');
+  const [tab, setTab] = useState(isAdvertiser ? 'my-campaigns' : (SETTINGS_IDS.includes(initialTab) ? 'settings' : initialTab));
+  const [settingsTab, setSettingsTab] = useState(SETTINGS_IDS.includes(initialTab) ? initialTab : (isAdvertiser ? 'my-campaigns' : 'services'));
   const [time, setTime] = useState(new Date());
   const [regOpen, setRegOpen] = useState(true);
   const inactivityTimer = useRef(null);
@@ -2521,14 +2858,68 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/settings/registration').then(r => r.json()).then(d => setRegOpen(d.open));
-  }, []);
+    if (!isAdvertiser) {
+      fetch('/api/settings/registration').then(r => r.json()).then(d => setRegOpen(d.open));
+    }
+  }, [isAdvertiser]);
 
   const toggleRegistration = async () => {
     const r = await apiFetch('/api/settings/registration', { method: 'PUT' });
     if (r) { const d = await r.json(); setRegOpen(d.open); }
   };
 
+  const logout = () => {
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
+    navigate('/login', { replace: true });
+  };
+
+  // ── Advertiser simplified layout ──
+  if (isAdvertiser) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Рекламный кабинет</h1>
+              <p className="text-xs text-gray-400">{currentUser?.username} · Рекламодатель</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <div className="text-xl font-bold text-blue-600 tabular-nums">
+                  {time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <div className="flex border-b-0 gap-1">
+                {SETTINGS_TABS.map(t => (
+                  <button key={t.id} onClick={() => setSettingsTab(t.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${
+                      settingsTab === t.id
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                    }`}>
+                    <Icon d={t.icon} cls="w-4 h-4" />
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={logout}
+                className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                title="Выйти">
+                <Icon d={P.logout} cls="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </header>
+        <main className="max-w-4xl mx-auto px-4 py-6">
+          {settingsTab === 'my-campaigns' && <MyCampaignsTab />}
+          {settingsTab === 'password' && <SettingsTab />}
+        </main>
+      </div>
+    );
+  }
+
+  // ── Admin / Operator full layout ──
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
@@ -2595,6 +2986,7 @@ export default function AdminPage() {
               ))}
             </div>
             {settingsTab === 'services' && <ServicesTab />}
+            {settingsTab === 'users' && <UsersTab />}
             {settingsTab === 'ads' && <AdsTab />}
             {settingsTab === 'my-campaigns' && <MyCampaignsTab />}
             {settingsTab === 'stats' && <StatsTab />}

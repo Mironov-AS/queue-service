@@ -110,6 +110,7 @@ const MIGRATIONS = [
   { version: 16, name: 'seed_ad_ticket_display_time',    sql: `INSERT OR IGNORE INTO settings (key, value) VALUES ('ad_ticket_display_time', '10')` },
   { version: 17, name: 'add_ads_owner_id',               sql: `ALTER TABLE advertisements ADD COLUMN owner_id INTEGER` },
   { version: 18, name: 'add_ads_owner_username',         sql: `ALTER TABLE advertisements ADD COLUMN owner_username TEXT` },
+  { version: 19, name: 'add_ads_status',               sql: `ALTER TABLE advertisements ADD COLUMN status TEXT DEFAULT 'approved'` },
   // ── Add new migrations here, incrementing version ──
 ];
 

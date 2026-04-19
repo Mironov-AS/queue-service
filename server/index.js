@@ -214,6 +214,11 @@ function requireAuth(req, res, next) {
   }
 }
 
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' });
+  next();
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 app.post('/api/auth/login', loginLimiter, (req, res) => {
@@ -918,11 +923,67 @@ app.get('/api/qrcode/download', async (req, res) => {
   }
 });
 
+// ─── Users (admin only) ──────────────────────────────────────────────────────
+
+app.get('/api/users', requireAuth, requireAdmin, (req, res) => {
+  const users = db.prepare('SELECT id, username, role, created_at FROM users ORDER BY id ASC').all();
+  const withCounts = users.map(u => {
+    const counts = db.prepare(
+      "SELECT COUNT(*) AS total, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending FROM advertisements WHERE owner_id = ?"
+    ).get(u.id);
+    return { ...u, campaigns_total: counts.total || 0, campaigns_pending: counts.pending || 0 };
+  });
+  res.json(withCounts);
+});
+
+app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username?.trim() || !password || !role) {
+    return res.status(400).json({ error: 'Логин, пароль и роль обязательны' });
+  }
+  if (!['operator', 'advertiser'].includes(role)) {
+    return res.status(400).json({ error: 'Роль должна быть operator или advertiser' });
+  }
+  if (username.trim().length < 3) return res.status(400).json({ error: 'Логин минимум 3 символа' });
+  if (password.length < 8) return res.status(400).json({ error: 'Пароль минимум 8 символов' });
+  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username.trim());
+  if (existing) return res.status(409).json({ error: 'Пользователь с таким логином уже существует' });
+  const hash = bcrypt.hashSync(password, 10);
+  const r = db.prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)').run(username.trim(), hash, role);
+  log(req, 'user.created', username.trim());
+  res.json({ id: r.lastInsertRowid, username: username.trim(), role, created_at: new Date().toISOString(), campaigns_total: 0, campaigns_pending: 0 });
+});
+
+app.delete('/api/users/:id', requireAuth, requireAdmin, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  if (id === req.user.id) return res.status(400).json({ error: 'Нельзя удалить свой аккаунт' });
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  if (user.role === 'admin') return res.status(400).json({ error: 'Нельзя удалить администратора' });
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  log(req, 'user.deleted', user.username);
+  res.json({ success: true });
+});
+
+app.put('/api/users/:id/password', requireAuth, requireAdmin, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  const { password } = req.body;
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Пароль минимум 8 символов' });
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  const hash = bcrypt.hashSync(password, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, id);
+  log(req, 'user.password_reset', user.username);
+  res.json({ success: true });
+});
+
 // ─── Advertisements ───────────────────────────────────────────────────────────
 
-// GET /api/ads — public, active ads with presigned URLs (for dashboard)
+// GET /api/ads — public, approved active ads only (for dashboard)
 app.get('/api/ads', async (req, res) => {
-  const ads = db.prepare('SELECT * FROM advertisements WHERE active = 1 ORDER BY order_index ASC, id ASC').all();
+  const ads = db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (status IS NULL OR status = 'approved') ORDER BY order_index ASC, id ASC").all();
   res.json(await enrichAds(ads));
 });
 
@@ -970,9 +1031,10 @@ app.post('/api/ads', requireAuth, (req, res) => {
       }
 
       const maxOrder = db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements').get();
+      const adStatus = req.user.role === 'admin' ? 'approved' : 'pending';
       const r = db.prepare(
-        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username) VALUES (?,?,?,?,?,?,?,?)'
-      ).run(name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, maxOrder.m + 1, req.user.id, req.user.username);
+        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status) VALUES (?,?,?,?,?,?,?,?,?)'
+      ).run(name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, maxOrder.m + 1, req.user.id, req.user.username, adStatus);
 
       const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(r.lastInsertRowid);
       const url = await getAdUrl(key);
@@ -1039,6 +1101,22 @@ app.delete('/api/ads/:id', requireAuth, async (req, res) => {
   log(req, 'ad.deleted', ad.name);
   io.emit('ads:updated');
   res.json({ success: true });
+});
+
+// PUT /api/ads/:id/status — admin only: approve or reject a campaign
+app.put('/api/ads/:id/status', requireAuth, requireAdmin, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  const { status } = req.body;
+  if (!['pending', 'approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Статус должен быть: pending, approved, rejected' });
+  }
+  const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
+  if (!ad) return res.status(404).json({ error: 'Not found' });
+  db.prepare('UPDATE advertisements SET status = ? WHERE id = ?').run(status, id);
+  log(req, 'ad.status_changed', `${ad.name} → ${status}`);
+  io.emit('ads:updated');
+  res.json(db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id));
 });
 
 // GET /api/settings/ads
