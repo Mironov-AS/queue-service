@@ -115,7 +115,19 @@ export default function DashboardPage() {
 
   const handleTicketCalled = useCallback((ticket) => {
     // Track ticket id to prevent duplicate triggers from queue:updated
-    if (ticket?.id) currentTicketIdRef.current = ticket.id;
+    if (ticket?.id) {
+      currentTicketIdRef.current = ticket.id;
+      // Immediately show the called ticket without waiting for queue:updated
+      setQueue(prev => ({
+        current: {
+          ...ticket,
+          field_values: Array.isArray(ticket.field_values)
+            ? ticket.field_values
+            : (ticket.field_values ? JSON.parse(ticket.field_values) : [])
+        },
+        waiting: prev.waiting.filter(t => t.id !== ticket.id)
+      }));
+    }
 
     // Clear existing timers
     clearTimeout(ticketTimerRef.current);
