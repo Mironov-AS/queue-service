@@ -3,7 +3,7 @@ import socket from '../socket';
 
 // ─── Ad Slideshow Display ─────────────────────────────────────────────────────
 
-function AdsDisplay({ ads, currentAdIndex, onAdEnded, waiting }) {
+function AdsDisplay({ ads, currentAdIndex, onAdEnded, waiting, totalSlides }) {
   const ad = ads[currentAdIndex % ads.length];
   if (!ad || !ad.url) return null;
 
@@ -43,8 +43,8 @@ function AdsDisplay({ ads, currentAdIndex, onAdEnded, waiting }) {
         </div>
       )}
 
-      {/* Bottom-right: slide dots */}
-      {ads.length > 1 && (
+      {/* Bottom-right: slide dots (ads + dashboard slot) */}
+      {totalSlides > 1 && (
         <div className="absolute bottom-6 right-6 flex gap-1.5 pointer-events-none">
           {ads.map((_, i) => (
             <div
@@ -56,6 +56,8 @@ function AdsDisplay({ ads, currentAdIndex, onAdEnded, waiting }) {
               }`}
             />
           ))}
+          {/* Dashboard slot dot — always unlit since we're in ads mode */}
+          <div className="w-2 h-2 rounded-full bg-white/20" />
         </div>
       )}
     </div>
@@ -67,34 +69,61 @@ function AdsDisplay({ ads, currentAdIndex, onAdEnded, waiting }) {
 export default function DashboardPage() {
   const [queue, setQueue] = useState({ current: null, waiting: [] });
   const [flash, setFlash] = useState(false);
-  const [prevNumber, setPrevNumber] = useState(null);
 
   // Ads state
   const [ads, setAds] = useState([]);
-  const [adSettings, setAdSettings] = useState({ ticket_display_time: 10 });
-  // displayMode: 'idle' | 'ads' | 'ticket'
-  const [displayMode, setDisplayMode] = useState('idle');
+  const [adSettings, setAdSettings] = useState({ ticket_display_time: 10, dashboard_idle_time: 15 });
+
+  // displayMode:
+  //   'ads'    — full-screen ad slideshow (currentAdIndex = which ad)
+  //   'queue'  — queue dashboard in idle rotation (will auto-switch to ads after dashboard_idle_time)
+  //   'ticket' — queue dashboard because a ticket was just called (countdown active)
+  const [displayMode, setDisplayMode] = useState('queue');
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [ticketCountdown, setTicketCountdown] = useState(0);
 
   // Refs for values needed in async callbacks
   const adsRef = useRef([]);
   const ticketDisplayTimeRef = useRef(10);
+  const dashboardIdleTimeRef = useRef(15);
+  const currentAdIndexRef = useRef(0);
   const ticketTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const imageDurationTimerRef = useRef(null);
+  const dashboardTimerRef = useRef(null);
   // Track last displayed ticket id to avoid duplicate triggers
   const currentTicketIdRef = useRef(null);
 
-  // Keep refs in sync
+  // Keep refs in sync with state/settings
   useEffect(() => { adsRef.current = ads; }, [ads]);
-  useEffect(() => { ticketDisplayTimeRef.current = adSettings.ticket_display_time; }, [adSettings]);
+  useEffect(() => {
+    ticketDisplayTimeRef.current = adSettings.ticket_display_time;
+    dashboardIdleTimeRef.current = adSettings.dashboard_idle_time;
+  }, [adSettings]);
+  useEffect(() => { currentAdIndexRef.current = currentAdIndex; }, [currentAdIndex]);
 
-  const switchToAdsOrIdle = useCallback(() => {
+  // Advance to next slide in rotation: ad[i] → ad[i+1] → ... → ad[N-1] → dashboard → ad[0] → ...
+  const advanceSlide = useCallback(() => {
+    const nextIdx = currentAdIndexRef.current + 1;
+    if (nextIdx >= adsRef.current.length) {
+      // Last ad finished — switch to dashboard slot
+      setCurrentAdIndex(0);
+      currentAdIndexRef.current = 0;
+      setDisplayMode('queue');
+    } else {
+      setCurrentAdIndex(nextIdx);
+      currentAdIndexRef.current = nextIdx;
+    }
+  }, []);
+
+  // After ticket display, resume rotation from the beginning
+  const resumeRotation = useCallback(() => {
+    setCurrentAdIndex(0);
+    currentAdIndexRef.current = 0;
     if (adsRef.current.length > 0) {
       setDisplayMode('ads');
     } else {
-      setDisplayMode('idle');
+      setDisplayMode('queue');
     }
   }, []);
 
@@ -106,18 +135,17 @@ export default function DashboardPage() {
       setAds(data);
       adsRef.current = data;
       setDisplayMode(prev => {
-        if (prev === 'idle' && data.length > 0) return 'ads';
-        if (prev === 'ads' && data.length === 0) return 'idle';
+        if (prev === 'queue' && data.length > 0) return 'ads';
+        if (prev === 'ads' && data.length === 0) return 'queue';
         return prev;
       });
     } catch { /* network error — keep current state */ }
   }, []);
 
   const handleTicketCalled = useCallback((ticket) => {
-    // Track ticket id to prevent duplicate triggers from queue:updated
+    // Track ticket id to prevent duplicate triggers
     if (ticket?.id) {
       currentTicketIdRef.current = ticket.id;
-      // Immediately show the called ticket without waiting for queue:updated
       setQueue(prev => ({
         current: {
           ...ticket,
@@ -129,15 +157,15 @@ export default function DashboardPage() {
       }));
     }
 
-    // Clear existing timers
+    // Clear all rotation timers — pause the slideshow
     clearTimeout(ticketTimerRef.current);
     clearInterval(countdownTimerRef.current);
     clearTimeout(imageDurationTimerRef.current);
+    clearTimeout(dashboardTimerRef.current);
 
     // Flash animation
     setFlash(true);
     setTimeout(() => setFlash(false), 2000);
-    setPrevNumber(prev => prev !== ticket?.number ? prev : prev);
 
     const displayTime = ticketDisplayTimeRef.current;
     setDisplayMode('ticket');
@@ -151,22 +179,22 @@ export default function DashboardPage() {
       if (cnt <= 0) clearInterval(countdownTimerRef.current);
     }, 1000);
 
-    // Return to ads after N seconds
+    // Resume rotation after N seconds
     ticketTimerRef.current = setTimeout(() => {
       clearInterval(countdownTimerRef.current);
-      switchToAdsOrIdle();
+      resumeRotation();
     }, displayTime * 1000);
-  }, [switchToAdsOrIdle]);
+  }, [resumeRotation]);
 
   // Mount: fetch data, set up socket
   useEffect(() => {
-    // Fetch settings
     fetch('/api/settings/ads')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data) {
           setAdSettings(data);
           ticketDisplayTimeRef.current = data.ticket_display_time;
+          dashboardIdleTimeRef.current = data.dashboard_idle_time ?? 15;
         }
       })
       .catch(() => {});
@@ -181,14 +209,7 @@ export default function DashboardPage() {
       fetch('/api/queue')
         .then(r => r.json())
         .then(q => {
-          setQueue(prev => {
-            if (q.current?.number !== prev.current?.number) {
-              setPrevNumber(prev.current?.number || null);
-            }
-            return q;
-          });
-          // Fallback: switch to ticket mode if a new ticket was called
-          // (handles page reload or missed ticket:called socket event)
+          setQueue(q);
           if (q.current?.id && q.current.id !== currentTicketIdRef.current) {
             handleTicketCalled(q.current);
           }
@@ -200,13 +221,7 @@ export default function DashboardPage() {
 
     // Socket events
     const onQueueUpdated = (q) => {
-      setQueue(prev => {
-        if (q.current?.number !== prev.current?.number) {
-          setPrevNumber(prev.current?.number || null);
-        }
-        return q;
-      });
-      // Fallback: switch to ticket mode if ticket:called was missed
+      setQueue(q);
       if (q.current?.id && q.current.id !== currentTicketIdRef.current) {
         handleTicketCalled(q.current);
       }
@@ -217,7 +232,8 @@ export default function DashboardPage() {
     socket.on('ads:updated', fetchAds);
     socket.on('ads:config', (cfg) => {
       setAdSettings(prev => ({ ...prev, ...cfg }));
-      ticketDisplayTimeRef.current = cfg.ticket_display_time ?? ticketDisplayTimeRef.current;
+      if (cfg.ticket_display_time != null) ticketDisplayTimeRef.current = cfg.ticket_display_time;
+      if (cfg.dashboard_idle_time != null) dashboardIdleTimeRef.current = cfg.dashboard_idle_time;
     });
 
     return () => {
@@ -230,10 +246,11 @@ export default function DashboardPage() {
       clearTimeout(ticketTimerRef.current);
       clearInterval(countdownTimerRef.current);
       clearTimeout(imageDurationTimerRef.current);
+      clearTimeout(dashboardTimerRef.current);
     };
   }, [fetchAds, handleTicketCalled]);
 
-  // Image slideshow: advance after duration
+  // Image slideshow: advance to next slide after duration
   useEffect(() => {
     if (displayMode !== 'ads' || ads.length === 0) return;
     const ad = ads[currentAdIndex % ads.length];
@@ -241,15 +258,28 @@ export default function DashboardPage() {
 
     clearTimeout(imageDurationTimerRef.current);
     imageDurationTimerRef.current = setTimeout(() => {
-      setCurrentAdIndex(prev => (prev + 1) % ads.length);
+      advanceSlide();
     }, (ad.duration || 15) * 1000);
 
     return () => clearTimeout(imageDurationTimerRef.current);
-  }, [displayMode, currentAdIndex, ads]);
+  }, [displayMode, currentAdIndex, ads, advanceSlide]);
+
+  // Dashboard idle timer: show dashboard for dashboard_idle_time, then switch back to ads
+  useEffect(() => {
+    if (displayMode !== 'queue') return;
+    clearTimeout(dashboardTimerRef.current);
+    if (adsRef.current.length === 0) return; // No ads — stay in queue mode indefinitely
+    dashboardTimerRef.current = setTimeout(() => {
+      setCurrentAdIndex(0);
+      currentAdIndexRef.current = 0;
+      setDisplayMode('ads');
+    }, dashboardIdleTimeRef.current * 1000);
+    return () => clearTimeout(dashboardTimerRef.current);
+  }, [displayMode]);
 
   const handleAdEnded = useCallback(() => {
-    setCurrentAdIndex(prev => (prev + 1) % Math.max(adsRef.current.length, 1));
-  }, []);
+    advanceSlide();
+  }, [advanceSlide]);
 
   // ── Render ──
 
@@ -261,11 +291,12 @@ export default function DashboardPage() {
         currentAdIndex={currentAdIndex % ads.length}
         onAdEnded={handleAdEnded}
         waiting={queue.waiting}
+        totalSlides={ads.length + 1}
       />
     );
   }
 
-  // Ticket mode or idle: normal queue display
+  // Queue/ticket mode: normal queue display
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-100 to-blue-100 flex flex-col p-6 gap-6 select-none">
       {/* Header */}

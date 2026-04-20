@@ -7,7 +7,7 @@ export default function AdsTab() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState('');
-  const [settings, setSettings] = useState({ ticket_display_time: 10, s3_configured: false, storage_type: 'local' });
+  const [settings, setSettings] = useState({ ticket_display_time: 10, dashboard_idle_time: 15, s3_configured: false, storage_type: 'local' });
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [editModal, setEditModal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -95,7 +95,10 @@ export default function AdsTab() {
   const handleSaveSettings = async () => {
     const r = await apiFetch('/api/settings/ads', {
       method: 'PUT',
-      body: JSON.stringify({ ticket_display_time: parseInt(settings.ticket_display_time, 10) || 10 }),
+      body: JSON.stringify({
+        ticket_display_time: parseInt(settings.ticket_display_time, 10) || 10,
+        dashboard_idle_time: parseInt(settings.dashboard_idle_time, 10) || 15,
+      }),
     });
     if (r?.ok) {
       setSettingsSaved(true);
@@ -135,17 +138,30 @@ export default function AdsTab() {
 
       {/* Display settings */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h3 className="text-base font-bold text-gray-900 mb-4">Настройки показа</h3>
-        <div className="flex items-end gap-4 flex-wrap">
+        <h3 className="text-base font-bold text-gray-900 mb-1">Настройки показа</h3>
+        <p className="text-xs text-gray-400 mb-4">
+          Ротация: Реклама 1 → Реклама 2 → ... → Дашборд с очередью → Реклама 1 → ...
+        </p>
+        <div className="flex items-end gap-6 flex-wrap">
           <div>
             <label className="text-xs text-gray-500 font-medium mb-1 block">
-              Время показа талона после вызова (сек)
+              Дашборд в ожидании (сек)
+            </label>
+            <input type="number" min="3" max="300"
+              value={settings.dashboard_idle_time}
+              onChange={e => setSettings(p => ({ ...p, dashboard_idle_time: e.target.value }))}
+              className="w-28 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <p className="text-xs text-gray-400 mt-1">Время показа очереди в ротации</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 font-medium mb-1 block">
+              Дашборд при вызове талона (сек)
             </label>
             <input type="number" min="3" max="300"
               value={settings.ticket_display_time}
               onChange={e => setSettings(p => ({ ...p, ticket_display_time: e.target.value }))}
               className="w-28 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <p className="text-xs text-gray-400 mt-1">Рекомендуется: 10–30 сек</p>
+            <p className="text-xs text-gray-400 mt-1">Реклама приостанавливается</p>
           </div>
         </div>
         <div className="flex items-center gap-2 pb-6 mt-4">

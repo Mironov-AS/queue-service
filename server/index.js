@@ -1125,8 +1125,10 @@ app.put('/api/ads/:id/status', requireAuth, requireAdmin, (req, res) => {
 // GET /api/settings/ads
 app.get('/api/settings/ads', (req, res) => {
   const t = db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
+  const d = db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
   res.json({
     ticket_display_time: parseInt(t?.value || '10', 10),
+    dashboard_idle_time: parseInt(d?.value || '15', 10),
     s3_configured: USE_S3,
     storage_type: USE_S3 ? 's3' : 'local',
   });
@@ -1134,12 +1136,14 @@ app.get('/api/settings/ads', (req, res) => {
 
 // PUT /api/settings/ads
 app.put('/api/settings/ads', requireAuth, (req, res) => {
-  const { ticket_display_time } = req.body;
+  const { ticket_display_time, dashboard_idle_time } = req.body;
   const t = clampInt(ticket_display_time, 3, 300, 10);
+  const d = clampInt(dashboard_idle_time, 3, 300, 15);
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('ad_ticket_display_time', ?)").run(String(t));
-  log(req, 'settings.ads', `ticket_display_time=${t}`);
-  io.emit('ads:updated');
-  res.json({ ticket_display_time: t, s3_configured: USE_S3, storage_type: USE_S3 ? 's3' : 'local' });
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('ad_dashboard_idle_time', ?)").run(String(d));
+  log(req, 'settings.ads', `ticket_display_time=${t} dashboard_idle_time=${d}`);
+  io.emit('ads:config', { ticket_display_time: t, dashboard_idle_time: d });
+  res.json({ ticket_display_time: t, dashboard_idle_time: d, s3_configured: USE_S3, storage_type: USE_S3 ? 's3' : 'local' });
 });
 
 // ─── Static frontend (production) ────────────────────────────────────────────
@@ -1180,7 +1184,11 @@ io.on('connection', (socket) => {
   }
   // Send current ad settings to new connections
   const t = db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
-  socket.emit('ads:config', { ticket_display_time: parseInt(t?.value || '10', 10) });
+  const d = db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
+  socket.emit('ads:config', {
+    ticket_display_time: parseInt(t?.value || '10', 10),
+    dashboard_idle_time: parseInt(d?.value || '15', 10),
+  });
 });
 
 // ─── Auto-reset scheduler ─────────────────────────────────────────────────────
