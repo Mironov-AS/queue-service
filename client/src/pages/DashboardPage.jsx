@@ -83,6 +83,8 @@ export default function DashboardPage() {
   const ticketTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const imageDurationTimerRef = useRef(null);
+  // Track last displayed ticket id to avoid duplicate triggers
+  const currentTicketIdRef = useRef(null);
 
   // Keep refs in sync
   useEffect(() => { adsRef.current = ads; }, [ads]);
@@ -112,6 +114,9 @@ export default function DashboardPage() {
   }, []);
 
   const handleTicketCalled = useCallback((ticket) => {
+    // Track ticket id to prevent duplicate triggers from queue:updated
+    if (ticket?.id) currentTicketIdRef.current = ticket.id;
+
     // Clear existing timers
     clearTimeout(ticketTimerRef.current);
     clearInterval(countdownTimerRef.current);
@@ -163,24 +168,37 @@ export default function DashboardPage() {
     const refresh = () =>
       fetch('/api/queue')
         .then(r => r.json())
-        .then(q => setQueue(prev => {
-          if (q.current?.number !== prev.current?.number) {
-            setPrevNumber(prev.current?.number || null);
+        .then(q => {
+          setQueue(prev => {
+            if (q.current?.number !== prev.current?.number) {
+              setPrevNumber(prev.current?.number || null);
+            }
+            return q;
+          });
+          // Fallback: switch to ticket mode if a new ticket was called
+          // (handles page reload or missed ticket:called socket event)
+          if (q.current?.id && q.current.id !== currentTicketIdRef.current) {
+            handleTicketCalled(q.current);
           }
-          return q;
-        }))
+        })
         .catch(() => {});
 
     refresh();
     const pollTimer = setInterval(refresh, 5000);
 
     // Socket events
-    const onQueueUpdated = (q) => setQueue(prev => {
-      if (q.current?.number !== prev.current?.number) {
-        setPrevNumber(prev.current?.number || null);
+    const onQueueUpdated = (q) => {
+      setQueue(prev => {
+        if (q.current?.number !== prev.current?.number) {
+          setPrevNumber(prev.current?.number || null);
+        }
+        return q;
+      });
+      // Fallback: switch to ticket mode if ticket:called was missed
+      if (q.current?.id && q.current.id !== currentTicketIdRef.current) {
+        handleTicketCalled(q.current);
       }
-      return q;
-    });
+    };
 
     socket.on('queue:updated', onQueueUpdated);
     socket.on('ticket:called', handleTicketCalled);
