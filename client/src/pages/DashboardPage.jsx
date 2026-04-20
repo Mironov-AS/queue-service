@@ -37,9 +37,9 @@ function AdsDisplay({ ads, currentAdIndex, onAdEnded, waiting }) {
 
       {/* Bottom-left: waiting count */}
       {waiting.length > 0 && (
-        <div className="absolute bottom-5 left-6 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-2xl pointer-events-none">
-          <span className="text-white/70 text-sm">В очереди: </span>
-          <span className="text-xl font-bold">{waiting.length}</span>
+        <div className="absolute bottom-5 left-6 bg-black/60 backdrop-blur-sm text-white px-8 py-4 rounded-2xl pointer-events-none">
+          <span className="text-white/70 text-[2.625rem] leading-tight">В очереди: </span>
+          <span className="text-[3.75rem] font-bold leading-tight">{waiting.length}</span>
         </div>
       )}
 
