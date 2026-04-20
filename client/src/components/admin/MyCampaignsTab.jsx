@@ -65,6 +65,7 @@ export default function MyCampaignsTab() {
           ad={editModal}
           onClose={() => setEditModal(null)}
           onSave={(updated) => setEditModal(updated)}
+          onConfirm={handleEditSave}
         />
       )}
 

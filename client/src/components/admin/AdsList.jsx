@@ -187,7 +187,7 @@ function AdThumbnail({ ad, isVideo }) {
   );
 }
 
-export function AdsEditModal({ ad, onClose, onSave }) {
+export function AdsEditModal({ ad, onClose, onSave, onConfirm }) {
   if (!ad) return null;
   return (
     <Modal title="Редактировать рекламу" onClose={onClose}>
@@ -205,7 +205,7 @@ export function AdsEditModal({ ad, onClose, onSave }) {
             className="w-32 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div className="flex gap-2 pt-1">
-          <button onClick={onClose}
+          <button onClick={onConfirm}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition">
             Сохранить
           </button>

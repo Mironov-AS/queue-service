@@ -145,6 +145,7 @@ export default function AdsTab() {
           ad={editModal}
           onClose={() => setEditModal(null)}
           onSave={(updated) => setEditModal(updated)}
+          onConfirm={handleEditSave}
         />
       )}
 
