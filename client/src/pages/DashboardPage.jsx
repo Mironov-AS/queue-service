@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import socket from '../socket';
+import { Clock } from '../components/admin/shared';
 
 // ─── Ad Slideshow Display ─────────────────────────────────────────────────────
 
@@ -447,17 +448,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
-
-function Clock({ cls = 'text-slate-400 text-lg font-mono' }) {
-  const [time, setTime] = useState(() =>
-    new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-  );
-  useEffect(() => {
-    const t = setInterval(() => {
-      setTime(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
-  return <span className={cls}>{time}</span>;
 }

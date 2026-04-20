@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import socket from '../../socket';
 import { apiFetch } from '../../api';
 import { Icon, P, Modal, STATUS_LABELS, STATUS_COLORS, FIELD_INPUT_TYPES_ADMIN, fmtTime } from './shared';
+import { useQueueAction } from '../../hooks/useQueueAction';
 
 // ─── Transfer Modal ───────────────────────────────────────────────────────────
 
@@ -350,132 +351,52 @@ export default function QueueTab() {
     if (showAll) loadAllTickets();
   }, [showAll, filterStatus, filterService, loadAllTickets, queue]);
 
-  const callNext = async () => {
-    setLoading(true);
-    try {
-      const r = await apiFetch('/api/queue/next', { method: 'POST' });
-      if (!r) return;
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        alert(d.error || 'Ошибка вызова талона');
-      } else {
-        const d = await r.json().catch(() => null);
-        if (d) setQueue(d);
-      }
-    } catch (err) {
-      console.error('callNext error:', err);
-      alert('Ошибка соединения с сервером');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ─── Queue action helpers ──────────────────────────────────────────────────────
+  const queueAction = useQueueAction({ setLoading, defaultError: 'Ошибка' });
 
-  const callSpecific = async (ticket) => {
+  const callNext = () => queueAction('/api/queue/next', 'POST', undefined, { onSuccess: (d) => setQueue(d) });
+
+  const callSpecific = (ticket) => {
     if (queue.current) {
       setCallConfirm(ticket);
     } else {
-      setLoading(true);
-      try {
-        const r = await apiFetch(`/api/queue/call/${ticket.id}`, { method: 'POST' });
-        if (!r) return;
-        if (!r.ok) {
-          const d = await r.json().catch(() => ({}));
-          alert(d.error || 'Ошибка вызова талона');
-        } else {
-          const d = await r.json().catch(() => null);
-          if (d) setQueue(d);
-        }
-      } catch (err) {
-        console.error('callSpecific error:', err);
-        alert('Ошибка соединения с сервером');
-      } finally {
-        setLoading(false);
-      }
+      queueAction(`/api/queue/call/${ticket.id}`, 'POST', undefined, {
+        onSuccess: (d) => setQueue(d),
+      });
     }
   };
 
-  const doCallSpecific = async () => {
+  const doCallSpecific = () => {
     if (!callConfirm) return;
-    setLoading(true);
-    try {
-      const r = await apiFetch(`/api/queue/call/${callConfirm.id}`, { method: 'POST' });
-      if (r && r.ok) {
-        const d = await r.json().catch(() => null);
-        if (d) setQueue(d);
-      } else if (r && !r.ok) {
-        const d = await r.json().catch(() => ({}));
-        alert(d.error || 'Ошибка вызова талона');
-      }
-    } catch (err) {
-      console.error('doCallSpecific error:', err);
-      alert('Ошибка соединения с сервером');
-    } finally {
-      setCallConfirm(null);
-      setLoading(false);
-    }
+    queueAction(`/api/queue/call/${callConfirm.id}`, 'POST', undefined, {
+      onSuccess: (d) => setQueue(d),
+      onFinally: () => setCallConfirm(null),
+    });
   };
 
-  const returnToQueue = async () => {
-    setLoading(true);
-    try {
-      const r = await apiFetch('/api/queue/return', { method: 'POST' });
-      if (!r) return;
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        alert(d.error || 'Ошибка');
-      } else {
-        const d = await r.json().catch(() => null);
-        if (d) setQueue(d);
-      }
-    } catch (err) {
-      console.error('returnToQueue error:', err);
-      alert('Ошибка соединения с сервером');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const returnToQueue = () => queueAction('/api/queue/return', 'POST', undefined, {
+    onSuccess: (d) => setQueue(d),
+  });
 
-  const returnTicketById = async (ticket) => {
-    setLoading(true);
-    try {
-      const r = await apiFetch(`/api/queue/return/${ticket.id}`, { method: 'POST' });
-      if (!r) return;
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        alert(d.error || 'Ошибка');
-      } else {
-        const d = await r.json().catch(() => null);
-        if (d) setQueue({ current: d.current, waiting: d.waiting });
+  const returnTicketById = (ticket) => {
+    queueAction(`/api/queue/return/${ticket.id}`, 'POST', undefined, {
+      onSuccess: (d) => setQueue({ current: d.current, waiting: d.waiting }),
+      onFinally: () => {
+        apiFetch('/api/queue/full').then(r => r?.json()).then(d => d && setQueue(d));
         loadAllTickets();
-      }
-    } catch (err) {
-      console.error('returnTicketById error:', err);
-      alert('Ошибка соединения с сервером');
-    } finally {
-      setLoading(false);
-    }
+      },
+    });
   };
 
-  const returnAllToQueue = async () => {
+  const returnAllToQueue = () => {
     if (!window.confirm('Вернуть все талоны за сегодня в очередь? Все обслуженные и вызванные талоны получат статус "В ожидании".')) return;
-    setLoading(true);
-    try {
-      const r = await apiFetch('/api/queue/return-all', { method: 'POST' });
-      if (!r) return;
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        alert(d.error || 'Ошибка');
-      } else {
-        const d = await r.json().catch(() => null);
-        if (d) setQueue({ current: d.current, waiting: d.waiting });
+    queueAction('/api/queue/return-all', 'POST', undefined, {
+      onSuccess: (d) => setQueue({ current: d.current, waiting: d.waiting }),
+      onFinally: () => {
+        apiFetch('/api/queue/full').then(r => r?.json()).then(d => d && setQueue(d));
         loadAllTickets();
-      }
-    } catch (err) {
-      console.error('returnAllToQueue error:', err);
-      alert('Ошибка соединения с сервером');
-    } finally {
-      setLoading(false);
-    }
+      },
+    });
   };
 
   const hasNext = queue.waiting.length > 0;

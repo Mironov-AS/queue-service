@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // ─── Icon ─────────────────────────────────────────────────────────────────────
 
@@ -125,6 +125,21 @@ export const ALL_SETTINGS_TABS = [
   { id: 'logs',         label: 'Журнал',         icon: P.log,      adminOnly: false, advertiserHidden: true  },
   { id: 'password',     label: 'Пароль',         icon: P.person,   adminOnly: false, advertiserHidden: false },
 ];
+
+// ─── Clock ────────────────────────────────────────────────────────────────────
+
+export function Clock({ cls = 'text-slate-400 text-lg font-mono' }) {
+  const [time, setTime] = useState(() =>
+    new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  );
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTime(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
+  return <span className={cls}>{time}</span>;
+}
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 
