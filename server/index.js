@@ -926,14 +926,16 @@ app.get('/api/qrcode/download', async (req, res) => {
 // ─── Users (admin only) ──────────────────────────────────────────────────────
 
 app.get('/api/users', requireAuth, requireAdmin, (req, res) => {
-  const users = db.prepare('SELECT id, username, role, created_at FROM users ORDER BY id ASC').all();
-  const withCounts = users.map(u => {
-    const counts = db.prepare(
-      "SELECT COUNT(*) AS total, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending FROM advertisements WHERE owner_id = ?"
-    ).get(u.id);
-    return { ...u, campaigns_total: counts.total || 0, campaigns_pending: counts.pending || 0 };
-  });
-  res.json(withCounts);
+  const users = db.prepare(`
+    SELECT u.id, u.username, u.role, u.created_at,
+      COUNT(a.id) AS campaigns_total,
+      SUM(CASE WHEN a.status = 'pending' THEN 1 ELSE 0 END) AS campaigns_pending
+    FROM users u
+    LEFT JOIN advertisements a ON a.owner_id = u.id
+    GROUP BY u.id
+    ORDER BY u.id ASC
+  `).all();
+  res.json(users.map(u => ({ ...u, campaigns_total: u.campaigns_total || 0, campaigns_pending: u.campaigns_pending || 0 })));
 });
 
 app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
