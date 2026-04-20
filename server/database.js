@@ -111,6 +111,8 @@ const MIGRATIONS = [
   { version: 17, name: 'add_ads_owner_id',               sql: `ALTER TABLE advertisements ADD COLUMN owner_id INTEGER` },
   { version: 18, name: 'add_ads_owner_username',         sql: `ALTER TABLE advertisements ADD COLUMN owner_username TEXT` },
   { version: 19, name: 'add_ads_status',               sql: `ALTER TABLE advertisements ADD COLUMN status TEXT DEFAULT 'approved'` },
+  { version: 20, name: 'seed_ad_dashboard_interval',   sql: `INSERT OR IGNORE INTO settings (key, value) VALUES ('ad_dashboard_interval', '0')` },
+  { version: 21, name: 'seed_ad_ads_before_dashboard',   sql: `INSERT OR IGNORE INTO settings (key, value) VALUES ('ad_ads_before_dashboard', '0')` },
   // ── Add new migrations here, incrementing version ──
 ];
 

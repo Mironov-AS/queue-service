@@ -72,7 +72,7 @@ export default function DashboardPage() {
 
   // Ads state
   const [ads, setAds] = useState([]);
-  const [adSettings, setAdSettings] = useState({ ticket_display_time: 10, dashboard_idle_time: 15 });
+  const [adSettings, setAdSettings] = useState({ ticket_display_time: 10, dashboard_idle_time: 15, ads_before_dashboard: 0 });
 
   // displayMode:
   //   'ads'    — full-screen ad slideshow (currentAdIndex = which ad)
@@ -86,6 +86,8 @@ export default function DashboardPage() {
   const adsRef = useRef([]);
   const ticketDisplayTimeRef = useRef(10);
   const dashboardIdleTimeRef = useRef(15);
+  const adsBeforeDashboardRef = useRef(0);
+  const adsShownSinceDashboardRef = useRef(0);
   const currentAdIndexRef = useRef(0);
   const ticketTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
@@ -99,16 +101,26 @@ export default function DashboardPage() {
   useEffect(() => {
     ticketDisplayTimeRef.current = adSettings.ticket_display_time;
     dashboardIdleTimeRef.current = adSettings.dashboard_idle_time;
+    adsBeforeDashboardRef.current = adSettings.ads_before_dashboard ?? 0;
   }, [adSettings]);
   useEffect(() => { currentAdIndexRef.current = currentAdIndex; }, [currentAdIndex]);
 
-  // Advance to next slide in rotation: ad[i] → ad[i+1] → ... → ad[N-1] → dashboard → ad[0] → ...
+  // Advance to next slide in rotation.
+  // ads_before_dashboard=0 → show dashboard only after ALL ads finish (default)
+  // ads_before_dashboard=N → show dashboard after every N ads
   const advanceSlide = useCallback(() => {
+    adsShownSinceDashboardRef.current += 1;
     const nextIdx = currentAdIndexRef.current + 1;
-    if (nextIdx >= adsRef.current.length) {
-      // Last ad finished — switch to dashboard slot
-      setCurrentAdIndex(0);
-      currentAdIndexRef.current = 0;
+    const adsBeforeDb = adsBeforeDashboardRef.current;
+    const endOfAllAds = nextIdx >= adsRef.current.length;
+    // Show dashboard when ads_before_dashboard ads have been shown, or when all ads are done (if ads_before_dashboard=0)
+    const shouldShowDashboard = adsBeforeDb === 0 ? endOfAllAds : adsShownSinceDashboardRef.current >= adsBeforeDb;
+
+    if (shouldShowDashboard) {
+      adsShownSinceDashboardRef.current = 0;
+      const resumeIdx = endOfAllAds ? 0 : nextIdx;
+      setCurrentAdIndex(resumeIdx);
+      currentAdIndexRef.current = resumeIdx;
       setDisplayMode('queue');
     } else {
       setCurrentAdIndex(nextIdx);
@@ -118,6 +130,7 @@ export default function DashboardPage() {
 
   // After ticket display, resume rotation from the beginning
   const resumeRotation = useCallback(() => {
+    adsShownSinceDashboardRef.current = 0;
     setCurrentAdIndex(0);
     currentAdIndexRef.current = 0;
     if (adsRef.current.length > 0) {
@@ -234,6 +247,7 @@ export default function DashboardPage() {
       setAdSettings(prev => ({ ...prev, ...cfg }));
       if (cfg.ticket_display_time != null) ticketDisplayTimeRef.current = cfg.ticket_display_time;
       if (cfg.dashboard_idle_time != null) dashboardIdleTimeRef.current = cfg.dashboard_idle_time;
+      if (cfg.ads_before_dashboard != null) adsBeforeDashboardRef.current = cfg.ads_before_dashboard;
     });
 
     return () => {
@@ -270,6 +284,7 @@ export default function DashboardPage() {
     clearTimeout(dashboardTimerRef.current);
     if (adsRef.current.length === 0) return; // No ads — stay in queue mode indefinitely
     dashboardTimerRef.current = setTimeout(() => {
+      adsShownSinceDashboardRef.current = 0;
       setCurrentAdIndex(0);
       currentAdIndexRef.current = 0;
       setDisplayMode('ads');

@@ -1126,9 +1126,13 @@ app.put('/api/ads/:id/status', requireAuth, requireAdmin, (req, res) => {
 app.get('/api/settings/ads', (req, res) => {
   const t = db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
   const d = db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
+  const iv = db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_interval'").get();
+  const ab = db.prepare("SELECT value FROM settings WHERE key='ad_ads_before_dashboard'").get();
   res.json({
     ticket_display_time: parseInt(t?.value || '10', 10),
     dashboard_idle_time: parseInt(d?.value || '15', 10),
+    dashboard_interval: parseInt(iv?.value || '0', 10),
+    ads_before_dashboard: parseInt(ab?.value || '0', 10),
     s3_configured: USE_S3,
     storage_type: USE_S3 ? 's3' : 'local',
   });
@@ -1136,14 +1140,18 @@ app.get('/api/settings/ads', (req, res) => {
 
 // PUT /api/settings/ads
 app.put('/api/settings/ads', requireAuth, (req, res) => {
-  const { ticket_display_time, dashboard_idle_time } = req.body;
+  const { ticket_display_time, dashboard_idle_time, dashboard_interval, ads_before_dashboard } = req.body;
   const t = clampInt(ticket_display_time, 3, 300, 10);
   const d = clampInt(dashboard_idle_time, 3, 300, 15);
+  const iv = clampInt(dashboard_interval, 0, 100, 0);
+  const ab = clampInt(ads_before_dashboard, 0, 100, 0);
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('ad_ticket_display_time', ?)").run(String(t));
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('ad_dashboard_idle_time', ?)").run(String(d));
-  log(req, 'settings.ads', `ticket_display_time=${t} dashboard_idle_time=${d}`);
-  io.emit('ads:config', { ticket_display_time: t, dashboard_idle_time: d });
-  res.json({ ticket_display_time: t, dashboard_idle_time: d, s3_configured: USE_S3, storage_type: USE_S3 ? 's3' : 'local' });
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('ad_dashboard_interval', ?)").run(String(iv));
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('ad_ads_before_dashboard', ?)").run(String(ab));
+  log(req, 'settings.ads', `ticket_display_time=${t} dashboard_idle_time=${d} dashboard_interval=${iv} ads_before_dashboard=${ab}`);
+  io.emit('ads:config', { ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab });
+  res.json({ ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab, s3_configured: USE_S3, storage_type: USE_S3 ? 's3' : 'local' });
 });
 
 // ─── Static frontend (production) ────────────────────────────────────────────
@@ -1185,9 +1193,11 @@ io.on('connection', (socket) => {
   // Send current ad settings to new connections
   const t = db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
   const d = db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
+  const ab = db.prepare("SELECT value FROM settings WHERE key='ad_ads_before_dashboard'").get();
   socket.emit('ads:config', {
     ticket_display_time: parseInt(t?.value || '10', 10),
     dashboard_idle_time: parseInt(d?.value || '15', 10),
+    ads_before_dashboard: parseInt(ab?.value || '0', 10),
   });
 });
 
