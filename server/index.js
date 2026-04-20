@@ -249,8 +249,8 @@ app.get('/api/settings/registration', (req, res) => {
 });
 
 app.put('/api/settings/registration', requireAuth, (req, res) => {
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
-  const newVal = row?.value === '1' ? '0' : '1';
+  const { open } = req.body;
+  const newVal = open ? '1' : '0';
   db.prepare("UPDATE settings SET value = ? WHERE key = 'registration_open'").run(newVal);
   log(req, 'settings.registration', newVal === '1' ? 'opened' : 'closed');
   io.emit('registration:changed', { open: newVal === '1' });
