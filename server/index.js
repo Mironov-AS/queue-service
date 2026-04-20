@@ -72,6 +72,7 @@ const server = http.createServer(app);
 const corsOrigin = process.env.CORS_ORIGIN || '*';
 const io = new Server(server, { cors: { origin: corsOrigin, methods: ['GET', 'POST', 'PUT', 'DELETE'] } });
 
+app.set('trust proxy', 1);
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: '100kb' }));
 
