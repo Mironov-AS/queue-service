@@ -54,7 +54,7 @@ router.get('/all', requireAuth, async (req, res) => {
 });
 
 // POST /api/ads — upload new ad
-router.post('/', requireAuth, upload.single('file'), (req, res) => {
+router.post('/', requireAuth, (req, res) => {
   upload.single('file')(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       const msg = err.code === 'LIMIT_FILE_SIZE' ? 'Файл слишком большой (максимум 200 МБ)' : err.message;
