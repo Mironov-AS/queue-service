@@ -171,11 +171,20 @@ export function AdsList({
 
 function AdThumbnail({ ad, isVideo }) {
   if (ad.url) {
-    return isVideo(ad)
-      ? <video src={ad.url} className="w-full h-full object-cover" muted preload="metadata" />
-      : <img src={ad.url} alt={ad.name} className="w-full h-full object-cover" />;
+    return (
+      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+        {isVideo(ad)
+          ? <video src={ad.url} className="w-full h-full object-cover" muted preload="metadata" />
+          : <img src={ad.url} alt={ad.name} className="w-full h-full object-cover" />
+        }
+      </div>
+    );
   }
-  return <Icon d={isVideo(ad) ? P.film : P.eye} cls="w-6 h-6 text-gray-400" />;
+  return (
+    <div className="w-16 h-16 rounded-lg flex-shrink-0 bg-gray-100 flex items-center justify-center">
+      <Icon d={isVideo(ad) ? P.film : P.eye} cls="w-6 h-6 text-gray-400" />
+    </div>
+  );
 }
 
 export function AdsEditModal({ ad, onClose, onSave }) {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { authHeaders } from '../../api';
 import { Icon, P } from './shared';
 
@@ -9,11 +9,18 @@ export function AdsUploadForm({ onUploaded, title = 'Загрузить рекл
   const [uploadErr, setUploadErr] = useState('');
   const [progress, setProgress] = useState(0);
   const [form, setForm] = useState({ name: '', duration: '15', file: null });
+  const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+  }, [previewUrl]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(file));
     setForm(prev => ({
       ...prev,
       file,
@@ -70,6 +77,7 @@ export function AdsUploadForm({ onUploaded, title = 'Загрузить рекл
           setForm({ name: '', duration: '15', file: null });
           if (fileInputRef.current) fileInputRef.current.value = '';
           setProgress(0);
+          setPreviewUrl(null);
           onUploaded?.();
           return;
         }
@@ -94,7 +102,17 @@ export function AdsUploadForm({ onUploaded, title = 'Загрузить рекл
             onChange={handleFileChange}
             className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
           {form.file && (
-            <p className="text-xs text-gray-400 mt-1">{form.file.name} · {(form.file.size / 1024 / 1024).toFixed(1)} МБ</p>
+            <div className="mt-2 flex items-center gap-3">
+              {previewUrl && (
+                <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
+                  {form.file.type.startsWith('video/')
+                    ? <video src={previewUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                    : <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
+                  }
+                </div>
+              )}
+              <p className="text-xs text-gray-400">{form.file.name} · {(form.file.size / 1024 / 1024).toFixed(1)} МБ</p>
+            </div>
           )}
         </div>
         <div className="flex gap-4 flex-wrap">
