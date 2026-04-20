@@ -105,7 +105,7 @@ export default function AdminPage() {
   }, [isAdvertiser]);
 
   const toggleRegistration = async () => {
-    const r = await apiFetch('/api/settings/registration', { method: 'PUT' });
+    const r = await apiFetch('/api/settings/registration', { method: 'PUT', body: JSON.stringify({ open: !regOpen }) });
     if (r) { const d = await r.json(); setRegOpen(d.open); }
   };
 
