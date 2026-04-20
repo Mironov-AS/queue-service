@@ -1,10 +1,13 @@
 import { useState, useRef } from 'react';
-import { apiFetch, authHeaders } from '../../api';
+import { authHeaders } from '../../api';
 import { Icon, P } from './shared';
+
+const CHUNK_SIZE = 512 * 1024; // 512KB per chunk — stays safely under proxy limits
 
 export function AdsUploadForm({ onUploaded, title = 'Загрузить рекламу', buttonLabel = 'Загрузить' }) {
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState('');
+  const [progress, setProgress] = useState(0);
   const [form, setForm] = useState({ name: '', duration: '15', file: null });
   const fileInputRef = useRef(null);
 
@@ -17,6 +20,7 @@ export function AdsUploadForm({ onUploaded, title = 'Загрузить рекл
       name: prev.name || file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '),
     }));
     setUploadErr('');
+    setProgress(0);
   };
 
   const handleUpload = async () => {
@@ -24,26 +28,57 @@ export function AdsUploadForm({ onUploaded, title = 'Загрузить рекл
     if (!form.name.trim()) { setUploadErr('Введите название'); return; }
     setUploading(true);
     setUploadErr('');
-    const fd = new FormData();
-    fd.append('file', form.file);
-    fd.append('name', form.name.trim());
-    fd.append('duration', form.duration);
-    const r = await fetch('/api/ads', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: fd,
-    });
-    setUploading(false);
-    if (!r) return;
-    if (r.status === 401) { window.location.href = '/login'; return; }
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({ error: 'Ошибка загрузки' }));
-      setUploadErr(d.error || 'Ошибка загрузки');
-      return;
+    setProgress(0);
+
+    const file = form.file;
+    const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+    const uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+    try {
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        const fd = new FormData();
+        fd.append('chunk', chunkBlob, file.name);
+        fd.append('uploadId', uploadId);
+        fd.append('index', String(i));
+        fd.append('total', String(totalChunks));
+        fd.append('mimeType', file.type);
+        fd.append('originalName', file.name);
+        fd.append('name', form.name.trim());
+        fd.append('duration', form.duration);
+
+        const r = await fetch('/api/ads/chunk', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: fd,
+        });
+
+        if (!r) return;
+        if (r.status === 401) { window.location.href = '/login'; return; }
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({ error: 'Ошибка загрузки' }));
+          throw new Error(d.error || 'Ошибка загрузки');
+        }
+
+        const result = await r.json();
+        setProgress(Math.round(((i + 1) / totalChunks) * 100));
+
+        if (result.done) {
+          setForm({ name: '', duration: '15', file: null });
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          setProgress(0);
+          onUploaded?.();
+          return;
+        }
+      }
+    } catch (e) {
+      setUploadErr(e.message || 'Ошибка загрузки');
+    } finally {
+      setUploading(false);
     }
-    setForm({ name: '', duration: '15', file: null });
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    onUploaded?.();
   };
 
   return (
@@ -79,6 +114,20 @@ export function AdsUploadForm({ onUploaded, title = 'Загрузить рекл
           </div>
         </div>
         {uploadErr && <p className="text-red-500 text-sm">{uploadErr}</p>}
+        {uploading && progress > 0 && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>Загрузка...</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-1.5">
+              <div
+                className="bg-blue-600 h-1.5 rounded-full transition-all duration-200"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
         <button onClick={handleUpload} disabled={uploading}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2">
           {uploading ? (
