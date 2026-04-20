@@ -7,7 +7,7 @@ export default function AdsTab() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState('');
-  const [settings, setSettings] = useState({ ticket_display_time: 10, dashboard_idle_time: 15, ads_before_dashboard: 0, s3_configured: false, storage_type: 'local' });
+  const [settings, setSettings] = useState({ ticket_display_time: 10, dashboard_idle_time: 15, ads_before_dashboard: 0 });
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [editModal, setEditModal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -113,30 +113,6 @@ export default function AdsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Storage status banner */}
-      {settings.storage_type === 'local' ? (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
-          <span className="text-blue-500 text-xl flex-shrink-0">💾</span>
-          <div>
-            <p className="text-blue-800 font-semibold text-sm">Локальное хранилище</p>
-            <p className="text-blue-700 text-xs mt-1">
-              Файлы сохраняются на сервере. Для подключения S3 задайте переменные{' '}
-              <code className="bg-blue-100 px-1 rounded">AWS_S3_BUCKET</code>,{' '}
-              <code className="bg-blue-100 px-1 rounded">AWS_ACCESS_KEY_ID</code> и{' '}
-              <code className="bg-blue-100 px-1 rounded">AWS_SECRET_ACCESS_KEY</code>.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex gap-3">
-          <span className="text-green-500 text-xl flex-shrink-0">☁️</span>
-          <div>
-            <p className="text-green-800 font-semibold text-sm">S3 хранилище подключено</p>
-            <p className="text-green-700 text-xs mt-1">Файлы хранятся в облачном S3-бакете.</p>
-          </div>
-        </div>
-      )}
-
       {/* Display settings */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <h3 className="text-base font-bold text-gray-900 mb-1">Настройки показа</h3>
