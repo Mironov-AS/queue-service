@@ -441,11 +441,6 @@ export default function DashboardPage() {
         <p className="text-slate-500 text-2xl font-semibold leading-snug">Разработка электронной очереди:</p>
         <p className="text-blue-600 text-3xl font-bold">+7 (916) 158 68 26</p>
       </div>
-
-      {/* Logo */}
-      <div className="fixed bottom-6 right-6 pointer-events-none">
-        <img src="/logo.png" alt="Логотип" className="h-[156px] w-auto object-contain" />
-      </div>
     </div>
   );
 }
