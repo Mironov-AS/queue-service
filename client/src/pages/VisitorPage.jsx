@@ -226,12 +226,13 @@ function TicketStatus({ ticketId, clientId }) {
     loadTicket();
     loadQueue();
 
+    if (clientId) {
+      socket.emit('join:client', { client_id: clientId });
+      socket.on('connect', () => socket.emit('join:client', { client_id: clientId }));
+    }
+
     const handleQueue = (q) => {
-      if (clientId) {
-        loadQueue();
-      } else {
-        setQueue(q);
-      }
+      setQueue(q);
       loadTicket();
     };
     const handleCalled = (t) => {
@@ -249,6 +250,7 @@ function TicketStatus({ ticketId, clientId }) {
     const timer = setInterval(() => { loadTicket(); loadQueue(); }, 5000);
 
     return () => {
+      socket.off('connect');
       socket.off('queue:updated', handleQueue);
       socket.off('ticket:called', handleCalled);
       clearInterval(timer);

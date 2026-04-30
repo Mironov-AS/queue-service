@@ -18,40 +18,33 @@ function parseTicket(t) {
 }
 
 async function getQueueState(clientId = null) {
+  if (!clientId) return { current: null, waiting: [] };
   const d = today();
-  if (clientId) {
-    const current = await db.pool.query(`
-      SELECT t.*, s.name AS service_name, s.avg_duration_minutes
-      FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-      WHERE t.date = $1 AND t.status = 'called' AND t.client_id = $2
-      ORDER BY t.called_at DESC LIMIT 1
-    `, [d, clientId]);
-
-    const waiting = await db.pool.query(`
-      SELECT t.*, s.name AS service_name, s.avg_duration_minutes
-      FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-      WHERE t.date = $1 AND t.status = 'waiting' AND t.client_id = $2
-      ORDER BY t.is_priority DESC, t.created_at ASC
-    `, [d, clientId]);
-
-    return { current: parseTicket(current.rows[0] || null), waiting: waiting.rows.map(parseTicket) };
-  }
 
   const current = await db.pool.query(`
     SELECT t.*, s.name AS service_name, s.avg_duration_minutes
     FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-    WHERE t.date = $1 AND t.status = 'called'
+    WHERE t.date = $1 AND t.status = 'called' AND t.client_id = $2
     ORDER BY t.called_at DESC LIMIT 1
-  `, [d]);
+  `, [d, clientId]);
 
   const waiting = await db.pool.query(`
     SELECT t.*, s.name AS service_name, s.avg_duration_minutes
     FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-    WHERE t.date = $1 AND t.status = 'waiting'
+    WHERE t.date = $1 AND t.status = 'waiting' AND t.client_id = $2
     ORDER BY t.is_priority DESC, t.created_at ASC
-  `, [d]);
+  `, [d, clientId]);
 
   return { current: parseTicket(current.rows[0] || null), waiting: waiting.rows.map(parseTicket) };
+}
+
+async function getActiveClientIds() {
+  const d = today();
+  const rows = await db.pool.query(
+    "SELECT DISTINCT client_id FROM tickets WHERE date = $1 AND client_id IS NOT NULL AND status IN ('waiting', 'called')",
+    [d]
+  );
+  return rows.rows.map(r => r.client_id);
 }
 
 async function getPublicQueueState(clientId = null) {
@@ -70,4 +63,4 @@ async function getPublicQueueState(clientId = null) {
   };
 }
 
-module.exports = { today, nextTicketNumber, getQueueState, getPublicQueueState };
+module.exports = { today, nextTicketNumber, getQueueState, getPublicQueueState, getActiveClientIds };

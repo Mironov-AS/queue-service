@@ -98,14 +98,39 @@ io.use(async (socket, next) => {
   next();
 });
 
+function sanitizeClientId(val) {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  return /^[a-zA-Z0-9_-]{6,80}$/.test(trimmed) ? trimmed : null;
+}
+
 io.on('connection', async (socket) => {
   try {
-    if (socket.data.isAdmin) {
-      socket.join('admins');
-      socket.emit('queue:updated', await getQueueState());
-    } else {
-      socket.emit('queue:updated', await getPublicQueueState());
+    let clientId = null;
+
+    if (socket.data.isAdmin && socket.data.user?.clientId) {
+      clientId = socket.data.user.clientId;
+      socket.join(`admin:${clientId}`);
+      socket.emit('queue:updated', await getQueueState(clientId));
+    } else if (!socket.data.isAdmin) {
+      clientId = sanitizeClientId(socket.handshake.query?.client_id);
+      if (clientId) {
+        socket.join(`public:${clientId}`);
+        socket.emit('queue:updated', await getPublicQueueState(clientId));
+      }
     }
+
+    socket.data.clientId = clientId;
+
+    socket.on('join:client', async (data) => {
+      const cid = sanitizeClientId(data?.client_id);
+      if (!cid) return;
+      if (socket.data.clientId) socket.leave(`public:${socket.data.clientId}`);
+      socket.join(`public:${cid}`);
+      socket.data.clientId = cid;
+      socket.emit('queue:updated', await getPublicQueueState(cid));
+    });
+
     const t = await db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
     const d = await db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
     const ab = await db.prepare("SELECT value FROM settings WHERE key='ad_ads_before_dashboard'").get();

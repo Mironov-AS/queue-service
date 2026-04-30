@@ -53,41 +53,24 @@ router.post('/next', requireAuth, async (req, res, next) => {
   try {
     const d = today();
     const clientId = req.user.clientId || null;
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
 
-    if (clientId) {
-      const current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' AND client_id = ?").get(d, clientId);
-      if (current) await db.pool.query("UPDATE tickets SET status='served', served_at=NOW() WHERE id=$1", [current.id]);
-      const next = await db.prepare(`
-        SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-        WHERE t.date = ? AND t.status = 'waiting' AND t.client_id = ?
-        ORDER BY t.is_priority DESC, t.created_at ASC LIMIT 1
-      `).get(d, clientId);
-      if (next) {
-        await db.pool.query("UPDATE tickets SET status='called', called_at=NOW() WHERE id=$1", [next.id]);
-        const updated = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?").get(next.id);
-        const { getIo } = require('../services/socketSetup');
-        const io = getIo();
-        if (io) io.emit('ticket:called', updated);
-        await log(req, 'ticket.called', `#${next.number}`);
-      }
-    } else {
-      const current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called'").get(d);
-      if (current) await db.pool.query("UPDATE tickets SET status='served', served_at=NOW() WHERE id=$1", [current.id]);
-      const next = await db.prepare(`
-        SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-        WHERE t.date = ? AND t.status = 'waiting'
-        ORDER BY t.is_priority DESC, t.created_at ASC LIMIT 1
-      `).get(d);
-      if (next) {
-        await db.pool.query("UPDATE tickets SET status='called', called_at=NOW() WHERE id=$1", [next.id]);
-        const updated = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?").get(next.id);
-        const { getIo } = require('../services/socketSetup');
-        const io = getIo();
-        if (io) io.emit('ticket:called', updated);
-        await log(req, 'ticket.called', `#${next.number}`);
-      }
+    const current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' AND client_id = ?").get(d, clientId);
+    if (current) await db.pool.query("UPDATE tickets SET status='served', served_at=NOW() WHERE id=$1", [current.id]);
+    const next = await db.prepare(`
+      SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id
+      WHERE t.date = ? AND t.status = 'waiting' AND t.client_id = ?
+      ORDER BY t.is_priority DESC, t.created_at ASC LIMIT 1
+    `).get(d, clientId);
+    if (next) {
+      await db.pool.query("UPDATE tickets SET status='called', called_at=NOW() WHERE id=$1", [next.id]);
+      const updated = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?").get(next.id);
+      const { getIo } = require('../services/socketSetup');
+      const io = getIo();
+      if (io) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('ticket:called', updated);
+      await log(req, 'ticket.called', `#${next.number}`);
     }
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json(await getQueueState(clientId));
   } catch (err) { next(err); }
 });
@@ -100,31 +83,23 @@ router.post('/call/:id', requireAuth, async (req, res, next) => {
     const d = today();
     const clientId = req.user.clientId || null;
 
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
+
     await db.runTransaction(async (txDb) => {
-      let target;
-      if (clientId) {
-        target = await txDb.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.date = ? AND t.status = 'waiting' AND t.client_id = ?").get(id, d, clientId);
-      } else {
-        target = await txDb.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.date = ? AND t.status = 'waiting'").get(id, d);
-      }
+      const target = await txDb.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.date = ? AND t.status = 'waiting' AND t.client_id = ?").get(id, d, clientId);
       if (!target) throw { status: 404, error: 'Талон не найден в очереди' };
 
-      if (clientId) {
-        const current = await txDb.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' AND client_id = ?").get(d, clientId);
-        if (current) await txDb.prepare("UPDATE tickets SET status='served', served_at=NOW() WHERE id=?").run(current.id);
-      } else {
-        const current = await txDb.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called'").get(d);
-        if (current) await txDb.prepare("UPDATE tickets SET status='served', served_at=NOW() WHERE id=?").run(current.id);
-      }
+      const current = await txDb.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' AND client_id = ?").get(d, clientId);
+      if (current) await txDb.prepare("UPDATE tickets SET status='served', served_at=NOW() WHERE id=?").run(current.id);
       await txDb.prepare("UPDATE tickets SET status='called', called_at=NOW() WHERE id=?").run(target.id);
     });
 
     const updated = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?").get(id);
     const { getIo } = require('../services/socketSetup');
     const io = getIo();
-    if (io) io.emit('ticket:called', updated);
+    if (io && clientId) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('ticket:called', updated);
     await log(req, 'ticket.called', `#${updated.number}`);
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json(await getQueueState(clientId));
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.error });
@@ -137,19 +112,15 @@ router.post('/repeat', requireAuth, async (req, res, next) => {
   try {
     const d = today();
     const clientId = req.user.clientId || null;
-    let current;
-    if (clientId) {
-      current = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.date = ? AND t.status = 'called' AND t.client_id = ? LIMIT 1").get(d, clientId);
-    } else {
-      current = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.date = ? AND t.status = 'called' LIMIT 1").get(d);
-    }
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
+    const current = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.date = ? AND t.status = 'called' AND t.client_id = ? LIMIT 1").get(d, clientId);
     if (current) {
       const { getIo } = require('../services/socketSetup');
       const io = getIo();
-      if (io) io.emit('ticket:called', current);
+      if (io) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('ticket:called', current);
       await log(req, 'ticket.called.repeat', `#${current.number}`);
     }
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json(await getQueueState(clientId));
   } catch (err) { next(err); }
 });
@@ -159,17 +130,13 @@ router.post('/return', requireAuth, async (req, res, next) => {
   try {
     const d = today();
     const clientId = req.user.clientId || null;
-    let current;
-    if (clientId) {
-      current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' AND client_id = ?").get(d, clientId);
-    } else {
-      current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called'").get(d);
-    }
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
+    const current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' AND client_id = ?").get(d, clientId);
     if (current) {
       await db.pool.query("UPDATE tickets SET status='waiting', called_at=NULL WHERE id=$1", [current.id]);
       await log(req, 'ticket.returned', `#${current.number}`);
     }
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json(await getQueueState(clientId));
   } catch (err) { next(err); }
 });
@@ -181,17 +148,13 @@ router.post('/return/:id', requireAuth, async (req, res, next) => {
     if (!id) return res.status(400).json({ error: 'Неверный id талона' });
     const d = today();
     const clientId = req.user.clientId || null;
-    let ticket;
-    if (clientId) {
-      ticket = await db.prepare("SELECT * FROM tickets WHERE id=? AND date=? AND client_id=?").get(id, d, clientId);
-    } else {
-      ticket = await db.prepare("SELECT * FROM tickets WHERE id=? AND date=?").get(id, d);
-    }
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
+    const ticket = await db.prepare("SELECT * FROM tickets WHERE id=? AND date=? AND client_id=?").get(id, d, clientId);
     if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
     if (ticket.status === 'waiting') return res.status(400).json({ error: 'Талон уже в очереди' });
     await db.pool.query("UPDATE tickets SET status='waiting', called_at=NULL, served_at=NULL WHERE id=$1", [id]);
     await log(req, 'ticket.returned', `#${ticket.number}`);
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json({ success: true, ...(await getQueueState(clientId)) });
   } catch (err) { next(err); }
 });
@@ -201,14 +164,10 @@ router.post('/return-all', requireAuth, async (req, res, next) => {
   try {
     const d = today();
     const clientId = req.user.clientId || null;
-    let result;
-    if (clientId) {
-      result = await db.prepare("UPDATE tickets SET status='waiting', called_at=NULL, served_at=NULL WHERE date=? AND status IN ('called','served') AND client_id=?").run(d, clientId);
-    } else {
-      result = await db.prepare("UPDATE tickets SET status='waiting', called_at=NULL, served_at=NULL WHERE date=? AND status IN ('called','served')").run(d);
-    }
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
+    const result = await db.prepare("UPDATE tickets SET status='waiting', called_at=NULL, served_at=NULL WHERE date=? AND status IN ('called','served') AND client_id=?").run(d, clientId);
     await log(req, 'queue.return_all', `${result.changes} талонов возвращено в очередь`);
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json({ success: true, returned: result.changes, ...(await getQueueState(clientId)) });
   } catch (err) { next(err); }
 });
@@ -219,18 +178,14 @@ async function completeTicket(req, res, next) {
     const reason = sanitizeReason(req.body?.reason);
     const d = today();
     const clientId = req.user.clientId || null;
-    let current;
-    if (clientId) {
-      current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' AND client_id = ?").get(d, clientId);
-    } else {
-      current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called'").get(d);
-    }
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
+    const current = await db.prepare("SELECT * FROM tickets WHERE date = ? AND status = 'called' AND client_id = ?").get(d, clientId);
     if (current) {
       await db.pool.query("UPDATE tickets SET status='served', served_at=NOW() WHERE id=$1", [current.id]);
       if (reason) await db.pool.query("UPDATE tickets SET skip_reason=$1 WHERE id=$2", [reason, current.id]);
       await log(req, 'ticket.served', `#${current.number}`);
     }
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json(await getQueueState(clientId));
   } catch (err) { next(err); }
 }
@@ -244,15 +199,12 @@ router.post('/reset', requireAuth, async (req, res, next) => {
   try {
     const d = today();
     const clientId = req.user.clientId || null;
-    if (clientId) {
-      await db.prepare("UPDATE tickets SET status='served', served_at=NOW() WHERE date=? AND status IN ('waiting','called') AND client_id=?").run(d, clientId);
-    } else {
-      await db.prepare("UPDATE tickets SET status='served', served_at=NOW() WHERE date=? AND status IN ('waiting','called')").run(d);
-    }
-    const lastTicket = await db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=?").get(d);
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
+    await db.prepare("UPDATE tickets SET status='served', served_at=NOW() WHERE date=? AND status IN ('waiting','called') AND client_id=?").run(d, clientId);
+    const lastTicket = await db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=? AND client_id=?").get(d, clientId);
     await db.pool.query("INSERT INTO settings (key, value) VALUES ('queue_reset_last_id', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [String(lastTicket?.max_id || 0)]);
     await log(req, 'queue.reset', d);
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json({ success: true });
   } catch (err) { next(err); }
 });

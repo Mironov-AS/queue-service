@@ -221,6 +221,12 @@ export default function DashboardPage() {
     // Refresh ads every 30 min (presigned URLs expire in 1h)
     const adsInterval = setInterval(fetchAds, 30 * 60 * 1000);
 
+    // Join client-specific socket room for filtered updates
+    if (clientId) {
+      socket.emit('join:client', { client_id: clientId });
+      socket.on('connect', () => socket.emit('join:client', { client_id: clientId }));
+    }
+
     // Queue polling fallback
     const refresh = () => {
       const queueUrl = clientId ? `/api/queue?client_id=${encodeURIComponent(clientId)}` : '/api/queue';
@@ -240,10 +246,6 @@ export default function DashboardPage() {
 
     // Socket events
     const onQueueUpdated = (q) => {
-      if (clientId) {
-        refresh();
-        return;
-      }
       setQueue(q);
       if (q.current?.id && q.current.id !== currentTicketIdRef.current) {
         handleTicketCalled(q.current);
@@ -261,6 +263,7 @@ export default function DashboardPage() {
     });
 
     return () => {
+      socket.off('connect');
       socket.off('queue:updated', onQueueUpdated);
       socket.off('ticket:called', handleTicketCalled);
       socket.off('ads:updated', fetchAds);

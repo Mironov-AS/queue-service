@@ -105,7 +105,7 @@ router.post('/', ticketLimiter, async (req, res, next) => {
       WHERE t.id = ?
     `).get(ticketId);
 
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     const queue = await getQueueState(clientId);
     const position = queue.waiting.findIndex(t => t.id === ticket.id) + 1;
 
@@ -141,7 +141,7 @@ router.post('/manual', requireAuth, async (req, res, next) => {
     `).get(ticketId);
 
     await log(req, 'ticket.manual', `#${number} ${name || ''} ${phone || ''}`);
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json({ ...ticket, field_values: ticket.field_values ? JSON.parse(ticket.field_values) : [] });
   } catch (err) { next(err); }
 });
@@ -152,30 +152,20 @@ router.get('/:id', async (req, res, next) => {
     if (!id) return res.status(400).json({ error: 'Некорректный id' });
 
     const clientId = req.user?.clientId || null;
-    let ticket;
-    if (clientId) {
-      ticket = await db.prepare(`
-        SELECT t.id, t.number, t.date, t.status, t.service_id, t.is_priority,
-               t.created_at, t.called_at, t.served_at, t.field_values,
-               s.name AS service_name, s.avg_duration_minutes
-        FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-        WHERE t.id = ? AND t.client_id = ?
-      `).get(id, clientId);
-    } else {
-      ticket = await db.prepare(`
-        SELECT t.id, t.number, t.date, t.status, t.service_id, t.is_priority,
-               t.created_at, t.called_at, t.served_at, t.field_values,
-               s.name AS service_name, s.avg_duration_minutes
-        FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-        WHERE t.id = ?
-      `).get(id);
-    }
+    const ticket = await db.prepare(`
+      SELECT t.id, t.number, t.date, t.status, t.service_id, t.is_priority,
+             t.created_at, t.called_at, t.served_at, t.field_values, t.client_id,
+             s.name AS service_name, s.avg_duration_minutes
+      FROM tickets t LEFT JOIN services s ON t.service_id = s.id
+      WHERE t.id = ?
+    `).get(id);
 
     if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
 
     let position = 0, estimatedWait = null;
     if (ticket.status === 'waiting') {
-      const queue = await getQueueState();
+      const effectiveClientId = clientId || ticket.client_id;
+      const queue = await getQueueState(effectiveClientId);
       const idx = queue.waiting.findIndex(t => t.id === ticket.id);
       position = idx >= 0 ? idx + 1 : 0;
       estimatedWait = ticket.avg_duration_minutes > 0 ? position * ticket.avg_duration_minutes : null;
@@ -190,18 +180,14 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ error: 'Некорректный id' });
     const clientId = req.user.clientId || null;
-    let ticket;
-    if (clientId) {
-      ticket = await db.prepare("SELECT * FROM tickets WHERE id = ? AND client_id = ?").get(id, clientId);
-    } else {
-      ticket = await db.prepare("SELECT * FROM tickets WHERE id = ?").get(id);
-    }
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент' });
+    const ticket = await db.prepare("SELECT * FROM tickets WHERE id = ? AND client_id = ?").get(id, clientId);
     if (!ticket) return res.status(404).json({ error: 'Not found' });
     if (!['waiting', 'called'].includes(ticket.status)) {
       return res.status(400).json({ error: 'Талон уже не активен' });
     }
     await db.pool.query("UPDATE tickets SET status = 'served', served_at = NOW() WHERE id = $1", [id]);
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
@@ -212,12 +198,8 @@ router.put('/:id', requireAuth, async (req, res, next) => {
     if (!id) return res.status(400).json({ error: 'Некорректный id' });
 
     const clientId = req.user.clientId || null;
-    let ticket;
-    if (clientId) {
-      ticket = await db.prepare("SELECT * FROM tickets WHERE id = ? AND client_id = ?").get(id, clientId);
-    } else {
-      ticket = await db.prepare("SELECT * FROM tickets WHERE id = ?").get(id);
-    }
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент' });
+    const ticket = await db.prepare("SELECT * FROM tickets WHERE id = ? AND client_id = ?").get(id, clientId);
     if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
 
     const { name, phone, service_id, is_priority, field_values, status } = req.body;
@@ -254,7 +236,7 @@ router.put('/:id', requireAuth, async (req, res, next) => {
     `).get(id);
 
     await log(req, 'ticket.edited', `#${ticket.number}`);
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     res.json({ ...updated, field_values: updated.field_values ? JSON.parse(updated.field_values) : [] });
   } catch (err) { next(err); }
 });
@@ -265,12 +247,8 @@ router.put('/:id/transfer', requireAuth, async (req, res, next) => {
     if (!id) return res.status(400).json({ error: 'Некорректный id' });
     const { service_id } = req.body;
     const clientId = req.user.clientId || null;
-    let ticket;
-    if (clientId) {
-      ticket = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.client_id = ?").get(id, clientId);
-    } else {
-      ticket = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?").get(id);
-    }
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент' });
+    const ticket = await db.prepare("SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ? AND t.client_id = ?").get(id, clientId);
     if (!ticket) return res.status(404).json({ error: 'Not found' });
 
     const svcId = parseId(service_id);
@@ -278,7 +256,7 @@ router.put('/:id/transfer', requireAuth, async (req, res, next) => {
     await db.pool.query('UPDATE tickets SET service_id = $1 WHERE id = $2', [svcId, id]);
     const newSvc = await db.prepare('SELECT name FROM services WHERE id = ?').get(svcId);
     await log(req, 'ticket.transferred', `#${ticket.number}: ${ticket.service_name} → ${newSvc?.name}`);
-    await emitQueueUpdate();
+    await emitQueueUpdate(clientId);
     const result = await db.prepare('SELECT t.*, s.name AS service_name FROM tickets t LEFT JOIN services s ON t.service_id = s.id WHERE t.id = ?').get(id);
     res.json(result);
   } catch (err) { next(err); }
