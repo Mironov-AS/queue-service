@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Icon, P } from './shared';
 
+const queueBasePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+
+function queuePath(path) {
+  return `${queueBasePath}${path}`;
+}
+
+function queueUrl(path) {
+  return new URL(queuePath(path), window.location.origin).toString();
+}
+
 export default function QRTab() {
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState('');
@@ -14,7 +24,7 @@ export default function QRTab() {
       setServices(data);
       generateQR(null);
     });
-    const dashUrl = window.location.origin + '/dashboard';
+    const dashUrl = queueUrl('/dashboard');
     fetch(`/api/qrcode?url=${encodeURIComponent(dashUrl)}`)
       .then(r => r.json()).then(setDashboardQr);
   }, []);
@@ -23,8 +33,9 @@ export default function QRTab() {
     setLoading(true);
     let url = customUrl.trim();
     if (!url) {
-      url = window.location.origin + '/visitor';
-      if (serviceId) url += `?service=${serviceId}`;
+      const visitorUrl = new URL(queueUrl('/visitor'));
+      if (serviceId) visitorUrl.searchParams.set('service', serviceId);
+      url = visitorUrl.toString();
     }
     const res = await fetch(`/api/qrcode?url=${encodeURIComponent(url)}`);
     const data = await res.json();
@@ -66,7 +77,7 @@ export default function QRTab() {
           <label className="text-xs text-gray-500 font-medium mb-1.5 block">Своя ссылка (если отличается)</label>
           <div className="flex gap-2">
             <input type="url" value={customUrl} onChange={e => setCustomUrl(e.target.value)}
-              placeholder={window.location.origin + '/visitor'}
+              placeholder={queueUrl('/visitor')}
               className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
             <button onClick={() => generateQR(selectedService || null)} disabled={loading}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl font-medium">
@@ -102,7 +113,7 @@ export default function QRTab() {
           </p>
         </div>
         <div className="flex gap-3">
-          <a href="/dashboard" target="_blank" rel="noopener noreferrer"
+          <a href={queuePath('/dashboard')} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
             <Icon d={P.eye} cls="w-4 h-4" /> Открыть табло
           </a>
