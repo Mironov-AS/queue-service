@@ -99,6 +99,7 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_action_logs_created ON action_logs(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_services_client_id ON services(client_id);
     CREATE INDEX IF NOT EXISTS idx_tickets_client_id ON tickets(client_id);
+    CREATE INDEX IF NOT EXISTS idx_tickets_date_client ON tickets(date, client_id);
   `);
 
   // Seed default admin user

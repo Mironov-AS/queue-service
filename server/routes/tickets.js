@@ -89,9 +89,9 @@ router.post('/', ticketLimiter, async (req, res, next) => {
       }
     }
 
-    const number = await nextTicketNumber(d);
-    const fvJson = field_values ? JSON.stringify(field_values) : null;
     const clientId = effectiveUser?.clientId || visitorClientId;
+    const number = await nextTicketNumber(d, clientId);
+    const fvJson = field_values ? JSON.stringify(field_values) : null;
 
     const { rows } = await db.pool.query(
       'INSERT INTO tickets (number, date, service_id, name, phone, field_values, status, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
@@ -126,7 +126,7 @@ router.post('/manual', requireAuth, async (req, res, next) => {
     }
 
     const clientId = req.user.clientId || null;
-    const number = await nextTicketNumber(d);
+    const number = await nextTicketNumber(d, clientId);
     const fvJson = field_values?.length ? JSON.stringify(field_values) : null;
 
     const { rows } = await db.pool.query(

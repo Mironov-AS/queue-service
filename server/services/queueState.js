@@ -4,12 +4,19 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
-async function nextTicketNumber(d) {
+async function nextTicketNumber(d, clientId = null) {
   const idRow = await db.prepare("SELECT value FROM settings WHERE key='queue_reset_last_id'").get();
   const lastId = parseInt(idRow?.value || '0', 10);
-  const row = lastId
-    ? await db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=? AND id > ?").get(d, lastId)
-    : await db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=?").get(d);
+  let row;
+  if (clientId) {
+    row = lastId
+      ? await db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=? AND id > ? AND client_id=?").get(d, lastId, clientId)
+      : await db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=? AND client_id=?").get(d, clientId);
+  } else {
+    row = lastId
+      ? await db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=? AND id > ? AND client_id IS NULL").get(d, lastId)
+      : await db.prepare("SELECT MAX(number) AS max FROM tickets WHERE date=? AND client_id IS NULL").get(d);
+  }
   return (row?.max || 0) + 1;
 }
 
