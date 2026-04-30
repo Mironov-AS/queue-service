@@ -58,6 +58,15 @@ function ForcePasswordChange({ onDone }) {
 
 export default function AdminPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Redirect to login if no token and no auth_token in URL
+  const hasToken = localStorage.getItem('adminToken');
+  const hasUrlToken = searchParams.get('auth_token');
+  if (!hasToken && !hasUrlToken) {
+    return <Navigate to="/login" replace />;
+  }
+
   const currentUser = (() => { try { return JSON.parse(localStorage.getItem('adminUser')); } catch { return null; } })();
   const isAdmin = currentUser?.role === 'admin';
   const isAdvertiser = currentUser?.role === 'advertiser';
@@ -71,7 +80,6 @@ export default function AdminPage() {
   const [time, setTime] = useState(new Date());
   const [regOpen, setRegOpen] = useState(true);
   const inactivityTimer = useRef(null);
-  const navigate = useNavigate();
 
   const mustChange = localStorage.getItem('mustChangePassword');
 

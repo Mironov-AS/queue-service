@@ -436,10 +436,12 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Slogan + Phone */}
-      <div className="fixed bottom-6 left-0 right-0 flex flex-col items-center gap-1 pointer-events-none">
-        <p className="text-slate-500 text-2xl font-semibold leading-snug">Разработка электронной очереди:</p>
-        <p className="text-blue-600 text-3xl font-bold">+7 (916) 158 68 26</p>
+      {/* Slogan + Phone + Logo */}
+      <div style={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, pointerEvents: 'none' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#334155', lineHeight: 1.2 }}>Цифровое агентство</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', lineHeight: 1.2 }}>ОнлайнПро.РФ</div>
+        <div style={{ marginTop: 8, fontSize: 20, fontWeight: 600, color: '#64748b', lineHeight: 1.2 }}>Разработка электронной очереди:</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: '#2563eb' }}>+7 (916) 158 68 26</div>
       </div>
     </div>
   );

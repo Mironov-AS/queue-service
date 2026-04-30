@@ -2,12 +2,17 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  base: '/queue/',
   plugins: [react()],
   server: {
     host: '0.0.0.0',
-    port: 3000,
+    port: 3002,
     allowedHosts: true,
     proxy: {
+      '/api/auth': {
+        target: 'http://localhost:4001',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true
