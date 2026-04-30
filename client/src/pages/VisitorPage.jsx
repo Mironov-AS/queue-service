@@ -6,16 +6,17 @@ export default function VisitorPage() {
   const [searchParams] = useSearchParams();
   const ticketId = searchParams.get('ticket');
   const preService = searchParams.get('service');
+  const clientId = searchParams.get('client_id') || '';
 
   if (ticketId) return <TicketStatus ticketId={ticketId} />;
-  return <GetTicket preService={preService} />;
+  return <GetTicket preService={preService} clientId={clientId} />;
 }
 
 // ─── Get Ticket ────────────────────────────────────────────────────────────────
 
 const FIELD_INPUT_TYPES = { text: 'text', phone: 'tel', number: 'number', date: 'date', email: 'email' };
 
-function GetTicket({ preService }) {
+function GetTicket({ preService, clientId }) {
   const [services, setServices] = useState([]);
   const [selected, setSelected] = useState(preService || null);
   const [fields, setFields] = useState([]);
@@ -27,7 +28,8 @@ function GetTicket({ preService }) {
 
   useEffect(() => {
     fetch('/api/settings/registration').then(r => r.json()).then(d => setRegOpen(d.open));
-    fetch('/api/services').then(r => r.json()).then(data => {
+    const servicesUrl = clientId ? `/api/services?client_id=${encodeURIComponent(clientId)}` : '/api/services';
+    fetch(servicesUrl).then(r => r.json()).then(data => {
       setServices(data);
       if (preService) {
         setSelected(preService);
@@ -43,7 +45,7 @@ function GetTicket({ preService }) {
     const handler = (d) => setRegOpen(d.open);
     socket.on('registration:changed', handler);
     return () => socket.off('registration:changed', handler);
-  }, []);
+  }, [clientId, preService]);
 
   // Load fields whenever selected service changes
   useEffect(() => {
@@ -76,11 +78,14 @@ function GetTicket({ preService }) {
       const res = await fetch('/api/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service_id: selected, field_values: fvArray.length ? fvArray : undefined })
+        body: JSON.stringify({ service_id: selected, client_id: clientId || undefined, field_values: fvArray.length ? fvArray : undefined })
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Ошибка'); return; }
-      navigate(`/visitor?ticket=${data.id}`, { replace: true });
+      const statusUrl = clientId
+        ? `/visitor?ticket=${data.id}&client_id=${encodeURIComponent(clientId)}`
+        : `/visitor?ticket=${data.id}`;
+      navigate(statusUrl, { replace: true });
     } catch {
       setError('Ошибка соединения');
     } finally {

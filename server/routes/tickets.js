@@ -20,6 +20,12 @@ function sanitizeReason(val) {
   return val.trim().slice(0, 500) || null;
 }
 
+function sanitizeClientId(val) {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  return /^[a-zA-Z0-9_-]{6,80}$/.test(trimmed) ? trimmed : null;
+}
+
 const ticketLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 50,
@@ -46,6 +52,7 @@ router.post('/', ticketLimiter, async (req, res, next) => {
         };
       } catch {}
     }
+    const visitorClientId = sanitizeClientId(req.body.client_id || req.query.client_id);
 
     if (name && (typeof name !== 'string' || name.length > 100)) {
       return res.status(400).json({ error: 'Некорректное имя' });
@@ -60,7 +67,7 @@ router.post('/', ticketLimiter, async (req, res, next) => {
     }
 
     if (service_id) {
-      const clientId = effectiveUser?.clientId || null;
+      const clientId = effectiveUser?.clientId || visitorClientId;
       let svc;
       if (clientId) {
         svc = await db.pool.query(
@@ -84,7 +91,7 @@ router.post('/', ticketLimiter, async (req, res, next) => {
 
     const number = await nextTicketNumber(d);
     const fvJson = field_values ? JSON.stringify(field_values) : null;
-    const clientId = effectiveUser?.clientId || null;
+    const clientId = effectiveUser?.clientId || visitorClientId;
 
     const { rows } = await db.pool.query(
       'INSERT INTO tickets (number, date, service_id, name, phone, field_values, status, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
@@ -99,7 +106,7 @@ router.post('/', ticketLimiter, async (req, res, next) => {
     `).get(ticketId);
 
     await emitQueueUpdate();
-    const queue = await getQueueState();
+    const queue = await getQueueState(clientId);
     const position = queue.waiting.findIndex(t => t.id === ticket.id) + 1;
 
     res.json({ ...ticket, field_values: ticket.field_values ? JSON.parse(ticket.field_values) : [], position });

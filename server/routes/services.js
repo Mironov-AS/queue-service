@@ -10,12 +10,26 @@ function parseId(val) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+function sanitizeClientId(val) {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  return /^[a-zA-Z0-9_-]{6,80}$/.test(trimmed) ? trimmed : null;
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const all = req.query.all === '1';
-    const rows = all
-      ? await db.prepare('SELECT * FROM services WHERE active = 1 AND client_id IS NULL ORDER BY priority DESC, name').all()
-      : await db.prepare('SELECT * FROM services WHERE active = 1 AND enabled = 1 AND client_id IS NULL ORDER BY priority DESC, name').all();
+    const clientId = sanitizeClientId(req.query.client_id);
+    let rows;
+    if (clientId) {
+      rows = all
+        ? await db.prepare("SELECT * FROM services WHERE active = 1 AND (client_id = ? OR client_id IS NULL OR client_id = '') ORDER BY priority DESC, name").all(clientId)
+        : await db.prepare("SELECT * FROM services WHERE active = 1 AND enabled = 1 AND (client_id = ? OR client_id IS NULL OR client_id = '') ORDER BY priority DESC, name").all(clientId);
+    } else {
+      rows = all
+        ? await db.prepare('SELECT * FROM services WHERE active = 1 AND client_id IS NULL ORDER BY priority DESC, name').all()
+        : await db.prepare('SELECT * FROM services WHERE active = 1 AND enabled = 1 AND client_id IS NULL ORDER BY priority DESC, name').all();
+    }
     res.json(rows);
   } catch (err) { next(err); }
 });

@@ -11,6 +11,19 @@ function queueUrl(path) {
   return new URL(queuePath(path), window.location.origin).toString();
 }
 
+function getClientIdFromToken() {
+  const token = localStorage.getItem('adminToken');
+  if (!token) return '';
+  try {
+    const encodedPayload = token.split('.')[1];
+    const normalizedPayload = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=')));
+    return payload.clientId || payload.client_id || '';
+  } catch {
+    return '';
+  }
+}
+
 export default function QRTab() {
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState('');
@@ -34,6 +47,8 @@ export default function QRTab() {
     let url = customUrl.trim();
     if (!url) {
       const visitorUrl = new URL(queueUrl('/visitor'));
+      const clientId = getClientIdFromToken();
+      if (clientId) visitorUrl.searchParams.set('client_id', clientId);
       if (serviceId) visitorUrl.searchParams.set('service', serviceId);
       url = visitorUrl.toString();
     }
