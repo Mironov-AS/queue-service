@@ -4,6 +4,7 @@ const createPgDb = require('../../../shared/db');
 const db = createPgDb(process.env.DATABASE_URL);
 
 async function initDb() {
+  await db.ensureSchema();
   await db.exec(`
     CREATE TABLE IF NOT EXISTS services (
       id SERIAL PRIMARY KEY,
