@@ -102,8 +102,6 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_services_client_id ON services(client_id);
     CREATE INDEX IF NOT EXISTS idx_tickets_client_id ON tickets(client_id);
     CREATE INDEX IF NOT EXISTS idx_tickets_date_client ON tickets(date, client_id);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key_client ON settings(key, client_id);
-    CREATE INDEX IF NOT EXISTS idx_ads_client_id ON advertisements(client_id);
   `);
 
   // Migration 100: per-client isolation for settings and advertisements
