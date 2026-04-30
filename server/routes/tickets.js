@@ -126,6 +126,7 @@ router.post('/manual', requireAuth, async (req, res, next) => {
     }
 
     const clientId = req.user.clientId || null;
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно создать талон.' });
     const number = await nextTicketNumber(d, clientId);
     const fvJson = field_values?.length ? JSON.stringify(field_values) : null;
 
@@ -288,6 +289,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     const params = [d];
     let idx = 1;
     if (clientId) { idx++; q += ` AND t.client_id = $${idx}`; params.push(clientId); }
+    else { q += ' AND t.client_id IS NULL'; }
     if (status) { idx++; q += ` AND t.status = $${idx}`; params.push(status); }
     if (service_id) { idx++; q += ` AND t.service_id = $${idx}`; params.push(service_id); }
     q += ' ORDER BY t.created_at DESC';

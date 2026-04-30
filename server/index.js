@@ -112,6 +112,8 @@ io.on('connection', async (socket) => {
       clientId = socket.data.user.clientId;
       socket.join(`admin:${clientId}`);
       socket.emit('queue:updated', await getQueueState(clientId));
+    } else if (socket.data.isAdmin && !socket.data.user?.clientId) {
+      socket.emit('queue:updated', { current: null, waiting: [] });
     } else if (!socket.data.isAdmin) {
       clientId = sanitizeClientId(socket.handshake.query?.client_id);
       if (clientId) {
@@ -131,13 +133,15 @@ io.on('connection', async (socket) => {
       socket.emit('queue:updated', await getPublicQueueState(cid));
     });
 
-    const t = await db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
-    const d = await db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
-    const ab = await db.prepare("SELECT value FROM settings WHERE key='ad_ads_before_dashboard'").get();
+    const { getClientSetting } = require('./database');
+    const adClientId = clientId || null;
+    const adTicketTime = await getClientSetting('ad_ticket_display_time', adClientId, '10');
+    const adDashTime = await getClientSetting('ad_dashboard_idle_time', adClientId, '15');
+    const adBefore = await getClientSetting('ad_ads_before_dashboard', adClientId, '0');
     socket.emit('ads:config', {
-      ticket_display_time: parseInt(t?.value || '10', 10),
-      dashboard_idle_time: parseInt(d?.value || '15', 10),
-      ads_before_dashboard: parseInt(ab?.value || '0', 10),
+      ticket_display_time: parseInt(adTicketTime, 10),
+      dashboard_idle_time: parseInt(adDashTime, 10),
+      ads_before_dashboard: parseInt(adBefore, 10),
     });
   } catch (err) {
     console.error('[socket] connection handler error:', err);
@@ -147,25 +151,42 @@ io.on('connection', async (socket) => {
 // ─── Auto-reset scheduler ─────────────────────────────────────────────────────
 async function runAutoReset() {
   try {
-    const enabled = await db.prepare("SELECT value FROM settings WHERE key='auto_reset_enabled'").get();
-    if (enabled?.value !== '1') return;
-    const timeSetting = await db.prepare("SELECT value FROM settings WHERE key='auto_reset_time'").get();
-    const resetTime = timeSetting?.value || '00:00';
+    const { getClientSetting, setClientSetting } = require('./database');
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
     const currentTime = `${hh}:${mm}`;
-    if (currentTime !== resetTime) return;
     const d = today();
-    const lastReset = await db.prepare("SELECT value FROM settings WHERE key='auto_reset_last_date'").get();
-    if (lastReset?.value === d) return;
-    await db.pool.query("UPDATE tickets SET status='served', served_at=NOW() WHERE date=$1 AND status IN ('waiting','called')", [d]);
-    const maxRow = await db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=?").get(d);
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('queue_reset_last_id', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [String(maxRow?.max_id || 0)]);
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('auto_reset_last_date', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [d]);
-    console.log(`[auto-reset] Queue auto-reset executed at ${currentTime}`);
-    const { emitQueueUpdate } = require('./services/emitQueueUpdate');
-    await emitQueueUpdate();
+
+    const { rows: clientRows } = await db.pool.query(
+      "SELECT DISTINCT client_id FROM settings WHERE key = 'auto_reset_enabled' AND value = '1' AND client_id != ''"
+    );
+
+    for (const { client_id: cid } of clientRows) {
+      try {
+        const resetTime = await getClientSetting('auto_reset_time', cid, '00:00');
+        if (currentTime !== resetTime) continue;
+        const lastDate = await getClientSetting('auto_reset_last_date', cid, '');
+        if (lastDate === d) continue;
+
+        await db.pool.query(
+          "UPDATE tickets SET status='served', served_at=NOW() WHERE date=$1 AND status IN ('waiting','called') AND client_id=$2",
+          [d, cid]
+        );
+        const maxRow = await db.pool.query(
+          "SELECT MAX(id) AS max_id FROM tickets WHERE date=$1 AND client_id=$2",
+          [d, cid]
+        );
+        await setClientSetting('queue_reset_last_id', String(maxRow.rows[0]?.max_id || 0), cid);
+        await setClientSetting('auto_reset_last_date', d, cid);
+        console.log(`[auto-reset] Queue reset for client ${cid} at ${currentTime}`);
+
+        const { emitQueueUpdate } = require('./services/emitQueueUpdate');
+        await emitQueueUpdate(cid);
+      } catch (clientErr) {
+        console.error(`[auto-reset] Error for client ${cid}:`, clientErr);
+      }
+    }
   } catch (err) {
     console.error('[auto-reset] Error:', err);
   }

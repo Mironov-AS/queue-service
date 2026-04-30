@@ -10,9 +10,8 @@ function SyncAuthFromUrl() {
   const navigate = useNavigate();
   useEffect(() => {
     const token = searchParams.get('auth_token');
-    if (token && !localStorage.getItem('adminToken')) {
+    if (token) {
       localStorage.setItem('adminToken', token);
-      // Decode JWT to check role
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const user = {
@@ -22,7 +21,6 @@ function SyncAuthFromUrl() {
           clientId: payload.clientId || null,
         };
         localStorage.setItem('adminUser', JSON.stringify(user));
-        // Always go to admin dashboard - client portal users should see admin panel
         navigate('/admin', { replace: true });
       } catch {
         navigate('/admin', { replace: true });

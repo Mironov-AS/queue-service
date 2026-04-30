@@ -57,6 +57,7 @@ router.post('/', requireAuth, async (req, res, next) => {
     const { name, description, avg_duration_minutes, priority, daily_limit } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Название обязательно' });
     const clientId = req.user.clientId || null;
+    if (!clientId) return res.status(400).json({ error: 'Не определён клиент' });
     const { rows } = await db.pool.query(
       'INSERT INTO services (name, description, avg_duration_minutes, priority, daily_limit, client_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
       [name.trim(), description || null, avg_duration_minutes || 5, priority || 0, daily_limit || null, clientId]
