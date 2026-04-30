@@ -6,10 +6,14 @@ function setIo(socketIo) {
   io = socketIo;
 }
 
-function emitQueueUpdate() {
+async function emitQueueUpdate() {
   if (!io) return;
-  io.to('admins').emit('queue:updated', getQueueState());
-  io.except('admins').emit('queue:updated', getPublicQueueState());
+  const [adminState, publicState] = await Promise.all([
+    getQueueState(),
+    getPublicQueueState(),
+  ]);
+  io.to('admins').emit('queue:updated', adminState);
+  io.except('admins').emit('queue:updated', publicState);
 }
 
 module.exports = { setIo, emitQueueUpdate };

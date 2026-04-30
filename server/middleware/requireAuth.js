@@ -1,13 +1,20 @@
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../config');
 
-function requireAuth(req, res, next) {
-  const token = (req.headers.authorization || '').replace('Bearer ', '');
+async function requireAuth(req, res, next) {
+  const token = req.query.auth_token || (req.headers.authorization || '').replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Не авторизован' });
   try {
-    req.user = jwt.verify(token, getJwtSecret());
+    const secret = await getJwtSecret();
+    const payload = jwt.verify(token, secret);
+    req.user = {
+      id: payload.userId || payload.id,
+      username: payload.email || payload.username,
+      role: payload.role,
+      clientId: payload.clientId || null,
+    };
     next();
-  } catch {
+  } catch(e) {
     res.status(401).json({ error: 'Недействительный токен' });
   }
 }

@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const db = require('../database');
+const { db } = require('../database');
 const { requireAuth } = require('../middleware/requireAuth');
 const { requireAdmin } = require('../middleware/requireAdmin');
 const { getAdUrl, deleteAdFile, saveAdFile, makeAdKey, UPLOADS_DIR } = require('../services/storage');
@@ -14,7 +14,6 @@ const router = express.Router();
 const CHUNK_DIR = path.join(UPLOADS_DIR, 'chunks');
 fs.mkdirSync(CHUNK_DIR, { recursive: true });
 
-// Clean up abandoned chunk sessions older than 2 hours
 function cleanupOldChunks() {
   try {
     const now = Date.now();
@@ -34,7 +33,7 @@ setInterval(cleanupOldChunks, 30 * 60 * 1000);
 
 const chunkUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB per chunk max
+  limits: { fileSize: 2 * 1024 * 1024 },
 });
 
 function parseId(val) {
@@ -65,14 +64,13 @@ async function enrichAds(ads) {
   }));
 }
 
-// GET /api/ads — public, approved active ads only
-router.get('/', async (req, res) => {
-  const ads = db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (status IS NULL OR status = 'approved') ORDER BY order_index ASC, id ASC").all();
-  res.json(await enrichAds(ads));
+router.get('/', async (req, res, next) => {
+  try {
+    const ads = await db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (status IS NULL OR status = 'approved') ORDER BY order_index ASC, id ASC").all();
+    res.json(await enrichAds(ads));
+  } catch (err) { next(err); }
 });
 
-// POST /api/ads/chunk — upload one chunk of a large file
-// Each chunk must be ≤ 2MB; server assembles after all chunks received.
 router.post('/chunk', requireAuth, (req, res) => {
   chunkUpload.single('chunk')(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
@@ -95,24 +93,20 @@ router.post('/chunk', requireAuth, (req, res) => {
     const chunkIndex = parseInt(index, 10);
     const totalChunks = parseInt(total, 10);
 
-    // Sanitize uploadId to prevent path traversal
     const safeId = uploadId.replace(/[^a-z0-9_-]/gi, '').slice(0, 64);
     if (!safeId) return res.status(400).json({ error: 'Некорректный uploadId' });
 
     const sessionDir = path.join(CHUNK_DIR, safeId);
     fs.mkdirSync(sessionDir, { recursive: true });
 
-    // Save chunk to disk
     const chunkPath = path.join(sessionDir, `chunk_${chunkIndex}`);
     fs.writeFileSync(chunkPath, req.file.buffer);
 
-    // Check if all chunks have arrived
     const receivedChunks = fs.readdirSync(sessionDir).filter(f => f.startsWith('chunk_')).length;
     if (receivedChunks < totalChunks) {
       return res.json({ done: false, received: receivedChunks, total: totalChunks });
     }
 
-    // All chunks received — assemble the file
     try {
       const parts = [];
       for (let i = 0; i < totalChunks; i++) {
@@ -121,7 +115,6 @@ router.post('/chunk', requireAuth, (req, res) => {
       }
       const buffer = Buffer.concat(parts);
 
-      // Clean up chunk directory
       fs.rmSync(sessionDir, { recursive: true, force: true });
 
       const ext = (originalName.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -130,15 +123,16 @@ router.post('/chunk', requireAuth, (req, res) => {
 
       await saveAdFile(key, buffer, mimeType, originalName);
 
-      const maxOrder = db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements').get();
+      const maxOrder = await db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements').get();
       const adStatus = req.user.role === 'admin' ? 'approved' : 'pending';
-      const r = db.prepare(
-        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status) VALUES (?,?,?,?,?,?,?,?,?)'
-      ).run(name.trim(), key, fileType, mimeType, parseInt(duration, 10) || 15, maxOrder.m + 1, req.user.id, req.user.username, adStatus);
+      const { rows } = await db.pool.query(
+        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
+        [name.trim(), key, fileType, mimeType, parseInt(duration, 10) || 15, parseInt(maxOrder.m) + 1, req.user.id, req.user.username, adStatus]
+      );
 
-      const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(r.lastInsertRowid);
+      const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(rows[0].id);
       const url = await getAdUrl(key);
-      log(req, 'ad.created', name.trim());
+      await log(req, 'ad.created', name.trim());
       const { getIo } = require('../services/socketSetup');
       const io = getIo();
       if (io) io.emit('ads:updated');
@@ -151,18 +145,18 @@ router.post('/chunk', requireAuth, (req, res) => {
   });
 });
 
-// GET /api/ads/all — admin sees all, others see only own
-router.get('/all', requireAuth, async (req, res) => {
-  let ads;
-  if (req.user.role === 'admin') {
-    ads = db.prepare('SELECT * FROM advertisements ORDER BY order_index ASC, id ASC').all();
-  } else {
-    ads = db.prepare('SELECT * FROM advertisements WHERE owner_id = ? ORDER BY order_index ASC, id ASC').all(req.user.id);
-  }
-  res.json(await enrichAds(ads));
+router.get('/all', requireAuth, async (req, res, next) => {
+  try {
+    let ads;
+    if (req.user.role === 'admin') {
+      ads = await db.prepare('SELECT * FROM advertisements ORDER BY order_index ASC, id ASC').all();
+    } else {
+      ads = await db.prepare('SELECT * FROM advertisements WHERE owner_id = ? ORDER BY order_index ASC, id ASC').all(req.user.id);
+    }
+    res.json(await enrichAds(ads));
+  } catch (err) { next(err); }
 });
 
-// POST /api/ads — upload new ad
 router.post('/', requireAuth, (req, res) => {
   upload.single('file')(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
@@ -182,15 +176,16 @@ router.post('/', requireAuth, (req, res) => {
     try {
       await saveAdFile(key, req.file.buffer, req.file.mimetype, req.file.originalname);
 
-      const maxOrder = db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements').get();
+      const maxOrder = await db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements').get();
       const adStatus = req.user.role === 'admin' ? 'approved' : 'pending';
-      const r = db.prepare(
-        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status) VALUES (?,?,?,?,?,?,?,?,?)'
-      ).run(name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, maxOrder.m + 1, req.user.id, req.user.username, adStatus);
+      const { rows } = await db.pool.query(
+        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
+        [name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, parseInt(maxOrder.m) + 1, req.user.id, req.user.username, adStatus]
+      );
 
-      const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(r.lastInsertRowid);
+      const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(rows[0].id);
       const url = await getAdUrl(key);
-      log(req, 'ad.created', name.trim());
+      await log(req, 'ad.created', name.trim());
       const { getIo } = require('../services/socketSetup');
       const io = getIo();
       if (io) io.emit('ads:updated');
@@ -202,78 +197,83 @@ router.post('/', requireAuth, (req, res) => {
   });
 });
 
-// PUT /api/ads/:id — update ad metadata
-router.put('/:id', requireAuth, (req, res) => {
-  const id = parseId(req.params.id);
-  if (!id) return res.status(400).json({ error: 'Некорректный id' });
-  const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
-  if (!ad) return res.status(404).json({ error: 'Not found' });
-
-  const isAdmin = req.user.role === 'admin';
-  if (!isAdmin && ad.owner_id !== req.user.id) {
-    return res.status(403).json({ error: 'Нет доступа' });
-  }
-
-  const { name, duration, active, order_index } = req.body;
-  const newOrderIndex = (isAdmin && order_index !== undefined)
-    ? parseInt(order_index, 10)
-    : ad.order_index;
-
-  db.prepare('UPDATE advertisements SET name=?, duration=?, active=?, order_index=? WHERE id=?').run(
-    name !== undefined ? String(name).trim() || ad.name : ad.name,
-    duration !== undefined ? (parseInt(duration, 10) || ad.duration) : ad.duration,
-    active !== undefined ? (active ? 1 : 0) : ad.active,
-    newOrderIndex,
-    id
-  );
-  log(req, 'ad.updated', ad.name);
-  const { getIo } = require('../services/socketSetup');
-  const io = getIo();
-  if (io) io.emit('ads:updated');
-  res.json(db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id));
-});
-
-// DELETE /api/ads/:id
-router.delete('/:id', requireAuth, async (req, res) => {
-  const id = parseId(req.params.id);
-  if (!id) return res.status(400).json({ error: 'Некорректный id' });
-  const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
-  if (!ad) return res.status(404).json({ error: 'Not found' });
-
-  const isAdmin = req.user.role === 'admin';
-  if (!isAdmin && ad.owner_id !== req.user.id) {
-    return res.status(403).json({ error: 'Нет доступа' });
-  }
-
+router.put('/:id', requireAuth, async (req, res, next) => {
   try {
-    await deleteAdFile(ad.file_key);
-  } catch (e) {
-    console.error('Ad file delete error:', e);
-  }
-  db.prepare('DELETE FROM advertisements WHERE id = ?').run(id);
-  log(req, 'ad.deleted', ad.name);
-  const { getIo } = require('../services/socketSetup');
-  const io = getIo();
-  if (io) io.emit('ads:updated');
-  res.json({ success: true });
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Некорректный id' });
+    const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
+    if (!ad) return res.status(404).json({ error: 'Not found' });
+
+    const isAdmin = req.user.role === 'admin';
+    if (!isAdmin && ad.owner_id !== req.user.id) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
+
+    const { name, duration, active, order_index } = req.body;
+    const newOrderIndex = (isAdmin && order_index !== undefined)
+      ? parseInt(order_index, 10)
+      : ad.order_index;
+
+    await db.pool.query('UPDATE advertisements SET name=$1, duration=$2, active=$3, order_index=$4 WHERE id=$5', [
+      name !== undefined ? String(name).trim() || ad.name : ad.name,
+      duration !== undefined ? (parseInt(duration, 10) || ad.duration) : ad.duration,
+      active !== undefined ? (active ? 1 : 0) : ad.active,
+      newOrderIndex,
+      id,
+    ]);
+    await log(req, 'ad.updated', ad.name);
+    const { getIo } = require('../services/socketSetup');
+    const io = getIo();
+    if (io) io.emit('ads:updated');
+    const updated = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
+    res.json(updated);
+  } catch (err) { next(err); }
 });
 
-// PUT /api/ads/:id/status — admin only
-router.put('/:id/status', requireAuth, requireAdmin, (req, res) => {
-  const id = parseId(req.params.id);
-  if (!id) return res.status(400).json({ error: 'Некорректный id' });
-  const { status } = req.body;
-  if (!['pending', 'approved', 'rejected'].includes(status)) {
-    return res.status(400).json({ error: 'Статус должен быть: pending, approved, rejected' });
-  }
-  const ad = db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
-  if (!ad) return res.status(404).json({ error: 'Not found' });
-  db.prepare('UPDATE advertisements SET status = ? WHERE id = ?').run(status, id);
-  log(req, 'ad.status_changed', `${ad.name} → ${status}`);
-  const { getIo } = require('../services/socketSetup');
-  const io = getIo();
-  if (io) io.emit('ads:updated');
-  res.json(db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id));
+router.delete('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Некорректный id' });
+    const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
+    if (!ad) return res.status(404).json({ error: 'Not found' });
+
+    const isAdmin = req.user.role === 'admin';
+    if (!isAdmin && ad.owner_id !== req.user.id) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
+
+    try {
+      await deleteAdFile(ad.file_key);
+    } catch (e) {
+      console.error('Ad file delete error:', e);
+    }
+    await db.prepare('DELETE FROM advertisements WHERE id = ?').run(id);
+    await log(req, 'ad.deleted', ad.name);
+    const { getIo } = require('../services/socketSetup');
+    const io = getIo();
+    if (io) io.emit('ads:updated');
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+router.put('/:id/status', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Некорректный id' });
+    const { status } = req.body;
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Статус должен быть: pending, approved, rejected' });
+    }
+    const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
+    if (!ad) return res.status(404).json({ error: 'Not found' });
+    await db.pool.query('UPDATE advertisements SET status = $1 WHERE id = $2', [status, id]);
+    await log(req, 'ad.status_changed', `${ad.name} → ${status}`);
+    const { getIo } = require('../services/socketSetup');
+    const io = getIo();
+    if (io) io.emit('ads:updated');
+    const updated = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
+    res.json(updated);
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

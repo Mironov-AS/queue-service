@@ -1,42 +1,36 @@
 # ── Stage 1: Build React frontend ─────────────────────────────────────────────
 FROM node:20-slim AS frontend-builder
-WORKDIR /app/client
-COPY client/package*.json ./
+WORKDIR /build/client
+COPY services/queue-service/client/package*.json ./
 RUN npm ci
-COPY client/ ./
+COPY services/queue-service/client/ ./
 RUN npm run build
 
 # ── Stage 2: Production server ─────────────────────────────────────────────────
 FROM node:20-slim
-WORKDIR /app
+WORKDIR /repo
 
-# Create non-root user
 RUN useradd -m -u 1001 appuser
 
+# Copy shared db module
+COPY shared/ shared/
+
 # Install server dependencies
-COPY server/package*.json ./server/
-RUN cd server && npm ci --production
+COPY services/queue-service/server/package*.json services/queue-service/server/
+RUN cd services/queue-service/server && npm ci --production
 
 # Copy server code and built frontend
-COPY server/ ./server/
-COPY --from=frontend-builder /app/client/dist ./server/public/
+COPY services/queue-service/server/ services/queue-service/server/
+COPY --from=frontend-builder /build/client/dist services/queue-service/server/public/
 
-# Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Prepare data directory and set ownership
-RUN mkdir -p /app/server/data && chown -R appuser:appuser /app /entrypoint.sh
+RUN mkdir -p services/queue-service/server/uploads && chown -R appuser:appuser /repo
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DATA_DIR=/app/server/data
 
 USER appuser
+WORKDIR /repo/services/queue-service/server
 
 EXPOSE 3000
 
-# Named volume — all DB files (queue.db, WAL) live here
-VOLUME ["/app/server/data"]
-
-ENTRYPOINT ["/entrypoint.sh"]
+CMD ["node", "index.js"]

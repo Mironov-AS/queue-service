@@ -6,7 +6,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
-const db = require('./database');
+const { db, initDb } = require('./database');
 const { getJwtSecret } = require('./config');
 const { setIo } = require('./services/socketSetup');
 const { setIo: setEmitIo } = require('./services/emitQueueUpdate');
@@ -33,7 +33,6 @@ const server = http.createServer(app);
 const corsOrigin = process.env.CORS_ORIGIN || '*';
 const io = new Server(server, { cors: { origin: corsOrigin, methods: ['GET', 'POST', 'PUT', 'DELETE'] } });
 
-// Share io instance
 setIo(io);
 setEmitIo(io);
 
@@ -77,11 +76,18 @@ app.use('/api/logs', logsRouter);
 // ─── Socket.io ────────────────────────────────────────────────────────────────
 const { getQueueState, getPublicQueueState } = require('./services/queueState');
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
     if (token) {
-      socket.data.user = jwt.verify(token, getJwtSecret());
+      const secret = await getJwtSecret();
+      const payload = jwt.verify(token, secret);
+      socket.data.user = {
+        id: payload.userId || payload.id,
+        username: payload.email || payload.username,
+        role: payload.role,
+        clientId: payload.clientId || null,
+      };
       socket.data.isAdmin = true;
     } else {
       socket.data.isAdmin = false;
@@ -92,44 +98,52 @@ io.use((socket, next) => {
   next();
 });
 
-io.on('connection', (socket) => {
-  if (socket.data.isAdmin) {
-    socket.join('admins');
-    socket.emit('queue:updated', getQueueState());
-  } else {
-    socket.emit('queue:updated', getPublicQueueState());
+io.on('connection', async (socket) => {
+  try {
+    if (socket.data.isAdmin) {
+      socket.join('admins');
+      socket.emit('queue:updated', await getQueueState());
+    } else {
+      socket.emit('queue:updated', await getPublicQueueState());
+    }
+    const t = await db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
+    const d = await db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
+    const ab = await db.prepare("SELECT value FROM settings WHERE key='ad_ads_before_dashboard'").get();
+    socket.emit('ads:config', {
+      ticket_display_time: parseInt(t?.value || '10', 10),
+      dashboard_idle_time: parseInt(d?.value || '15', 10),
+      ads_before_dashboard: parseInt(ab?.value || '0', 10),
+    });
+  } catch (err) {
+    console.error('[socket] connection handler error:', err);
   }
-  const t = db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
-  const d = db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
-  const ab = db.prepare("SELECT value FROM settings WHERE key='ad_ads_before_dashboard'").get();
-  socket.emit('ads:config', {
-    ticket_display_time: parseInt(t?.value || '10', 10),
-    dashboard_idle_time: parseInt(d?.value || '15', 10),
-    ads_before_dashboard: parseInt(ab?.value || '0', 10),
-  });
 });
 
 // ─── Auto-reset scheduler ─────────────────────────────────────────────────────
-function runAutoReset() {
-  const enabled = db.prepare("SELECT value FROM settings WHERE key='auto_reset_enabled'").get();
-  if (enabled?.value !== '1') return;
-  const timeSetting = db.prepare("SELECT value FROM settings WHERE key='auto_reset_time'").get();
-  const resetTime = timeSetting?.value || '00:00';
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const currentTime = `${hh}:${mm}`;
-  if (currentTime !== resetTime) return;
-  const d = today();
-  const lastReset = db.prepare("SELECT value FROM settings WHERE key='auto_reset_last_date'").get();
-  if (lastReset?.value === d) return;
-  db.prepare("UPDATE tickets SET status='served', served_at=CURRENT_TIMESTAMP WHERE date=? AND status IN ('waiting','called')").run(d);
-  const lastTicket = db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=?").get(d);
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('queue_reset_last_id', ?)").run(String(lastTicket?.max_id || 0));
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_reset_last_date', ?)").run(d);
-  console.log(`[auto-reset] Queue auto-reset executed at ${currentTime}`);
-  const { emitQueueUpdate } = require('./services/emitQueueUpdate');
-  emitQueueUpdate();
+async function runAutoReset() {
+  try {
+    const enabled = await db.prepare("SELECT value FROM settings WHERE key='auto_reset_enabled'").get();
+    if (enabled?.value !== '1') return;
+    const timeSetting = await db.prepare("SELECT value FROM settings WHERE key='auto_reset_time'").get();
+    const resetTime = timeSetting?.value || '00:00';
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const currentTime = `${hh}:${mm}`;
+    if (currentTime !== resetTime) return;
+    const d = today();
+    const lastReset = await db.prepare("SELECT value FROM settings WHERE key='auto_reset_last_date'").get();
+    if (lastReset?.value === d) return;
+    await db.pool.query("UPDATE tickets SET status='served', served_at=NOW() WHERE date=$1 AND status IN ('waiting','called')", [d]);
+    const maxRow = await db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=?").get(d);
+    await db.pool.query("INSERT INTO settings (key, value) VALUES ('queue_reset_last_id', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [String(maxRow?.max_id || 0)]);
+    await db.pool.query("INSERT INTO settings (key, value) VALUES ('auto_reset_last_date', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [d]);
+    console.log(`[auto-reset] Queue auto-reset executed at ${currentTime}`);
+    const { emitQueueUpdate } = require('./services/emitQueueUpdate');
+    await emitQueueUpdate();
+  } catch (err) {
+    console.error('[auto-reset] Error:', err);
+  }
 }
 
 setInterval(runAutoReset, 60 * 1000);
@@ -145,15 +159,18 @@ if (fs.existsSync(publicDir)) {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Queue server on http://0.0.0.0:${PORT}`);
-});
+
+(async () => {
+  await initDb();
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Queue server on http://0.0.0.0:${PORT}`);
+  });
+})();
 
 function shutdown(signal) {
   console.log(`${signal} received — shutting down gracefully`);
   server.close(() => {
-    db.close();
-    process.exit(0);
+    db.pool.end().then(() => process.exit(0)).catch(() => process.exit(1));
   });
   setTimeout(() => process.exit(1), 10000);
 }

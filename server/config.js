@@ -1,10 +1,19 @@
-const db = require('./database');
+const { db } = require('./database');
 
 let _jwtSecret = null;
 
-function getJwtSecret() {
+async function getJwtSecret() {
   if (_jwtSecret) return _jwtSecret;
-  _jwtSecret = process.env.JWT_SECRET || db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get().value;
+  const envSecret = process.env.JWT_SECRET;
+  if (envSecret) {
+    _jwtSecret = envSecret;
+    return _jwtSecret;
+  }
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get();
+  if (!row || !row.value) {
+    throw new Error('JWT_SECRET not configured: set JWT_SECRET env var or ensure jwt_secret exists in settings table');
+  }
+  _jwtSecret = row.value;
   return _jwtSecret;
 }
 
