@@ -82,7 +82,7 @@ async function initDb() {
       duration INTEGER DEFAULT 15,
       order_index INTEGER DEFAULT 0,
       active INTEGER DEFAULT 1,
-      owner_id INTEGER,
+      owner_id TEXT,
       owner_username TEXT,
       status TEXT DEFAULT 'approved',
       client_id TEXT DEFAULT NULL,
@@ -117,6 +117,18 @@ async function initDb() {
       console.log('[db] Migration 100: per-client isolation applied');
     } catch (e) {
       console.warn('[db] Migration 100 warning:', e.message);
+    }
+  }
+
+  // Migration 101: change owner_id from INTEGER to TEXT for UUID compatibility
+  const migV101 = await db.prepare("SELECT version FROM schema_migrations WHERE version = 101").get();
+  if (!migV101) {
+    try {
+      await db.exec("ALTER TABLE advertisements ALTER COLUMN owner_id TYPE TEXT USING owner_id::TEXT");
+      await db.pool.query("INSERT INTO schema_migrations (version, name) VALUES (101, 'owner_id_to_text') ON CONFLICT DO NOTHING");
+      console.log('[db] Migration 101: owner_id changed to TEXT');
+    } catch (e) {
+      console.warn('[db] Migration 101 warning:', e.message);
     }
   }
 

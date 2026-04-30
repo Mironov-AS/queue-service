@@ -164,12 +164,10 @@ router.get('/all', requireAuth, async (req, res, next) => {
   try {
     const clientId = req.user.clientId || null;
     let ads;
-    if (req.user.role === 'admin' && clientId) {
+    if (clientId) {
       ads = await db.prepare('SELECT * FROM advertisements WHERE client_id = ? ORDER BY order_index ASC, id ASC').all(clientId);
-    } else if (req.user.role === 'admin') {
-      ads = await db.prepare('SELECT * FROM advertisements WHERE client_id IS NULL ORDER BY order_index ASC, id ASC').all();
     } else {
-      ads = await db.prepare('SELECT * FROM advertisements WHERE owner_id = ? ORDER BY order_index ASC, id ASC').all(req.user.id);
+      ads = await db.prepare('SELECT * FROM advertisements WHERE client_id IS NULL ORDER BY order_index ASC, id ASC').all();
     }
     res.json(await enrichAds(ads));
   } catch (err) { next(err); }
@@ -225,15 +223,15 @@ router.put('/:id', requireAuth, async (req, res, next) => {
     const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
     if (!ad) return res.status(404).json({ error: 'Not found' });
 
-    const isAdmin = req.user.role === 'admin';
     const clientId = req.user.clientId || null;
     if (clientId && ad.client_id !== clientId) {
       return res.status(403).json({ error: 'Нет доступа' });
     }
-    if (!isAdmin && ad.owner_id !== req.user.id) {
+    if (!clientId && ad.client_id) {
       return res.status(403).json({ error: 'Нет доступа' });
     }
 
+    const isAdmin = req.user.role === 'admin';
     const { name, duration, active, order_index } = req.body;
     const newOrderIndex = (isAdmin && order_index !== undefined)
       ? parseInt(order_index, 10)
@@ -262,12 +260,11 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
     if (!ad) return res.status(404).json({ error: 'Not found' });
 
-    const isAdmin = req.user.role === 'admin';
     const clientId = req.user.clientId || null;
     if (clientId && ad.client_id !== clientId) {
       return res.status(403).json({ error: 'Нет доступа' });
     }
-    if (!isAdmin && ad.owner_id !== req.user.id) {
+    if (!clientId && ad.client_id) {
       return res.status(403).json({ error: 'Нет доступа' });
     }
 
