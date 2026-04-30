@@ -26,6 +26,11 @@ router.post('/:id/fields', requireAuth, async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ error: 'Некорректный id' });
+    const clientId = req.user.clientId || null;
+    if (clientId) {
+      const svc = await db.prepare('SELECT id FROM services WHERE id = ? AND client_id = ?').get(id, clientId);
+      if (!svc) return res.status(404).json({ error: 'Услуга не найдена' });
+    }
     const { label, field_type, required } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'Название поля обязательно' });
     const ft = field_type && VALID_FIELD_TYPES.includes(field_type) ? field_type : 'text';
@@ -48,6 +53,11 @@ router.put('/:id', requireAuth, async (req, res, next) => {
     const { label, field_type, required, order_index } = req.body;
     const field = await db.prepare('SELECT * FROM service_fields WHERE id = ?').get(id);
     if (!field) return res.status(404).json({ error: 'Not found' });
+    const clientId = req.user.clientId || null;
+    if (clientId) {
+      const svc = await db.prepare('SELECT id FROM services WHERE id = ? AND client_id = ?').get(field.service_id, clientId);
+      if (!svc) return res.status(403).json({ error: 'Нет доступа' });
+    }
     const ft = field_type
       ? (VALID_FIELD_TYPES.includes(field_type) ? field_type : field.field_type)
       : field.field_type;
@@ -70,6 +80,13 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ error: 'Некорректный id' });
+    const field = await db.prepare('SELECT * FROM service_fields WHERE id = ?').get(id);
+    if (!field) return res.status(404).json({ error: 'Not found' });
+    const clientId = req.user.clientId || null;
+    if (clientId) {
+      const svc = await db.prepare('SELECT id FROM services WHERE id = ? AND client_id = ?').get(field.service_id, clientId);
+      if (!svc) return res.status(403).json({ error: 'Нет доступа' });
+    }
     await db.prepare('DELETE FROM service_fields WHERE id = ?').run(id);
     res.json({ success: true });
   } catch (err) { next(err); }

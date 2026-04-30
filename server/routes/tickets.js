@@ -1,7 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
-const { db } = require('../database');
+const { db, getClientSetting } = require('../database');
 const { requireAuth } = require('../middleware/requireAuth');
 const { getJwtSecret } = require('../config');
 const { today, getQueueState, nextTicketNumber } = require('../services/queueState');
@@ -61,8 +61,8 @@ router.post('/', ticketLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Некорректный телефон' });
     }
 
-    const regRow = await db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
-    if (regRow?.value !== '1') {
+    const regVal = await getClientSetting('registration_open', effectiveUser?.clientId || visitorClientId, '1');
+    if (regVal !== '1') {
       return res.status(403).json({ error: 'Самостоятельная запись временно недоступна' });
     }
 
@@ -151,14 +151,25 @@ router.get('/:id', async (req, res, next) => {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ error: 'Некорректный id' });
 
-    const clientId = req.user?.clientId || null;
-    const ticket = await db.prepare(`
-      SELECT t.id, t.number, t.date, t.status, t.service_id, t.is_priority,
-             t.created_at, t.called_at, t.served_at, t.field_values, t.client_id,
-             s.name AS service_name, s.avg_duration_minutes
-      FROM tickets t LEFT JOIN services s ON t.service_id = s.id
-      WHERE t.id = ?
-    `).get(id);
+    const clientId = req.user?.clientId || sanitizeClientId(req.query.client_id);
+    let ticket;
+    if (clientId) {
+      ticket = await db.prepare(`
+        SELECT t.id, t.number, t.date, t.status, t.service_id, t.is_priority,
+               t.created_at, t.called_at, t.served_at, t.field_values, t.client_id,
+               s.name AS service_name, s.avg_duration_minutes
+        FROM tickets t LEFT JOIN services s ON t.service_id = s.id
+        WHERE t.id = ? AND t.client_id = ?
+      `).get(id, clientId);
+    } else {
+      ticket = await db.prepare(`
+        SELECT t.id, t.number, t.date, t.status, t.service_id, t.is_priority,
+               t.created_at, t.called_at, t.served_at, t.field_values, t.client_id,
+               s.name AS service_name, s.avg_duration_minutes
+        FROM tickets t LEFT JOIN services s ON t.service_id = s.id
+        WHERE t.id = ?
+      `).get(id);
+    }
 
     if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
 

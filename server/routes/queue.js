@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../database');
+const { db, setClientSetting } = require('../database');
 const { requireAuth } = require('../middleware/requireAuth');
 const { today, getQueueState, getPublicQueueState } = require('../services/queueState');
 const { emitQueueUpdate } = require('../services/emitQueueUpdate');
@@ -202,7 +202,7 @@ router.post('/reset', requireAuth, async (req, res, next) => {
     if (!clientId) return res.status(400).json({ error: 'Не определён клиент. Невозможно выполнить операцию.' });
     await db.prepare("UPDATE tickets SET status='served', served_at=NOW() WHERE date=? AND status IN ('waiting','called') AND client_id=?").run(d, clientId);
     const lastTicket = await db.prepare("SELECT MAX(id) AS max_id FROM tickets WHERE date=? AND client_id=?").get(d, clientId);
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('queue_reset_last_id', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [String(lastTicket?.max_id || 0)]);
+    await setClientSetting('queue_reset_last_id', String(lastTicket?.max_id || 0), clientId);
     await log(req, 'queue.reset', d);
     await emitQueueUpdate(clientId);
     res.json({ success: true });

@@ -9,7 +9,7 @@ async function getJwtSecret() {
     _jwtSecret = envSecret;
     return _jwtSecret;
   }
-  const row = await db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get();
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret' AND client_id = ''").get();
   if (!row || !row.value) {
     throw new Error('JWT_SECRET not configured: set JWT_SECRET env var or ensure jwt_secret exists in settings table');
   }

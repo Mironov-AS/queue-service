@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../database');
+const { db, getClientSetting, setClientSetting } = require('../database');
 const { requireAuth } = require('../middleware/requireAuth');
 const { log } = require('../services/logging');
 
@@ -10,40 +10,51 @@ function clampInt(val, min, max, def) {
   return Number.isInteger(n) ? Math.min(Math.max(n, min), max) : def;
 }
 
+function sanitizeClientId(val) {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  return /^[a-zA-Z0-9_-]{6,80}$/.test(trimmed) ? trimmed : null;
+}
+
 router.get('/registration', async (req, res, next) => {
   try {
-    const row = await db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
-    res.json({ open: row?.value === '1' });
+    const clientId = sanitizeClientId(req.query.client_id) || req.user?.clientId || null;
+    const val = await getClientSetting('registration_open', clientId, '1');
+    res.json({ open: val === '1' });
   } catch (err) { next(err); }
 });
 
 router.put('/registration', requireAuth, async (req, res, next) => {
   try {
     const { open } = req.body;
+    const clientId = req.user.clientId || null;
     const newVal = open ? '1' : '0';
-    await db.pool.query("UPDATE settings SET value = $1 WHERE key = 'registration_open'", [newVal]);
+    await setClientSetting('registration_open', newVal, clientId);
     await log(req, 'settings.registration', newVal === '1' ? 'opened' : 'closed');
     const { getIo } = require('../services/socketSetup');
     const io = getIo();
-    if (io) io.emit('registration:changed', { open: newVal === '1' });
+    if (io && clientId) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('registration:changed', { open: newVal === '1' });
+    else if (io) io.emit('registration:changed', { open: newVal === '1' });
     res.json({ open: newVal === '1' });
   } catch (err) { next(err); }
 });
 
 router.get('/auto-reset', requireAuth, async (req, res, next) => {
   try {
-    const enabled = await db.prepare("SELECT value FROM settings WHERE key='auto_reset_enabled'").get();
-    const time = await db.prepare("SELECT value FROM settings WHERE key='auto_reset_time'").get();
-    res.json({ enabled: enabled?.value === '1', time: time?.value || '00:00' });
+    const clientId = req.user.clientId || null;
+    const enabled = await getClientSetting('auto_reset_enabled', clientId, '0');
+    const time = await getClientSetting('auto_reset_time', clientId, '00:00');
+    res.json({ enabled: enabled === '1', time: time || '00:00' });
   } catch (err) { next(err); }
 });
 
 router.put('/auto-reset', requireAuth, async (req, res, next) => {
   try {
     const { enabled, time } = req.body;
+    const clientId = req.user.clientId || null;
     const timeVal = typeof time === 'string' && /^\d{2}:\d{2}$/.test(time) ? time : '00:00';
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('auto_reset_enabled', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [enabled ? '1' : '0']);
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('auto_reset_time', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [timeVal]);
+    await setClientSetting('auto_reset_enabled', enabled ? '1' : '0', clientId);
+    await setClientSetting('auto_reset_time', timeVal, clientId);
     await log(req, 'settings.auto_reset', `${enabled ? 'on' : 'off'} at ${timeVal}`);
     res.json({ enabled: !!enabled, time: timeVal });
   } catch (err) { next(err); }
@@ -78,16 +89,17 @@ router.put('/password', requireAuth, async (req, res, next) => {
 
 router.get('/ads', async (req, res, next) => {
   try {
-    const t = await db.prepare("SELECT value FROM settings WHERE key='ad_ticket_display_time'").get();
-    const d = await db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_idle_time'").get();
-    const iv = await db.prepare("SELECT value FROM settings WHERE key='ad_dashboard_interval'").get();
-    const ab = await db.prepare("SELECT value FROM settings WHERE key='ad_ads_before_dashboard'").get();
+    const clientId = sanitizeClientId(req.query.client_id) || req.user?.clientId || null;
+    const t = await getClientSetting('ad_ticket_display_time', clientId, '10');
+    const d = await getClientSetting('ad_dashboard_idle_time', clientId, '15');
+    const iv = await getClientSetting('ad_dashboard_interval', clientId, '0');
+    const ab = await getClientSetting('ad_ads_before_dashboard', clientId, '0');
     const { USE_S3 } = require('../services/storage');
     res.json({
-      ticket_display_time: parseInt(t?.value || '10', 10),
-      dashboard_idle_time: parseInt(d?.value || '15', 10),
-      dashboard_interval: parseInt(iv?.value || '0', 10),
-      ads_before_dashboard: parseInt(ab?.value || '0', 10),
+      ticket_display_time: parseInt(t, 10),
+      dashboard_idle_time: parseInt(d, 10),
+      dashboard_interval: parseInt(iv, 10),
+      ads_before_dashboard: parseInt(ab, 10),
       s3_configured: USE_S3,
       storage_type: USE_S3 ? 's3' : 'local',
     });
@@ -96,19 +108,21 @@ router.get('/ads', async (req, res, next) => {
 
 router.put('/ads', requireAuth, async (req, res, next) => {
   try {
+    const clientId = req.user.clientId || null;
     const { ticket_display_time, dashboard_idle_time, dashboard_interval, ads_before_dashboard } = req.body;
     const t = clampInt(ticket_display_time, 3, 300, 10);
     const d = clampInt(dashboard_idle_time, 3, 300, 15);
     const iv = clampInt(dashboard_interval, 0, 100, 0);
     const ab = clampInt(ads_before_dashboard, 0, 100, 0);
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('ad_ticket_display_time', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [String(t)]);
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('ad_dashboard_idle_time', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [String(d)]);
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('ad_dashboard_interval', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [String(iv)]);
-    await db.pool.query("INSERT INTO settings (key, value) VALUES ('ad_ads_before_dashboard', $1) ON CONFLICT(key) DO UPDATE SET value = $1", [String(ab)]);
+    await setClientSetting('ad_ticket_display_time', String(t), clientId);
+    await setClientSetting('ad_dashboard_idle_time', String(d), clientId);
+    await setClientSetting('ad_dashboard_interval', String(iv), clientId);
+    await setClientSetting('ad_ads_before_dashboard', String(ab), clientId);
     await log(req, 'settings.ads', `ticket_display_time=${t} dashboard_idle_time=${d} dashboard_interval=${iv} ads_before_dashboard=${ab}`);
     const { getIo } = require('../services/socketSetup');
     const io = getIo();
-    if (io) io.emit('ads:config', { ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab });
+    if (io && clientId) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('ads:config', { ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab });
+    else if (io) io.emit('ads:config', { ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab });
     const { USE_S3 } = require('../services/storage');
     res.json({ ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab, s3_configured: USE_S3, storage_type: USE_S3 ? 's3' : 'local' });
   } catch (err) { next(err); }

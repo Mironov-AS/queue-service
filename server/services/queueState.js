@@ -1,12 +1,12 @@
-const { db } = require('../database');
+const { db, getClientSetting } = require('../database');
 
 function today() {
   return new Date().toISOString().split('T')[0];
 }
 
 async function nextTicketNumber(d, clientId = null) {
-  const idRow = await db.prepare("SELECT value FROM settings WHERE key='queue_reset_last_id'").get();
-  const lastId = parseInt(idRow?.value || '0', 10);
+  const resetVal = await getClientSetting('queue_reset_last_id', clientId, '0');
+  const lastId = parseInt(resetVal, 10);
   let row;
   if (clientId) {
     row = lastId

@@ -64,9 +64,21 @@ async function enrichAds(ads) {
   }));
 }
 
+function sanitizeClientId(val) {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  return /^[a-zA-Z0-9_-]{6,80}$/.test(trimmed) ? trimmed : null;
+}
+
 router.get('/', async (req, res, next) => {
   try {
-    const ads = await db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (status IS NULL OR status = 'approved') ORDER BY order_index ASC, id ASC").all();
+    const clientId = sanitizeClientId(req.query.client_id);
+    let ads;
+    if (clientId) {
+      ads = await db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (status IS NULL OR status = 'approved') AND (client_id = ? OR client_id IS NULL) ORDER BY order_index ASC, id ASC").all(clientId);
+    } else {
+      ads = await db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (status IS NULL OR status = 'approved') AND client_id IS NULL ORDER BY order_index ASC, id ASC").all();
+    }
     res.json(await enrichAds(ads));
   } catch (err) { next(err); }
 });
@@ -123,11 +135,14 @@ router.post('/chunk', requireAuth, (req, res) => {
 
       await saveAdFile(key, buffer, mimeType, originalName);
 
-      const maxOrder = await db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements').get();
+      const adClientId = req.user.clientId || null;
+      const maxOrder = adClientId
+        ? await db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements WHERE client_id = ?').get(adClientId)
+        : await db.prepare("SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements WHERE client_id IS NULL").get();
       const adStatus = req.user.role === 'admin' ? 'approved' : 'pending';
       const { rows } = await db.pool.query(
-        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
-        [name.trim(), key, fileType, mimeType, parseInt(duration, 10) || 15, parseInt(maxOrder.m) + 1, req.user.id, req.user.username, adStatus]
+        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',
+        [name.trim(), key, fileType, mimeType, parseInt(duration, 10) || 15, parseInt(maxOrder.m) + 1, req.user.id, req.user.username, adStatus, adClientId]
       );
 
       const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(rows[0].id);
@@ -147,9 +162,12 @@ router.post('/chunk', requireAuth, (req, res) => {
 
 router.get('/all', requireAuth, async (req, res, next) => {
   try {
+    const clientId = req.user.clientId || null;
     let ads;
-    if (req.user.role === 'admin') {
-      ads = await db.prepare('SELECT * FROM advertisements ORDER BY order_index ASC, id ASC').all();
+    if (req.user.role === 'admin' && clientId) {
+      ads = await db.prepare('SELECT * FROM advertisements WHERE client_id = ? ORDER BY order_index ASC, id ASC').all(clientId);
+    } else if (req.user.role === 'admin') {
+      ads = await db.prepare('SELECT * FROM advertisements WHERE client_id IS NULL ORDER BY order_index ASC, id ASC').all();
     } else {
       ads = await db.prepare('SELECT * FROM advertisements WHERE owner_id = ? ORDER BY order_index ASC, id ASC').all(req.user.id);
     }
@@ -176,11 +194,14 @@ router.post('/', requireAuth, (req, res) => {
     try {
       await saveAdFile(key, req.file.buffer, req.file.mimetype, req.file.originalname);
 
-      const maxOrder = await db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements').get();
+      const adClientId = req.user.clientId || null;
+      const maxOrder = adClientId
+        ? await db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements WHERE client_id = ?').get(adClientId)
+        : await db.prepare("SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements WHERE client_id IS NULL").get();
       const adStatus = req.user.role === 'admin' ? 'approved' : 'pending';
       const { rows } = await db.pool.query(
-        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
-        [name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, parseInt(maxOrder.m) + 1, req.user.id, req.user.username, adStatus]
+        'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',
+        [name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, parseInt(maxOrder.m) + 1, req.user.id, req.user.username, adStatus, adClientId]
       );
 
       const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(rows[0].id);
@@ -205,6 +226,10 @@ router.put('/:id', requireAuth, async (req, res, next) => {
     if (!ad) return res.status(404).json({ error: 'Not found' });
 
     const isAdmin = req.user.role === 'admin';
+    const clientId = req.user.clientId || null;
+    if (clientId && ad.client_id !== clientId) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
     if (!isAdmin && ad.owner_id !== req.user.id) {
       return res.status(403).json({ error: 'Нет доступа' });
     }
@@ -238,6 +263,10 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     if (!ad) return res.status(404).json({ error: 'Not found' });
 
     const isAdmin = req.user.role === 'admin';
+    const clientId = req.user.clientId || null;
+    if (clientId && ad.client_id !== clientId) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
     if (!isAdmin && ad.owner_id !== req.user.id) {
       return res.status(403).json({ error: 'Нет доступа' });
     }
@@ -266,6 +295,10 @@ router.put('/:id/status', requireAuth, requireAdmin, async (req, res, next) => {
     }
     const ad = await db.prepare('SELECT * FROM advertisements WHERE id = ?').get(id);
     if (!ad) return res.status(404).json({ error: 'Not found' });
+    const clientId = req.user.clientId || null;
+    if (clientId && ad.client_id !== clientId) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
     await db.pool.query('UPDATE advertisements SET status = $1 WHERE id = $2', [status, id]);
     await log(req, 'ad.status_changed', `${ad.name} → ${status}`);
     const { getIo } = require('../services/socketSetup');

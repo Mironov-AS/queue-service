@@ -58,8 +58,9 @@ async function initDb() {
     );
 
     CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT
+      key TEXT NOT NULL,
+      value TEXT,
+      client_id TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS service_fields (
@@ -84,6 +85,7 @@ async function initDb() {
       owner_id INTEGER,
       owner_username TEXT,
       status TEXT DEFAULT 'approved',
+      client_id TEXT DEFAULT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -100,7 +102,25 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_services_client_id ON services(client_id);
     CREATE INDEX IF NOT EXISTS idx_tickets_client_id ON tickets(client_id);
     CREATE INDEX IF NOT EXISTS idx_tickets_date_client ON tickets(date, client_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key_client ON settings(key, client_id);
+    CREATE INDEX IF NOT EXISTS idx_ads_client_id ON advertisements(client_id);
   `);
+
+  // Migration 100: per-client isolation for settings and advertisements
+  const migV100 = await db.prepare("SELECT version FROM schema_migrations WHERE version = 100").get();
+  if (!migV100) {
+    try {
+      await db.exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS client_id TEXT NOT NULL DEFAULT ''");
+      await db.exec("ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_pkey");
+      await db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key_client ON settings(key, client_id)");
+      await db.exec("ALTER TABLE advertisements ADD COLUMN IF NOT EXISTS client_id TEXT DEFAULT NULL");
+      await db.exec("CREATE INDEX IF NOT EXISTS idx_ads_client_id ON advertisements(client_id)");
+      await db.pool.query("INSERT INTO schema_migrations (version, name) VALUES (100, 'per_client_isolation') ON CONFLICT DO NOTHING");
+      console.log('[db] Migration 100: per-client isolation applied');
+    } catch (e) {
+      console.warn('[db] Migration 100 warning:', e.message);
+    }
+  }
 
   // Seed default admin user
   const adminExists = await db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
@@ -121,33 +141,46 @@ async function initDb() {
     }
   }
 
-  // Default JWT secret
-  const jwtSetting = await db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get();
+  // Default JWT secret (global, client_id='')
+  const jwtSetting = await db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret' AND client_id = ''").get();
   if (!jwtSetting) {
     const secret = require('crypto').randomBytes(32).toString('hex');
-    await db.prepare("INSERT INTO settings (key, value) VALUES ('jwt_secret', ?)").run(secret);
+    await db.pool.query("INSERT INTO settings (key, value, client_id) VALUES ('jwt_secret', $1, '') ON CONFLICT(key, client_id) DO NOTHING", [secret]);
   }
 
-  // Default registration open setting
-  const regSetting = await db.prepare("SELECT value FROM settings WHERE key = 'registration_open'").get();
+  // Default registration open setting (global default)
+  const regSetting = await db.prepare("SELECT value FROM settings WHERE key = 'registration_open' AND client_id = ''").get();
   if (!regSetting) {
-    await db.prepare("INSERT INTO settings (key, value) VALUES ('registration_open', '1')").run();
+    await db.pool.query("INSERT INTO settings (key, value, client_id) VALUES ('registration_open', '1', '') ON CONFLICT(key, client_id) DO NOTHING");
   }
 
-  // Default ad settings
-  const adSettings = ['ad_ticket_display_time', 'ad_dashboard_interval', 'ad_ads_before_dashboard'];
-  for (const key of adSettings) {
-    const existing = await db.prepare("SELECT value FROM settings WHERE key = ?").get(key);
+  // Default ad settings (global defaults)
+  const adDefaults = { ad_ticket_display_time: '10', ad_dashboard_interval: '0', ad_ads_before_dashboard: '0' };
+  for (const [key, def] of Object.entries(adDefaults)) {
+    const existing = await db.prepare("SELECT value FROM settings WHERE key = ? AND client_id = ''").get(key);
     if (!existing) {
-      await db.prepare("INSERT INTO settings (key, value) VALUES (?, '0')").run(key);
+      await db.pool.query("INSERT INTO settings (key, value, client_id) VALUES ($1, $2, '') ON CONFLICT(key, client_id) DO NOTHING", [key, def]);
     }
-  }
-  const adTicketTime = await db.prepare("SELECT value FROM settings WHERE key = 'ad_ticket_display_time'").get();
-  if (adTicketTime?.value === '0') {
-    await db.pool.query("UPDATE settings SET value = '10' WHERE key = 'ad_ticket_display_time'");
   }
 
   console.log('[db] PostgreSQL schema initialized');
 }
 
-module.exports = { db, initDb };
+async function getClientSetting(key, clientId, defaultValue = null) {
+  if (clientId) {
+    const row = await db.prepare("SELECT value FROM settings WHERE key = ? AND client_id = ?").get(key, clientId);
+    if (row) return row.value;
+  }
+  const globalRow = await db.prepare("SELECT value FROM settings WHERE key = ? AND client_id = ''").get(key);
+  return globalRow?.value ?? defaultValue;
+}
+
+async function setClientSetting(key, value, clientId) {
+  const cid = clientId || '';
+  await db.pool.query(
+    "INSERT INTO settings (key, value, client_id) VALUES ($1, $2, $3) ON CONFLICT(key, client_id) DO UPDATE SET value = EXCLUDED.value",
+    [key, String(value), cid]
+  );
+}
+
+module.exports = { db, initDb, getClientSetting, setClientSetting };
