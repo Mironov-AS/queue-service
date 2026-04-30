@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import socket from '../socket';
 import { Clock } from '../components/admin/shared';
 
@@ -68,6 +69,8 @@ function AdsDisplay({ ads, currentAdIndex, onAdEnded, waiting, totalSlides }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const [searchParams] = useSearchParams();
+  const clientId = searchParams.get('client_id') || '';
   const [queue, setQueue] = useState({ current: null, waiting: [] });
   const [flash, setFlash] = useState(false);
 
@@ -219,8 +222,9 @@ export default function DashboardPage() {
     const adsInterval = setInterval(fetchAds, 30 * 60 * 1000);
 
     // Queue polling fallback
-    const refresh = () =>
-      fetch('/api/queue')
+    const refresh = () => {
+      const queueUrl = clientId ? `/api/queue?client_id=${encodeURIComponent(clientId)}` : '/api/queue';
+      return fetch(queueUrl)
         .then(r => r.json())
         .then(q => {
           setQueue(q);
@@ -229,12 +233,17 @@ export default function DashboardPage() {
           }
         })
         .catch(() => {});
+    };
 
     refresh();
     const pollTimer = setInterval(refresh, 5000);
 
     // Socket events
     const onQueueUpdated = (q) => {
+      if (clientId) {
+        refresh();
+        return;
+      }
       setQueue(q);
       if (q.current?.id && q.current.id !== currentTicketIdRef.current) {
         handleTicketCalled(q.current);
@@ -263,7 +272,7 @@ export default function DashboardPage() {
       clearTimeout(imageDurationTimerRef.current);
       clearTimeout(dashboardTimerRef.current);
     };
-  }, [fetchAds, handleTicketCalled]);
+  }, [clientId, fetchAds, handleTicketCalled]);
 
   // Image slideshow: advance to next slide after duration
   useEffect(() => {

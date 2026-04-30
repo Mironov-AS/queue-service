@@ -8,7 +8,7 @@ export default function VisitorPage() {
   const preService = searchParams.get('service');
   const clientId = searchParams.get('client_id') || '';
 
-  if (ticketId) return <TicketStatus ticketId={ticketId} />;
+  if (ticketId) return <TicketStatus ticketId={ticketId} clientId={clientId} />;
   return <GetTicket preService={preService} clientId={clientId} />;
 }
 
@@ -196,7 +196,7 @@ function GetTicket({ preService, clientId }) {
 
 // ─── Ticket Status ─────────────────────────────────────────────────────────────
 
-function TicketStatus({ ticketId }) {
+function TicketStatus({ ticketId, clientId }) {
   const [ticket, setTicket] = useState(null);
   const [queue, setQueue] = useState(null);
   const [called, setCalled] = useState(false);
@@ -218,14 +218,22 @@ function TicketStatus({ ticketId }) {
   }, [ticketId, navigate]);
 
   const loadQueue = useCallback(() => {
-    fetch('/api/queue').then(r => r.json()).then(setQueue).catch(() => {});
-  }, []);
+    const queueUrl = clientId ? `/api/queue?client_id=${encodeURIComponent(clientId)}` : '/api/queue';
+    fetch(queueUrl).then(r => r.json()).then(setQueue).catch(() => {});
+  }, [clientId]);
 
   useEffect(() => {
     loadTicket();
     loadQueue();
 
-    const handleQueue = (q) => { setQueue(q); loadTicket(); };
+    const handleQueue = (q) => {
+      if (clientId) {
+        loadQueue();
+      } else {
+        setQueue(q);
+      }
+      loadTicket();
+    };
     const handleCalled = (t) => {
       if (String(t.id) === String(ticketId)) {
         setCalled(true);
@@ -246,7 +254,7 @@ function TicketStatus({ ticketId }) {
       clearInterval(timer);
       if (servedTimerRef.current) clearTimeout(servedTimerRef.current);
     };
-  }, [ticketId, loadTicket, loadQueue]);
+  }, [ticketId, clientId, loadTicket, loadQueue]);
 
   const cancelTicket = async () => {
     if (!confirm('Отменить талон? Ваше место в очереди будет потеряно.')) return;

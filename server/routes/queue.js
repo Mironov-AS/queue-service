@@ -17,18 +17,24 @@ function sanitizeReason(val) {
   return val.trim().slice(0, 500) || null;
 }
 
+function sanitizeClientId(val) {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  return /^[a-zA-Z0-9_-]{6,80}$/.test(trimmed) ? trimmed : null;
+}
+
 // GET /api/queue — public state
 router.get('/', async (req, res, next) => {
   try {
     const token = (req.headers.authorization || '').replace('Bearer ', '');
-    let clientId = null;
+    let clientId = sanitizeClientId(req.query.client_id);
     if (token) {
       try {
         const jwt = require('jsonwebtoken');
         const { getJwtSecret } = require('../config');
         const secret = await getJwtSecret();
         const payload = jwt.verify(token, secret);
-        clientId = payload.clientId || null;
+        clientId = payload.clientId || clientId;
       } catch { /* ignore */ }
     }
     res.json(await getPublicQueueState(clientId));

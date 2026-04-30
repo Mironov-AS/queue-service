@@ -11,6 +11,13 @@ function queueUrl(path) {
   return new URL(queuePath(path), window.location.origin).toString();
 }
 
+function withClientId(url, clientId) {
+  if (!clientId) return url;
+  const nextUrl = new URL(url);
+  nextUrl.searchParams.set('client_id', clientId);
+  return nextUrl.toString();
+}
+
 function getClientIdFromToken() {
   const token = localStorage.getItem('adminToken');
   if (!token) return '';
@@ -31,14 +38,16 @@ export default function QRTab() {
   const [qrData, setQrData] = useState(null);
   const [dashboardQr, setDashboardQr] = useState(null);
   const [loading, setLoading] = useState(false);
+  const clientId = getClientIdFromToken();
+  const dashboardUrl = withClientId(queueUrl('/dashboard'), clientId);
+  const dashboardHref = `${queuePath('/dashboard')}${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`;
 
   useEffect(() => {
     fetch('/api/services?all=1').then(r => r.json()).then(data => {
       setServices(data);
       generateQR(null);
     });
-    const dashUrl = queueUrl('/dashboard');
-    fetch(`/api/qrcode?url=${encodeURIComponent(dashUrl)}`)
+    fetch(`/api/qrcode?url=${encodeURIComponent(dashboardUrl)}`)
       .then(r => r.json()).then(setDashboardQr);
   }, []);
 
@@ -47,7 +56,6 @@ export default function QRTab() {
     let url = customUrl.trim();
     if (!url) {
       const visitorUrl = new URL(queueUrl('/visitor'));
-      const clientId = getClientIdFromToken();
       if (clientId) visitorUrl.searchParams.set('client_id', clientId);
       if (serviceId) visitorUrl.searchParams.set('service', serviceId);
       url = visitorUrl.toString();
@@ -128,7 +136,7 @@ export default function QRTab() {
           </p>
         </div>
         <div className="flex gap-3">
-          <a href={queuePath('/dashboard')} target="_blank" rel="noopener noreferrer"
+          <a href={dashboardHref} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
             <Icon d={P.eye} cls="w-4 h-4" /> Открыть табло
           </a>
