@@ -175,7 +175,7 @@ export default function AdminPage() {
         </header>
         <main className="max-w-4xl mx-auto px-4 py-6">
           {settingsTab === 'my-campaigns' && <MyCampaignsTab />}
-          {settingsTab === 'password' && <SettingsTab />}
+          {settingsTab === 'reset' && <SettingsTab />}
         </main>
       </div>
     );
@@ -254,7 +254,7 @@ export default function AdminPage() {
             {settingsTab === 'stats'        && <StatsTab />}
             {settingsTab === 'qrcode'       && <QRTab />}
             {settingsTab === 'logs'         && <LogsTab />}
-            {settingsTab === 'password'     && <SettingsTab />}
+            {settingsTab === 'reset'        && <SettingsTab />}
           </div>
         )}
       </main>
