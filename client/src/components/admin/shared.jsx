@@ -123,7 +123,7 @@ export const ALL_SETTINGS_TABS = [
   { id: 'stats',        label: 'Статистика',     icon: P.stats,    adminOnly: false, advertiserHidden: true  },
   { id: 'qrcode',       label: 'QR-коды',        icon: P.qr,       adminOnly: false, advertiserHidden: true  },
   { id: 'logs',         label: 'Журнал',         icon: P.log,      adminOnly: false, advertiserHidden: true  },
-  { id: 'reset',        label: 'Сброс',          icon: P.repeat,   adminOnly: false, advertiserHidden: true  },
+  { id: 'reset',        label: 'Настройки',      icon: P.repeat,   adminOnly: false, advertiserHidden: true  },
 ];
 
 // ─── Clock ────────────────────────────────────────────────────────────────────
