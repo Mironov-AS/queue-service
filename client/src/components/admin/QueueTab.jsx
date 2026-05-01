@@ -178,13 +178,14 @@ function ManualRegModal({ services, onClose, onCreated }) {
 
 // ─── Edit Ticket Modal ────────────────────────────────────────────────────────
 
-function EditTicketModal({ ticket, services, onClose, onSaved }) {
+function EditTicketModal({ ticket, services, windowsCount = 1, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: ticket.name || '',
     phone: ticket.phone || '',
     service_id: ticket.service_id ? String(ticket.service_id) : '',
     is_priority: !!ticket.is_priority,
     status: ticket.status || 'waiting',
+    window_number: ticket.window_number || '',
   });
   const [serviceFields, setServiceFields] = useState([]);
   const [fieldValues, setFieldValues] = useState({});
@@ -240,6 +241,7 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
       is_priority: form.is_priority ? 1 : 0,
       status: form.status,
       field_values: [...templateFv, ...orphanFv],
+      window_number: form.window_number || null,
     };
 
     const r = await apiFetch(`/api/tickets/${ticket.id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -272,6 +274,30 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
             {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
+
+        {windowsCount > 1 && (
+          <div>
+            <label className="text-xs text-gray-500 font-medium mb-1 block">Окно обслуживания</label>
+            <div className="grid grid-cols-5 gap-1.5">
+              {Array.from({ length: windowsCount }, (_, i) => i + 1).map(w => (
+                <button key={w} type="button"
+                  onClick={() => setForm(f => ({ ...f, window_number: f.window_number === w ? '' : w }))}
+                  className={`px-2 py-2 rounded-lg border-2 text-sm font-bold transition ${
+                    form.window_number === w
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                      : 'border-gray-100 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
+                  {w}
+                </button>
+              ))}
+            </div>
+            {form.window_number && (
+              <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1">
+                <Icon d={P.check} cls="w-3.5 h-3.5" /> Окно {form.window_number}
+              </p>
+            )}
+          </div>
+        )}
 
         {hasFields && (
           <div className="border-t border-gray-100 pt-3 space-y-3">
@@ -698,6 +724,7 @@ export default function QueueTab() {
         <EditTicketModal
           ticket={editTicket}
           services={services}
+          windowsCount={windowsCount}
           onClose={() => setEditTicket(null)}
           onSaved={() => { loadAllTickets(); apiFetch('/api/queue/full').then(r => r?.json()).then(d => d && setQueue(d)); }}
         />

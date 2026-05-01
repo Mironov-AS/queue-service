@@ -214,7 +214,7 @@ router.put('/:id', requireAuth, async (req, res, next) => {
     const ticket = await db.prepare("SELECT * FROM tickets WHERE id = ? AND client_id = ?").get(id, clientId);
     if (!ticket) return res.status(404).json({ error: 'Талон не найден' });
 
-    const { name, phone, service_id, is_priority, field_values, status } = req.body;
+    const { name, phone, service_id, is_priority, field_values, status, window_number } = req.body;
 
     if (name !== undefined && name !== null && (typeof name !== 'string' || name.length > 100)) {
       return res.status(400).json({ error: 'Некорректное имя' });
@@ -236,11 +236,14 @@ router.put('/:id', requireAuth, async (req, res, next) => {
       ? (Array.isArray(field_values) && field_values.length ? JSON.stringify(field_values) : null)
       : ticket.field_values;
     const newStatus = status !== undefined ? status : ticket.status;
+    const newWindow = window_number !== undefined
+      ? (window_number === null ? null : Math.max(1, Math.min(20, parseInt(window_number, 10) || 1)))
+      : ticket.window_number;
 
     await db.pool.query(`
-      UPDATE tickets SET name=$1, phone=$2, service_id=$3, is_priority=$4, field_values=$5, status=$6
-      WHERE id=$7
-    `, [newName, newPhone, svcId, newIsPriority, newFieldValues, newStatus, id]);
+      UPDATE tickets SET name=$1, phone=$2, service_id=$3, is_priority=$4, field_values=$5, status=$6, window_number=$7
+      WHERE id=$8
+    `, [newName, newPhone, svcId, newIsPriority, newFieldValues, newStatus, newWindow, id]);
 
     const updated = await db.prepare(`
       SELECT t.*, s.name AS service_name
