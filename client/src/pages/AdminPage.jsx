@@ -8,7 +8,6 @@ import StatsTab from '../components/admin/StatsTab';
 import QRTab from '../components/admin/QRTab';
 import LogsTab from '../components/admin/LogsTab';
 import SettingsTab from '../components/admin/SettingsTab';
-import MyCampaignsTab from '../components/admin/MyCampaignsTab';
 import UsersTab from '../components/admin/UsersTab';
 import AdsTab from '../components/admin/AdsTab';
 
@@ -73,10 +72,10 @@ export default function AdminPage() {
   const SETTINGS_TABS = ALL_SETTINGS_TABS.filter(t =>
     (!t.adminOnly || isAdmin) && (!t.advertiserHidden || !isAdvertiser)
   );
-  const initialTab = searchParams.get('tab') || (isAdvertiser ? 'my-campaigns' : 'queue');
+  const initialTab = searchParams.get('tab') || (isAdvertiser ? 'ads' : 'queue');
   const SETTINGS_IDS = SETTINGS_TABS.map(t => t.id);
-  const [tab, setTab] = useState(isAdvertiser ? 'my-campaigns' : (SETTINGS_IDS.includes(initialTab) ? 'settings' : initialTab));
-  const [settingsTab, setSettingsTab] = useState(SETTINGS_IDS.includes(initialTab) ? initialTab : (isAdvertiser ? 'my-campaigns' : 'services'));
+  const [tab, setTab] = useState(isAdvertiser ? 'ads' : (SETTINGS_IDS.includes(initialTab) ? 'settings' : initialTab));
+  const [settingsTab, setSettingsTab] = useState(SETTINGS_IDS.includes(initialTab) ? initialTab : (isAdvertiser ? 'ads' : 'services'));
   const [time, setTime] = useState(new Date());
   const [regOpen, setRegOpen] = useState(true);
   const inactivityTimer = useRef(null);
@@ -174,7 +173,7 @@ export default function AdminPage() {
           </div>
         </header>
         <main className="max-w-4xl mx-auto px-4 py-6">
-          {settingsTab === 'my-campaigns' && <MyCampaignsTab />}
+          {settingsTab === 'ads' && <AdsTab />}
           {settingsTab === 'reset' && <SettingsTab />}
         </main>
       </div>
@@ -250,7 +249,6 @@ export default function AdminPage() {
             {settingsTab === 'services'     && <ServicesTab />}
             {settingsTab === 'users'        && <UsersTab />}
             {settingsTab === 'ads'          && <AdsTab />}
-            {settingsTab === 'my-campaigns' && <MyCampaignsTab />}
             {settingsTab === 'stats'        && <StatsTab />}
             {settingsTab === 'qrcode'       && <QRTab />}
             {settingsTab === 'logs'         && <LogsTab />}

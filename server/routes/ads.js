@@ -75,9 +75,9 @@ router.get('/', async (req, res, next) => {
     const clientId = sanitizeClientId(req.query.client_id);
     let ads;
     if (clientId) {
-      ads = await db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (status IS NULL OR status = 'approved') AND (client_id = ? OR client_id IS NULL) ORDER BY order_index ASC, id ASC").all(clientId);
+      ads = await db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (client_id = ? OR client_id IS NULL) ORDER BY order_index ASC, id ASC").all(clientId);
     } else {
-      ads = await db.prepare("SELECT * FROM advertisements WHERE active = 1 AND (status IS NULL OR status = 'approved') AND client_id IS NULL ORDER BY order_index ASC, id ASC").all();
+      ads = await db.prepare("SELECT * FROM advertisements WHERE active = 1 AND client_id IS NULL ORDER BY order_index ASC, id ASC").all();
     }
     res.json(await enrichAds(ads));
   } catch (err) { next(err); }
@@ -139,7 +139,7 @@ router.post('/chunk', requireAuth, (req, res) => {
       const maxOrder = adClientId
         ? await db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements WHERE client_id = ?').get(adClientId)
         : await db.prepare("SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements WHERE client_id IS NULL").get();
-      const adStatus = req.user.role === 'admin' ? 'approved' : 'pending';
+      const adStatus = 'approved';
       const { rows } = await db.pool.query(
         'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',
         [name.trim(), key, fileType, mimeType, parseInt(duration, 10) || 15, parseInt(maxOrder.m) + 1, req.user.id, req.user.username, adStatus, adClientId]
@@ -196,7 +196,7 @@ router.post('/', requireAuth, (req, res) => {
       const maxOrder = adClientId
         ? await db.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements WHERE client_id = ?').get(adClientId)
         : await db.prepare("SELECT COALESCE(MAX(order_index), -1) AS m FROM advertisements WHERE client_id IS NULL").get();
-      const adStatus = req.user.role === 'admin' ? 'approved' : 'pending';
+      const adStatus = 'approved';
       const { rows } = await db.pool.query(
         'INSERT INTO advertisements (name, file_key, file_type, mime_type, duration, order_index, owner_id, owner_username, status, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',
         [name.trim(), key, fileType, req.file.mimetype, parseInt(duration, 10) || 15, parseInt(maxOrder.m) + 1, req.user.id, req.user.username, adStatus, adClientId]
@@ -231,9 +231,8 @@ router.put('/:id', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Нет доступа' });
     }
 
-    const isAdmin = req.user.role === 'admin';
     const { name, duration, active, order_index } = req.body;
-    const newOrderIndex = (isAdmin && order_index !== undefined)
+    const newOrderIndex = order_index !== undefined
       ? parseInt(order_index, 10)
       : ad.order_index;
 

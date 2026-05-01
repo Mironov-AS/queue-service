@@ -61,13 +61,8 @@ export default function AdsTab() {
     loadAds();
   };
 
-  const handleStatus = async (id, status) => {
-    await apiFetch(`/api/ads/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) });
-    loadAds();
-  };
-
   const handleReorder = async (ad, idx, dir) => {
-    const all = ads.filter(a => a.status !== 'pending');
+    const all = ads;
     if (dir === -1 && idx === 0) return;
     if (dir === 1 && idx === all.length - 1) return;
     const neighbor = all[idx + dir];
@@ -127,17 +122,15 @@ export default function AdsTab() {
       <AdsList
         ads={ads}
         loading={loading}
-        showOwner
+        showOwner={false}
         showReorder
-        showStatusActions
+        showStatusActions={false}
         onToggle={handleToggle}
         onEdit={(ad) => setEditModal({ id: ad.id, name: ad.name, duration: String(ad.duration) })}
         onDelete={setDeleteConfirm}
         onReorder={handleReorder}
-        onStatusChange={handleStatus}
-        pendingTitle="Ожидают проверки"
-        listTitle="Рекламные материалы"
-        emptyText="Рекламных материалов нет"
+        listTitle="Рекламные кампании"
+        emptyText="Рекламных кампаний пока нет"
       />
 
       {editModal && (

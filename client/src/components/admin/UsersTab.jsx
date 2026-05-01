@@ -129,9 +129,6 @@ export default function UsersTab() {
                     {u.campaigns_total > 0 && (
                       <span className="text-xs text-gray-400">
                         {u.campaigns_total} кампани{u.campaigns_total === 1 ? 'я' : u.campaigns_total < 5 ? 'и' : 'й'}
-                        {u.campaigns_pending > 0 && (
-                          <span className="ml-1 text-amber-600 font-medium">· {u.campaigns_pending} ожидают</span>
-                        )}
                       </span>
                     )}
                   </div>

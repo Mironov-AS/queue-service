@@ -16,8 +16,7 @@ router.get('/', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const users = await db.prepare(`
       SELECT u.id, u.username, u.role, u.created_at,
-        COUNT(a.id) AS campaigns_total,
-        SUM(CASE WHEN a.status = 'pending' THEN 1 ELSE 0 END) AS campaigns_pending
+        COUNT(a.id) AS campaigns_total
       FROM users u
       LEFT JOIN advertisements a ON a.owner_id = u.id
       GROUP BY u.id, u.username, u.role, u.created_at
@@ -26,7 +25,6 @@ router.get('/', requireAuth, requireAdmin, async (req, res, next) => {
     res.json(users.map(u => ({
       ...u,
       campaigns_total: parseInt(u.campaigns_total) || 0,
-      campaigns_pending: parseInt(u.campaigns_pending) || 0,
     })));
   } catch (err) { next(err); }
 });
@@ -50,7 +48,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
       [username.trim(), hash, role]
     );
     await log(req, 'user.created', username.trim());
-    res.json({ id: rows[0].id, username: username.trim(), role, created_at: new Date().toISOString(), campaigns_total: 0, campaigns_pending: 0 });
+    res.json({ id: rows[0].id, username: username.trim(), role, created_at: new Date().toISOString(), campaigns_total: 0 });
   } catch (err) { next(err); }
 });
 

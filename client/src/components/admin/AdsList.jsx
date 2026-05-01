@@ -96,9 +96,11 @@ export function AdsList({
                       {isVideo(ad) ? 'Видео' : 'Картинка'}
                     </span>
                     {ad.status && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${AD_STATUS_COLORS[ad.status] || 'bg-gray-100 text-gray-600'}`}>
-                        {AD_STATUS_LABELS[ad.status] || ad.status}
-                      </span>
+                      showStatusActions ? (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${AD_STATUS_COLORS[ad.status] || 'bg-gray-100 text-gray-600'}`}>
+                          {AD_STATUS_LABELS[ad.status] || ad.status}
+                        </span>
+                      ) : null
                     )}
                     {!isVideo(ad) && <span className="text-xs text-gray-400">{ad.duration} сек</span>}
                     {showOwner && ad.owner_username && (
@@ -106,7 +108,7 @@ export function AdsList({
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    #{idx + 1} · {ad.status === 'pending' ? 'Ожидает одобрения' : ad.active ? 'Показывается' : 'Отключено'}
+                    #{idx + 1} · {ad.active ? 'Показывается на дашборде ожидания' : 'Отключено'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">

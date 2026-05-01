@@ -118,8 +118,7 @@ export const TABS = [
 export const ALL_SETTINGS_TABS = [
   { id: 'services',     label: 'Услуги',         icon: P.services, adminOnly: false, advertiserHidden: true  },
   { id: 'users',        label: 'Пользователи',   icon: P.person,   adminOnly: true,  advertiserHidden: true  },
-  { id: 'ads',          label: 'Реклама (все)',   icon: P.film,     adminOnly: true,  advertiserHidden: true  },
-  { id: 'my-campaigns', label: 'Мои кампании',   icon: P.film,     adminOnly: false, advertiserHidden: false },
+  { id: 'ads',          label: 'Реклама',        icon: P.film,     adminOnly: false, advertiserHidden: false },
   { id: 'stats',        label: 'Статистика',     icon: P.stats,    adminOnly: false, advertiserHidden: true  },
   { id: 'qrcode',       label: 'QR-коды',        icon: P.qr,       adminOnly: false, advertiserHidden: true  },
   { id: 'logs',         label: 'Журнал',         icon: P.log,      adminOnly: false, advertiserHidden: true  },
