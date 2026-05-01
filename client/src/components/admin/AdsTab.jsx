@@ -124,7 +124,6 @@ export default function AdsTab() {
         loading={loading}
         showOwner={false}
         showReorder
-        showStatusActions={false}
         onToggle={handleToggle}
         onEdit={(ad) => setEditModal({ id: ad.id, name: ad.name, duration: String(ad.duration) })}
         onDelete={setDeleteConfirm}

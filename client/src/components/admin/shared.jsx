@@ -72,13 +72,6 @@ export const FIELD_TYPES = [
   { value: 'email', label: 'Email' },
 ];
 
-export const AD_STATUS_LABELS = { pending: 'На модерации', approved: 'Одобрено', rejected: 'Отклонено' };
-export const AD_STATUS_COLORS = {
-  pending: 'bg-amber-100 text-amber-700',
-  approved: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700',
-};
-
 export const ACTION_LABELS = {
   'user.login': 'Вход в систему',
   'ticket.called': 'Талон вызван',
