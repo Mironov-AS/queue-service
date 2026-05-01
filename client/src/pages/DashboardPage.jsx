@@ -403,6 +403,9 @@ export default function DashboardPage() {
           );
         }
 
+        const numSize = currentArr.length > 2 ? 'clamp(3rem, 8vw, 6rem)' : 'clamp(4rem, 12vw, 9rem)';
+        const labelSize = currentArr.length > 2 ? 'clamp(0.9rem, 2.4vw, 1.8rem)' : 'clamp(1.2rem, 3.6vw, 2.7rem)';
+
         return (
           <div className="flex-none grid gap-4" style={{
             gridTemplateColumns: `repeat(${Math.min(currentArr.length, 3)}, 1fr)`,
@@ -412,35 +415,43 @@ export default function DashboardPage() {
               const isHighlighted = highlightTicket?.id === ticket.id;
               return (
                 <div key={ticket.id}
-                  className={`rounded-3xl p-6 flex flex-col items-center justify-center transition-all duration-500 ${
+                  className={`rounded-3xl p-6 flex items-center justify-center transition-all duration-500 ${
                     flash && isHighlighted
                       ? 'bg-emerald-500 shadow-[0_0_80px_rgba(16,185,129,0.5)]'
                       : 'bg-blue-600 shadow-[0_8px_40px_rgba(37,99,235,0.35)]'
                   }`}
                 >
-                  {ticket.window_number && (
-                    <div className="bg-white/20 text-white text-sm font-bold px-4 py-1 rounded-full mb-3 uppercase tracking-wider">
-                      Окно {ticket.window_number}
-                    </div>
-                  )}
-                  <p className="text-white/70 text-sm uppercase tracking-[0.3em] font-medium mb-2">Приглашается</p>
-                  <div className={`font-black leading-none text-white transition-all duration-300 ${flash && isHighlighted ? 'scale-110' : 'scale-100'}`}
-                    style={{ fontSize: currentArr.length > 2 ? 'clamp(3rem, 10vw, 7rem)' : 'clamp(4rem, 15vw, 10rem)' }}>
-                    №{ticket.number}
-                  </div>
-                  {ticket.service_name && (
-                    <p className="text-white/80 text-lg font-medium mt-3 text-center">{ticket.service_name}</p>
-                  )}
-                  {Array.isArray(ticket.field_values) && ticket.field_values.filter(fv => fv.value).length > 0 && (
-                    <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
-                      {ticket.field_values.filter(fv => fv.value).map((fv, i) => (
-                        <div key={i} className="text-white/80 text-sm text-center">
-                          <span className="text-white/50 text-xs">{fv.label}: </span>
-                          <span className="font-semibold">{fv.value}</span>
+                  <div className={`flex items-center gap-6 transition-all duration-300 ${flash && isHighlighted ? 'scale-105' : 'scale-100'}`}>
+                    {ticket.window_number && (
+                      <div className="flex flex-col items-center text-white/90 border-r border-white/20 pr-6">
+                        <span className="uppercase tracking-[0.2em] font-semibold text-white/60" style={{ fontSize: labelSize }}>
+                          Окно
+                        </span>
+                        <span className="font-black leading-none" style={{ fontSize: numSize }}>
+                          {ticket.window_number}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex flex-col items-center">
+                      <p className="text-white/60 text-sm uppercase tracking-[0.3em] font-medium mb-1">Приглашается</p>
+                      <div className="font-black leading-none text-white" style={{ fontSize: numSize }}>
+                        №{ticket.number}
+                      </div>
+                      {ticket.service_name && (
+                        <p className="text-white/80 text-base font-medium mt-2 text-center">{ticket.service_name}</p>
+                      )}
+                      {Array.isArray(ticket.field_values) && ticket.field_values.filter(fv => fv.value).length > 0 && (
+                        <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
+                          {ticket.field_values.filter(fv => fv.value).map((fv, i) => (
+                            <div key={i} className="text-white/80 text-sm text-center">
+                              <span className="text-white/50 text-xs">{fv.label}: </span>
+                              <span className="font-semibold">{fv.value}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
