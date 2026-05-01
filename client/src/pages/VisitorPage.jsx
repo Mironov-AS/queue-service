@@ -99,6 +99,10 @@ function GetTicket({ preService, clientId }) {
         <div className="text-6xl">🔒</div>
         <p className="text-white text-2xl font-bold">Запись временно закрыта</p>
         <p className="text-gray-300 text-sm">Обратитесь к сотруднику</p>
+        <a href="https://онлайнпро.рф" target="_blank" rel="noopener noreferrer"
+          className="text-gray-400/50 hover:text-white text-xs transition mt-4 inline-block">
+          Работает на базе ОнлайнПро.РФ
+        </a>
       </div>
     </div>
   );
@@ -188,6 +192,13 @@ function GetTicket({ preService, clientId }) {
               <p className="text-sm mt-1">Обратитесь к сотруднику</p>
             </div>
           )}
+        </div>
+
+        <div className="text-center mt-5">
+          <a href="https://онлайнпро.рф" target="_blank" rel="noopener noreferrer"
+            className="text-blue-300/50 hover:text-white text-xs transition">
+            Работает на базе ОнлайнПро.РФ
+          </a>
         </div>
       </div>
     </div>
@@ -283,6 +294,10 @@ function TicketStatus({ ticketId, clientId }) {
           className="bg-white text-gray-800 font-semibold px-8 py-3 rounded-2xl shadow">
           Получить новый талон
         </button>
+        <a href="https://онлайнпро.рф" target="_blank" rel="noopener noreferrer"
+          className="text-gray-300/50 hover:text-white text-xs transition mt-2 inline-block">
+          Работает на базе ОнлайнПро.РФ
+        </a>
       </div>
     </div>
   );
@@ -297,6 +312,10 @@ function TicketStatus({ ticketId, clientId }) {
           className="bg-white text-blue-700 font-semibold px-8 py-3 rounded-2xl shadow">
           Получить новый талон
         </button>
+        <a href="https://онлайнпро.рф" target="_blank" rel="noopener noreferrer"
+          className="text-blue-300/50 hover:text-white text-xs transition mt-2 inline-block">
+          Работает на базе ОнлайнПро.РФ
+        </a>
       </div>
     </div>
   );
@@ -307,9 +326,19 @@ function TicketStatus({ ticketId, clientId }) {
         <div className="text-6xl animate-bounce">🔔</div>
         <div>
           <p className="text-white text-2xl font-black">Ваш номер вызван!</p>
-          <p className="text-green-100 mt-1">Пожалуйста, подойдите к специалисту</p>
+          {ticket.window_number ? (
+            <p className="text-green-100 mt-1">Подойдите к <span className="font-bold text-white">окну №{ticket.window_number}</span></p>
+          ) : (
+            <p className="text-green-100 mt-1">Пожалуйста, подойдите к специалисту</p>
+          )}
         </div>
         <div className="bg-white rounded-3xl p-8 shadow-2xl">
+          {ticket.window_number && (
+            <div className="mb-4 pb-4 border-b border-gray-100">
+              <p className="text-xs text-gray-400 uppercase tracking-wider" style={{ fontSize: 'clamp(0.6rem, 2vw, 0.75rem)' }}>Окно</p>
+              <div className="font-black text-emerald-600 leading-none" style={{ fontSize: 'clamp(3rem, 12vw, 5rem)' }}>{ticket.window_number}</div>
+            </div>
+          )}
           <p className="text-xs text-gray-400 mb-1 uppercase tracking-wider">Ваш талон</p>
           <div className="text-8xl font-black text-green-600 leading-none">№{ticket.number}</div>
           <p className="mt-3 text-gray-600 font-medium">{ticket.service_name || 'Общая очередь'}</p>
@@ -318,6 +347,12 @@ function TicketStatus({ ticketId, clientId }) {
           className="text-green-100 text-sm underline mt-2">
           Получить новый талон
         </button>
+        <div className="pt-2">
+          <a href="https://онлайнпро.рф" target="_blank" rel="noopener noreferrer"
+            className="text-green-200/60 hover:text-white text-xs transition">
+            Работает на базе ОнлайнПро.РФ
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -377,13 +412,27 @@ function TicketStatus({ ticketId, clientId }) {
           )}
         </div>
 
-        {/* Current being served */}
-        {queue?.current && (
-          <div className="bg-white/10 backdrop-blur rounded-2xl p-4 text-center">
-            <p className="text-blue-200 text-xs mb-1">Сейчас обслуживается</p>
-            <p className="text-2xl font-black text-white">№{queue.current.number}</p>
-          </div>
-        )}
+        {/* Currently being served */}
+        {(() => {
+          const currentArr = Array.isArray(queue?.current) ? queue.current : (queue?.current ? [queue.current] : []);
+          if (!currentArr.length) return null;
+          const showWindows = (queue?.windows_count || 1) > 1;
+          return (
+            <div className="bg-white/10 backdrop-blur rounded-2xl p-4">
+              <p className="text-blue-200 text-xs mb-2 text-center">Сейчас обслуживается</p>
+              <div className={currentArr.length > 1 ? 'space-y-2' : ''}>
+                {currentArr.map(t => (
+                  <div key={t.id || t.number} className="flex items-center justify-center gap-3">
+                    {showWindows && t.window_number && (
+                      <span className="text-blue-200 text-sm">Окно {t.window_number}:</span>
+                    )}
+                    <span className="text-2xl font-black text-white">№{t.number}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <p className="text-center text-blue-200 text-xs py-1">
           Страница обновляется автоматически
@@ -394,6 +443,13 @@ function TicketStatus({ ticketId, clientId }) {
           className="w-full text-center text-blue-300 hover:text-white text-sm py-2 underline transition">
           Отменить талон
         </button>
+
+        <div className="text-center pt-1">
+          <a href="https://онлайнпро.рф" target="_blank" rel="noopener noreferrer"
+            className="text-blue-300/50 hover:text-white text-xs transition">
+            Работает на базе ОнлайнПро.РФ
+          </a>
+        </div>
       </div>
     </div>
   );
