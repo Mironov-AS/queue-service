@@ -318,10 +318,33 @@ function EditTicketModal({ ticket, services, onClose, onSaved }) {
   );
 }
 
+// ─── Window Picker Modal ──────────────────────────────────────────────────────
+
+function WindowPickerModal({ windowsCount, onSelect, onClose, title }) {
+  return (
+    <Modal title={title || 'Выберите окно'} onClose={onClose}>
+      <div className="space-y-3">
+        <p className="text-sm text-gray-500">В какое окно вызвать?</p>
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: windowsCount }, (_, i) => i + 1).map(w => (
+            <button key={w} onClick={() => onSelect(w)}
+              className="px-4 py-3 rounded-xl border-2 border-gray-100 hover:border-blue-500 hover:bg-blue-50 transition text-lg font-bold text-gray-700">
+              Окно {w}
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} className="w-full border border-gray-200 rounded-xl py-2.5 text-gray-600 hover:bg-gray-50 text-sm">
+          Отмена
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Queue Tab ────────────────────────────────────────────────────────────────
 
 export default function QueueTab() {
-  const [queue, setQueue] = useState({ current: null, waiting: [] });
+  const [queue, setQueue] = useState({ current: [], waiting: [], windows_count: 1 });
   const [loading, setLoading] = useState(false);
   const [manualModal, setManualModal] = useState(false);
   const [callConfirm, setCallConfirm] = useState(null);
@@ -331,12 +354,19 @@ export default function QueueTab() {
   const [allTickets, setAllTickets] = useState([]);
   const [showAll, setShowAll] = useState(false);
   const [editTicket, setEditTicket] = useState(null);
+  const [windowPicker, setWindowPicker] = useState(null);
+
+  const windowsCount = queue.windows_count || 1;
+  const currentList = Array.isArray(queue.current) ? queue.current : (queue.current ? [queue.current] : []);
 
   useEffect(() => {
     apiFetch('/api/queue/full').then(r => r?.json()).then(d => d && setQueue(d));
     fetch('/api/services?all=1').then(r => r.json()).then(setServices);
     socket.on('queue:updated', setQueue);
-    return () => { socket.off('queue:updated', setQueue); };
+    socket.on('windows:updated', (data) => {
+      setQueue(prev => ({ ...prev, windows_count: data.windows_count }));
+    });
+    return () => { socket.off('queue:updated', setQueue); socket.off('windows:updated'); };
   }, []);
 
   const loadAllTickets = useCallback(async () => {
@@ -354,27 +384,64 @@ export default function QueueTab() {
   // ─── Queue action helpers ──────────────────────────────────────────────────────
   const queueAction = useQueueAction({ setLoading, defaultError: 'Ошибка' });
 
-  const callNext = () => queueAction('/api/queue/next', 'POST', undefined, { onSuccess: (d) => setQueue(d) });
+  const doCallNext = (window) => {
+    const body = window ? { window } : undefined;
+    queueAction('/api/queue/next', 'POST', body, { onSuccess: (d) => setQueue(d) });
+  };
+
+  const callNext = () => {
+    if (windowsCount > 1) {
+      setWindowPicker({ action: 'next' });
+    } else {
+      doCallNext();
+    }
+  };
+
+  const doCallWithWindow = (ticketId, window) => {
+    const body = window ? { window } : undefined;
+    queueAction(`/api/queue/call/${ticketId}`, 'POST', body, {
+      onSuccess: (d) => setQueue(d),
+    });
+  };
 
   const callSpecific = (ticket) => {
-    if (queue.current) {
+    if (windowsCount > 1) {
+      setWindowPicker({ action: 'call', ticket });
+    } else if (currentList.length > 0) {
       setCallConfirm(ticket);
     } else {
-      queueAction(`/api/queue/call/${ticket.id}`, 'POST', undefined, {
-        onSuccess: (d) => setQueue(d),
-      });
+      doCallWithWindow(ticket.id);
     }
   };
 
   const doCallSpecific = () => {
     if (!callConfirm) return;
-    queueAction(`/api/queue/call/${callConfirm.id}`, 'POST', undefined, {
-      onSuccess: (d) => setQueue(d),
-      onFinally: () => setCallConfirm(null),
-    });
+    if (windowsCount > 1) {
+      setCallConfirm(null);
+      setWindowPicker({ action: 'call', ticket: callConfirm });
+    } else {
+      queueAction(`/api/queue/call/${callConfirm.id}`, 'POST', undefined, {
+        onSuccess: (d) => setQueue(d),
+        onFinally: () => setCallConfirm(null),
+      });
+    }
   };
 
-  const returnToQueue = () => queueAction('/api/queue/return', 'POST', undefined, {
+  const handleWindowSelected = (window) => {
+    if (!windowPicker) return;
+    if (windowPicker.action === 'next') {
+      doCallNext(window);
+    } else if (windowPicker.action === 'call' && windowPicker.ticket) {
+      doCallWithWindow(windowPicker.ticket.id, window);
+    }
+    setWindowPicker(null);
+  };
+
+  const returnToQueue = (ticketId) => queueAction('/api/queue/return', 'POST', ticketId ? { ticket_id: ticketId } : undefined, {
+    onSuccess: (d) => setQueue(d),
+  });
+
+  const completeTicket = (ticketId) => queueAction('/api/queue/complete', 'POST', ticketId ? { ticket_id: ticketId } : undefined, {
     onSuccess: (d) => setQueue(d),
   });
 
@@ -405,34 +472,53 @@ export default function QueueTab() {
     <div className="space-y-5">
       {/* Current */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Вызван талон</h3>
-        {queue.current ? (
-          <div className="flex flex-wrap items-start gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="text-6xl font-black text-blue-600 leading-none">№{queue.current.number}</div>
-              <div className="mt-2 text-gray-700 font-medium">{queue.current.service_name || '—'}</div>
-              {queue.current.name && <div className="text-sm text-gray-500 mt-1">{queue.current.name}</div>}
-              {queue.current.phone && <div className="text-sm text-gray-400">{queue.current.phone}</div>}
-              {Array.isArray(queue.current.field_values) && queue.current.field_values.filter(fv => fv.value).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
-                  {queue.current.field_values.filter(fv => fv.value).map((fv, i) => (
-                    <div key={i} className="text-sm">
-                      <span className="text-gray-400 text-xs">{fv.label}:</span>
-                      <span className="ml-1 font-medium text-gray-700">{fv.value}</span>
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+          {currentList.length > 1 ? 'Вызванные талоны' : 'Вызван талон'}
+        </h3>
+        {currentList.length > 0 ? (
+          <div className="space-y-4">
+            {currentList.map(ticket => (
+              <div key={ticket.id} className={`flex flex-wrap items-start gap-4 ${currentList.length > 1 ? 'border-b border-gray-100 pb-4 last:border-0 last:pb-0' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-3">
+                    <div className="text-5xl font-black text-blue-600 leading-none">№{ticket.number}</div>
+                    {windowsCount > 1 && ticket.window_number && (
+                      <span className="text-lg font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                        Окно {ticket.window_number}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-gray-700 font-medium">{ticket.service_name || '—'}</div>
+                  {ticket.name && <div className="text-sm text-gray-500 mt-1">{ticket.name}</div>}
+                  {ticket.phone && <div className="text-sm text-gray-400">{ticket.phone}</div>}
+                  {Array.isArray(ticket.field_values) && ticket.field_values.filter(fv => fv.value).length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+                      {ticket.field_values.filter(fv => fv.value).map((fv, i) => (
+                        <div key={i} className="text-sm">
+                          <span className="text-gray-400 text-xs">{fv.label}:</span>
+                          <span className="ml-1 font-medium text-gray-700">{fv.value}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => setEditTicket(queue.current)} disabled={loading}
-                className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                <Icon d={P.edit} cls="w-4 h-4" /> Редактировать
-              </button>
-              <button onClick={returnToQueue} disabled={loading}
-                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                <Icon d={P.returnQueue} cls="w-4 h-4" /> Вернуть в очередь
-              </button>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setEditTicket(ticket)} disabled={loading}
+                    className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                    <Icon d={P.edit} cls="w-4 h-4" /> Редактировать
+                  </button>
+                  <button onClick={() => returnToQueue(ticket.id)} disabled={loading}
+                    className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                    <Icon d={P.returnQueue} cls="w-4 h-4" /> Вернуть
+                  </button>
+                  <button onClick={() => completeTicket(ticket.id)} disabled={loading}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                    <Icon d={P.check} cls="w-4 h-4" /> Обслужен
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div className="flex gap-2 pt-2">
               <button onClick={callNext} disabled={loading || !hasNext}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                 <Icon d={P.next} cls="w-4 h-4" /> Следующий
@@ -621,7 +707,7 @@ export default function QueueTab() {
         <Modal title={`Вызвать талон №${callConfirm.number}`} onClose={() => setCallConfirm(null)}>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Сейчас обслуживается <strong>№{queue.current?.number}</strong>. Текущий посетитель будет отмечен как обслуженный, а <strong>№{callConfirm.number}</strong> вызван внеочередно.
+              Сейчас обслуживается <strong>№{currentList[0]?.number}</strong>. Текущий посетитель будет отмечен как обслуженный, а <strong>№{callConfirm.number}</strong> вызван внеочередно.
             </p>
             <div className="flex gap-2">
               <button onClick={doCallSpecific}
@@ -635,6 +721,15 @@ export default function QueueTab() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {windowPicker && (
+        <WindowPickerModal
+          windowsCount={windowsCount}
+          onSelect={handleWindowSelected}
+          onClose={() => setWindowPicker(null)}
+          title={windowPicker.ticket ? `Вызвать №${windowPicker.ticket.number} — выберите окно` : 'Вызвать следующего — выберите окно'}
+        />
       )}
     </div>
   );

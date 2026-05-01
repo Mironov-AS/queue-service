@@ -24,15 +24,21 @@ function parseTicket(t) {
   return t ? { ...t, field_values: t.field_values ? JSON.parse(t.field_values) : [] } : null;
 }
 
+async function getWindowsCount(clientId) {
+  const val = await getClientSetting('windows_count', clientId, '1');
+  return Math.max(1, parseInt(val, 10) || 1);
+}
+
 async function getQueueState(clientId = null) {
-  if (!clientId) return { current: null, waiting: [] };
+  const windowsCount = await getWindowsCount(clientId);
+  if (!clientId) return { current: [], waiting: [], windows_count: windowsCount };
   const d = today();
 
-  const current = await db.pool.query(`
+  const called = await db.pool.query(`
     SELECT t.*, s.name AS service_name, s.avg_duration_minutes
     FROM tickets t LEFT JOIN services s ON t.service_id = s.id
     WHERE t.date = $1 AND t.status = 'called' AND t.client_id = $2
-    ORDER BY t.called_at DESC LIMIT 1
+    ORDER BY t.called_at DESC
   `, [d, clientId]);
 
   const waiting = await db.pool.query(`
@@ -42,7 +48,11 @@ async function getQueueState(clientId = null) {
     ORDER BY t.is_priority DESC, t.created_at ASC
   `, [d, clientId]);
 
-  return { current: parseTicket(current.rows[0] || null), waiting: waiting.rows.map(parseTicket) };
+  return {
+    current: called.rows.map(parseTicket),
+    waiting: waiting.rows.map(parseTicket),
+    windows_count: windowsCount,
+  };
 }
 
 async function getActiveClientIds() {
@@ -58,15 +68,16 @@ async function getPublicQueueState(clientId = null) {
   const state = await getQueueState(clientId);
   const stripPii = (t) => t ? {
     id: t.id, number: t.number, service_name: t.service_name,
-    status: t.status, called_at: t.called_at, is_priority: t.is_priority
-  } : null;
-  const currentPublic = state.current ? {
-    ...stripPii(state.current),
-    field_values: state.current.field_values || []
+    status: t.status, called_at: t.called_at, is_priority: t.is_priority,
+    window_number: t.window_number,
   } : null;
   return {
-    current: currentPublic,
-    waiting: state.waiting.map(t => ({ ...stripPii(t), field_values: t.field_values || [] }))
+    current: state.current.map(t => ({
+      ...stripPii(t),
+      field_values: t.field_values || [],
+    })),
+    waiting: state.waiting.map(t => ({ ...stripPii(t), field_values: t.field_values || [] })),
+    windows_count: state.windows_count,
   };
 }
 

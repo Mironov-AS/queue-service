@@ -128,4 +128,26 @@ router.put('/ads', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/windows', async (req, res, next) => {
+  try {
+    const clientId = sanitizeClientId(req.query.client_id) || req.user?.clientId || null;
+    const val = await getClientSetting('windows_count', clientId, '1');
+    res.json({ windows_count: Math.max(1, parseInt(val, 10) || 1) });
+  } catch (err) { next(err); }
+});
+
+router.put('/windows', requireAuth, async (req, res, next) => {
+  try {
+    const clientId = req.user.clientId || null;
+    const count = clampInt(req.body.windows_count, 1, 20, 1);
+    await setClientSetting('windows_count', String(count), clientId);
+    await log(req, 'settings.windows', `windows_count=${count}`);
+    const { getIo } = require('../services/socketSetup');
+    const io = getIo();
+    if (io && clientId) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('windows:updated', { windows_count: count });
+    else if (io) io.emit('windows:updated', { windows_count: count });
+    res.json({ windows_count: count });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

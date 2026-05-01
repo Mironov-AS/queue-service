@@ -6,9 +6,12 @@ export default function SettingsTab() {
   const [resetDone, setResetDone] = useState(false);
   const [autoReset, setAutoReset] = useState({ enabled: false, time: '00:00' });
   const [autoResetSaved, setAutoResetSaved] = useState(false);
+  const [windowsCount, setWindowsCount] = useState(1);
+  const [windowsSaved, setWindowsSaved] = useState(false);
 
   useEffect(() => {
     apiFetch('/api/settings/auto-reset').then(r => r?.json()).then(d => { if (d) setAutoReset(d); });
+    apiFetch('/api/settings/windows').then(r => r?.json()).then(d => { if (d) setWindowsCount(d.windows_count); });
   }, []);
 
   const saveAutoReset = async (patch) => {
@@ -25,8 +28,35 @@ export default function SettingsTab() {
     setTimeout(() => setResetDone(false), 3000);
   };
 
+  const saveWindowsCount = async (val) => {
+    const count = Math.max(1, Math.min(20, parseInt(val, 10) || 1));
+    setWindowsCount(count);
+    const r = await apiFetch('/api/settings/windows', { method: 'PUT', body: JSON.stringify({ windows_count: count }) });
+    if (r?.ok) { setWindowsSaved(true); setTimeout(() => setWindowsSaved(false), 2000); }
+  };
+
   return (
     <div className="space-y-6 max-w-md">
+      {/* Windows count */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <h3 className="font-semibold text-gray-800">Окна обслуживания</h3>
+        <p className="text-sm text-gray-500">
+          Укажите количество окон обслуживания. При нескольких окнах оператор выбирает номер окна при вызове талона, а посетители видят номер окна на дашборде.
+        </p>
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Количество окон</label>
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={windowsCount}
+            onChange={e => saveWindowsCount(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-20 text-center"
+          />
+          {windowsSaved && <span className="text-green-600 text-xs">Сохранено</span>}
+        </div>
+      </div>
+
       {/* Reset queue */}
       <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-6 space-y-4">
         <h3 className="font-semibold text-gray-800">Сброс очереди</h3>

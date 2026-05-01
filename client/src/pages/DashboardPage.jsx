@@ -71,8 +71,9 @@ function AdsDisplay({ ads, currentAdIndex, onAdEnded, waiting, totalSlides }) {
 export default function DashboardPage() {
   const [searchParams] = useSearchParams();
   const clientId = searchParams.get('client_id') || '';
-  const [queue, setQueue] = useState({ current: null, waiting: [] });
+  const [queue, setQueue] = useState({ current: [], waiting: [], windows_count: 1 });
   const [flash, setFlash] = useState(false);
+  const [lastCalledTicketId, setLastCalledTicketId] = useState(null);
 
   // Ads state
   const [ads, setAds] = useState([]);
@@ -160,27 +161,36 @@ export default function DashboardPage() {
   }, []);
 
   const handleTicketCalled = useCallback((ticket) => {
-    // Track ticket id to prevent duplicate triggers
     if (ticket?.id) {
       currentTicketIdRef.current = ticket.id;
-      setQueue(prev => ({
-        current: {
-          ...ticket,
-          field_values: Array.isArray(ticket.field_values)
-            ? ticket.field_values
-            : (ticket.field_values ? JSON.parse(ticket.field_values) : [])
-        },
-        waiting: prev.waiting.filter(t => t.id !== ticket.id)
-      }));
+      setLastCalledTicketId(ticket.id);
+      const parsed = {
+        ...ticket,
+        field_values: Array.isArray(ticket.field_values)
+          ? ticket.field_values
+          : (ticket.field_values ? JSON.parse(ticket.field_values) : [])
+      };
+      setQueue(prev => {
+        const existing = Array.isArray(prev.current) ? prev.current : (prev.current ? [prev.current] : []);
+        const withoutSameWindow = ticket.window_number
+          ? existing.filter(t => t.window_number !== ticket.window_number && t.id !== ticket.id)
+          : [];
+        const updatedCurrent = ticket.window_number
+          ? [...withoutSameWindow, parsed]
+          : [parsed];
+        return {
+          ...prev,
+          current: updatedCurrent,
+          waiting: prev.waiting.filter(t => t.id !== ticket.id),
+        };
+      });
     }
 
-    // Clear all rotation timers — pause the slideshow
     clearTimeout(ticketTimerRef.current);
     clearInterval(countdownTimerRef.current);
     clearTimeout(imageDurationTimerRef.current);
     clearTimeout(dashboardTimerRef.current);
 
-    // Flash animation
     setFlash(true);
     setTimeout(() => setFlash(false), 2000);
 
@@ -188,7 +198,6 @@ export default function DashboardPage() {
     setDisplayMode('ticket');
     setTicketCountdown(displayTime);
 
-    // Countdown ticker
     let cnt = displayTime;
     countdownTimerRef.current = setInterval(() => {
       cnt--;
@@ -196,7 +205,6 @@ export default function DashboardPage() {
       if (cnt <= 0) clearInterval(countdownTimerRef.current);
     }, 1000);
 
-    // Resume rotation after N seconds
     ticketTimerRef.current = setTimeout(() => {
       clearInterval(countdownTimerRef.current);
       resumeRotation();
@@ -233,9 +241,11 @@ export default function DashboardPage() {
       return fetch(queueUrl)
         .then(r => r.json())
         .then(q => {
-          setQueue(q);
-          if (q.current?.id && q.current.id !== currentTicketIdRef.current) {
-            handleTicketCalled(q.current);
+          const currentArr = Array.isArray(q.current) ? q.current : (q.current ? [q.current] : []);
+          setQueue({ ...q, current: currentArr });
+          const newest = currentArr[0];
+          if (newest?.id && newest.id !== currentTicketIdRef.current) {
+            handleTicketCalled(newest);
           }
         })
         .catch(() => {});
@@ -246,9 +256,11 @@ export default function DashboardPage() {
 
     // Socket events
     const onQueueUpdated = (q) => {
-      setQueue(q);
-      if (q.current?.id && q.current.id !== currentTicketIdRef.current) {
-        handleTicketCalled(q.current);
+      const currentArr = Array.isArray(q.current) ? q.current : (q.current ? [q.current] : []);
+      setQueue({ ...q, current: currentArr });
+      const newest = currentArr[0];
+      if (newest?.id && newest.id !== currentTicketIdRef.current) {
+        handleTicketCalled(newest);
       }
     };
 
@@ -342,37 +354,44 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Current ticket */}
-      <div
-        className={`flex-none rounded-3xl p-8 flex flex-col items-center justify-center transition-all duration-500 ${
-          flash
-            ? 'bg-emerald-500 shadow-[0_0_80px_rgba(16,185,129,0.5)]'
-            : queue.current
-            ? 'bg-blue-600 shadow-[0_8px_40px_rgba(37,99,235,0.35)]'
-            : 'bg-white/70 border border-slate-200 shadow-sm'
-        }`}
-        style={{ minHeight: '38vh' }}
-      >
-        {queue.current ? (
-          <>
-            <p className="text-white/70 text-sm uppercase tracking-[0.3em] font-medium mb-2">
-              Приглашается
-            </p>
+      {/* Current ticket(s) */}
+      {(() => {
+        const currentArr = Array.isArray(queue.current) ? queue.current : (queue.current ? [queue.current] : []);
+        const windowsCount = queue.windows_count || 1;
+        const multiWindow = windowsCount > 1;
+        const highlightTicket = lastCalledTicketId ? currentArr.find(t => t.id === lastCalledTicketId) : currentArr[0];
+
+        if (currentArr.length === 0) {
+          return (
             <div
-              className={`font-black leading-none text-white transition-all duration-300 ${flash ? 'scale-110' : 'scale-100'}`}
-              style={{ fontSize: 'clamp(6rem, 20vw, 14rem)' }}
+              className="flex-none rounded-3xl p-8 flex flex-col items-center justify-center bg-white/70 border border-slate-200 shadow-sm"
+              style={{ minHeight: '38vh' }}
             >
-              №{queue.current.number}
+              <p className="text-slate-400 text-2xl font-medium">Ожидание вызова</p>
             </div>
-            {queue.current.service_name && (
-              <p className="text-white/80 text-xl font-medium mt-4 text-center">
-                {queue.current.service_name}
-              </p>
-            )}
-            {Array.isArray(queue.current.field_values) &&
-              queue.current.field_values.filter(fv => fv.value).length > 0 && (
+          );
+        }
+
+        if (!multiWindow) {
+          const ticket = currentArr[0];
+          return (
+            <div
+              className={`flex-none rounded-3xl p-8 flex flex-col items-center justify-center transition-all duration-500 ${
+                flash ? 'bg-emerald-500 shadow-[0_0_80px_rgba(16,185,129,0.5)]' : 'bg-blue-600 shadow-[0_8px_40px_rgba(37,99,235,0.35)]'
+              }`}
+              style={{ minHeight: '38vh' }}
+            >
+              <p className="text-white/70 text-sm uppercase tracking-[0.3em] font-medium mb-2">Приглашается</p>
+              <div className={`font-black leading-none text-white transition-all duration-300 ${flash ? 'scale-110' : 'scale-100'}`}
+                style={{ fontSize: 'clamp(6rem, 20vw, 14rem)' }}>
+                №{ticket.number}
+              </div>
+              {ticket.service_name && (
+                <p className="text-white/80 text-xl font-medium mt-4 text-center">{ticket.service_name}</p>
+              )}
+              {Array.isArray(ticket.field_values) && ticket.field_values.filter(fv => fv.value).length > 0 && (
                 <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1">
-                  {queue.current.field_values.filter(fv => fv.value).map((fv, i) => (
+                  {ticket.field_values.filter(fv => fv.value).map((fv, i) => (
                     <div key={i} className="text-white/80 text-base text-center">
                       <span className="text-white/50 text-sm">{fv.label}: </span>
                       <span className="font-semibold">{fv.value}</span>
@@ -380,11 +399,54 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
-          </>
-        ) : (
-          <p className="text-slate-400 text-2xl font-medium">Ожидание вызова</p>
-        )}
-      </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex-none grid gap-4" style={{
+            gridTemplateColumns: `repeat(${Math.min(currentArr.length, 3)}, 1fr)`,
+            minHeight: '38vh',
+          }}>
+            {currentArr.map(ticket => {
+              const isHighlighted = highlightTicket?.id === ticket.id;
+              return (
+                <div key={ticket.id}
+                  className={`rounded-3xl p-6 flex flex-col items-center justify-center transition-all duration-500 ${
+                    flash && isHighlighted
+                      ? 'bg-emerald-500 shadow-[0_0_80px_rgba(16,185,129,0.5)]'
+                      : 'bg-blue-600 shadow-[0_8px_40px_rgba(37,99,235,0.35)]'
+                  }`}
+                >
+                  {ticket.window_number && (
+                    <div className="bg-white/20 text-white text-sm font-bold px-4 py-1 rounded-full mb-3 uppercase tracking-wider">
+                      Окно {ticket.window_number}
+                    </div>
+                  )}
+                  <p className="text-white/70 text-sm uppercase tracking-[0.3em] font-medium mb-2">Приглашается</p>
+                  <div className={`font-black leading-none text-white transition-all duration-300 ${flash && isHighlighted ? 'scale-110' : 'scale-100'}`}
+                    style={{ fontSize: currentArr.length > 2 ? 'clamp(3rem, 10vw, 7rem)' : 'clamp(4rem, 15vw, 10rem)' }}>
+                    №{ticket.number}
+                  </div>
+                  {ticket.service_name && (
+                    <p className="text-white/80 text-lg font-medium mt-3 text-center">{ticket.service_name}</p>
+                  )}
+                  {Array.isArray(ticket.field_values) && ticket.field_values.filter(fv => fv.value).length > 0 && (
+                    <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+                      {ticket.field_values.filter(fv => fv.value).map((fv, i) => (
+                        <div key={i} className="text-white/80 text-sm text-center">
+                          <span className="text-white/50 text-xs">{fv.label}: </span>
+                          <span className="font-semibold">{fv.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Waiting list */}
       <div className="flex-1 flex flex-col min-h-0">

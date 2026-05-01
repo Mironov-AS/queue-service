@@ -173,6 +173,18 @@ async function initDb() {
     }
   }
 
+  // Migration 102: add window_number column to tickets
+  const migV102 = await db.prepare("SELECT version FROM schema_migrations WHERE version = 102").get();
+  if (!migV102) {
+    try {
+      await db.exec("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS window_number INTEGER DEFAULT NULL");
+      await db.pool.query("INSERT INTO schema_migrations (version, name) VALUES (102, 'ticket_window_number') ON CONFLICT DO NOTHING");
+      console.log('[db] Migration 102: window_number column added to tickets');
+    } catch (e) {
+      console.warn('[db] Migration 102 warning:', e.message);
+    }
+  }
+
   console.log('[db] PostgreSQL schema initialized');
 }
 
