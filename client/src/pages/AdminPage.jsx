@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { Icon, P, Modal, TABS, ALL_SETTINGS_TABS, INACTIVITY_MS } from '../components/admin/shared';
 import QueueTab from '../components/admin/QueueTab';
@@ -180,6 +180,30 @@ export default function AdminPage() {
     );
   }
 
+  const queueBasePath = useMemo(() => (import.meta.env.BASE_URL || '/').replace(/\/$/, ''), []);
+  const dashboardHref = useMemo(() => {
+    const cid = currentUser?.clientId;
+    return `${queueBasePath}/dashboard${cid ? `?client_id=${encodeURIComponent(cid)}` : ''}`;
+  }, [queueBasePath, currentUser]);
+  const dashboardFullUrl = useMemo(() => new URL(dashboardHref, window.location.origin).toString(), [dashboardHref]);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [showBoardMenu, setShowBoardMenu] = useState(false);
+  const boardMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!showBoardMenu) return;
+    const close = (e) => { if (boardMenuRef.current && !boardMenuRef.current.contains(e.target)) setShowBoardMenu(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showBoardMenu]);
+
+  const copyDashboardLink = () => {
+    navigator.clipboard.writeText(dashboardFullUrl).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  };
+
   // ── Admin / Operator full layout ──
   return (
     <div className="min-h-screen bg-gray-50">
@@ -199,6 +223,50 @@ export default function AdminPage() {
               <span className={`w-2.5 h-2.5 rounded-full ${regOpen ? 'bg-green-500' : 'bg-red-500'}`} />
               {regOpen ? 'Запись открыта' : 'Запись закрыта'}
             </button>
+            <div className="relative" ref={boardMenuRef}>
+              <button onClick={() => setShowBoardMenu(v => !v)}
+                title="Табло для зоны ожидания"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition ${
+                  showBoardMenu
+                    ? 'bg-indigo-50 text-indigo-600 border-2 border-indigo-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-2 border-transparent'
+                }`}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span className="hidden sm:inline">Табло</span>
+              </button>
+              {showBoardMenu && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 z-50 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900">Табло для зоны ожидания</h4>
+                    <p className="text-xs text-gray-500 mt-0.5">Откройте эту ссылку на экране в зоне ожидания клиентов. Табло показывает текущий вызванный талон и очередь в реальном времени.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <a href={dashboardHref} target="_blank" rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm transition">
+                      <Icon d={P.eye} cls="w-4 h-4" />
+                      Открыть табло
+                    </a>
+                    <button onClick={copyDashboardLink}
+                      className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition border-2 ${
+                        linkCopied
+                          ? 'bg-green-50 text-green-600 border-green-300'
+                          : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200'
+                      }`}>
+                      {linkCopied ? (
+                        <><Icon d={P.check} cls="w-4 h-4" /> Скопировано</>
+                      ) : (
+                        <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Ссылка</>
+                      )}
+                    </button>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl px-3 py-2">
+                    <p className="text-[11px] text-gray-400 break-all font-mono select-all">{dashboardFullUrl}</p>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="text-right hidden sm:block">
               <div className="text-2xl font-bold text-blue-600 tabular-nums">
                 {time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
