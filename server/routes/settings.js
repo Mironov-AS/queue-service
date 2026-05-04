@@ -1,6 +1,8 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const { db, getClientSetting, setClientSetting } = require('../database');
 const { requireAuth } = require('../middleware/requireAuth');
+const { getJwtSecret } = require('../config');
 const { log } = require('../services/logging');
 
 const router = express.Router();
@@ -16,9 +18,23 @@ function sanitizeClientId(val) {
   return /^[a-zA-Z0-9_-]{6,80}$/.test(trimmed) ? trimmed : null;
 }
 
+async function resolveClientId(req) {
+  const explicit = sanitizeClientId(req.query.client_id);
+  if (explicit) return explicit;
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (token) {
+    try {
+      const secret = await getJwtSecret();
+      const payload = jwt.verify(token, secret);
+      return payload.clientId || null;
+    } catch { /* ignore invalid token */ }
+  }
+  return null;
+}
+
 router.get('/registration', async (req, res, next) => {
   try {
-    const clientId = sanitizeClientId(req.query.client_id) || req.user?.clientId || null;
+    const clientId = await resolveClientId(req);
     const val = await getClientSetting('registration_open', clientId, '1');
     res.json({ open: val === '1' });
   } catch (err) { next(err); }
@@ -60,9 +76,7 @@ router.put('/auto-reset', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { getJwtSecret } = require('../config');
 
 router.put('/password', requireAuth, async (req, res, next) => {
   try {
@@ -89,7 +103,7 @@ router.put('/password', requireAuth, async (req, res, next) => {
 
 router.get('/ads', async (req, res, next) => {
   try {
-    const clientId = sanitizeClientId(req.query.client_id) || req.user?.clientId || null;
+    const clientId = await resolveClientId(req);
     const t = await getClientSetting('ad_ticket_display_time', clientId, '10');
     const d = await getClientSetting('ad_dashboard_idle_time', clientId, '15');
     const iv = await getClientSetting('ad_dashboard_interval', clientId, '0');
@@ -130,7 +144,7 @@ router.put('/ads', requireAuth, async (req, res, next) => {
 
 router.get('/windows', async (req, res, next) => {
   try {
-    const clientId = sanitizeClientId(req.query.client_id) || req.user?.clientId || null;
+    const clientId = await resolveClientId(req);
     const val = await getClientSetting('windows_count', clientId, '1');
     res.json({ windows_count: Math.max(1, parseInt(val, 10) || 1) });
   } catch (err) { next(err); }
