@@ -77,6 +77,7 @@ export default function UsersTab() {
             <input type="text" value={form.username}
               onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
               placeholder="Логин"
+              autoComplete="off"
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="flex-1 min-w-36">
@@ -84,6 +85,7 @@ export default function UsersTab() {
             <input type="password" value={form.password}
               onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
               placeholder="Минимум 8 символов"
+              autoComplete="new-password"
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="w-44">
@@ -182,6 +184,7 @@ export default function UsersTab() {
               <input type="password" value={resetPw}
                 onChange={e => setResetPw(e.target.value)}
                 placeholder="Минимум 8 символов"
+                autoComplete="new-password"
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             {resetPwErr && <p className="text-red-500 text-sm">{resetPwErr}</p>}

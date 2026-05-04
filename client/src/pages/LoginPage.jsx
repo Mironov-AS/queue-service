@@ -41,7 +41,7 @@ export default function LoginPage() {
           <p className="text-blue-200 mt-1">Панель администратора</p>
         </div>
 
-        <form onSubmit={submit} className="bg-white rounded-3xl shadow-2xl p-8 space-y-4">
+        <form onSubmit={submit} className="bg-white rounded-3xl shadow-2xl p-8 space-y-4" autoComplete="off">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Логин</label>
             <input
@@ -51,6 +51,7 @@ export default function LoginPage() {
               onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="admin"
+              autoComplete="off"
             />
           </div>
           <div>
@@ -61,6 +62,7 @@ export default function LoginPage() {
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="••••••"
+              autoComplete="new-password"
             />
           </div>
 
