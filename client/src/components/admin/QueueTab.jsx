@@ -387,7 +387,7 @@ export default function QueueTab() {
 
   useEffect(() => {
     apiFetch('/api/queue/full').then(r => r?.json()).then(d => d && setQueue(d));
-    fetch('/api/services?all=1').then(r => r.json()).then(setServices);
+    apiFetch('/api/services/my?all=1').then(r => r?.json()).then(d => d && setServices(d));
     socket.on('queue:updated', setQueue);
     socket.on('windows:updated', (data) => {
       setQueue(prev => ({ ...prev, windows_count: data.windows_count }));

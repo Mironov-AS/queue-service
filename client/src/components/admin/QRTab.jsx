@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../api';
 import { Icon, P } from './shared';
 
 const queueBasePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
@@ -43,8 +44,8 @@ export default function QRTab() {
   const dashboardHref = `${queuePath('/dashboard')}${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`;
 
   useEffect(() => {
-    fetch('/api/services?all=1').then(r => r.json()).then(data => {
-      setServices(data);
+    apiFetch('/api/services/my?all=1').then(r => r?.json()).then(data => {
+      if (data) setServices(data);
       generateQR(null);
     });
     fetch(`/api/qrcode?url=${encodeURIComponent(dashboardUrl)}`)

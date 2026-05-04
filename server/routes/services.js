@@ -23,8 +23,13 @@ router.get('/', async (req, res, next) => {
     let rows;
     if (clientId) {
       rows = all
-        ? await db.prepare("SELECT * FROM services WHERE active = 1 AND (client_id = ? OR client_id IS NULL OR client_id = '') ORDER BY priority DESC, name").all(clientId)
-        : await db.prepare("SELECT * FROM services WHERE active = 1 AND enabled = 1 AND (client_id = ? OR client_id IS NULL OR client_id = '') ORDER BY priority DESC, name").all(clientId);
+        ? await db.prepare('SELECT * FROM services WHERE active = 1 AND client_id = ? ORDER BY priority DESC, name').all(clientId)
+        : await db.prepare('SELECT * FROM services WHERE active = 1 AND enabled = 1 AND client_id = ? ORDER BY priority DESC, name').all(clientId);
+      if (rows.length === 0) {
+        rows = all
+          ? await db.prepare("SELECT * FROM services WHERE active = 1 AND client_id IS NULL ORDER BY priority DESC, name").all()
+          : await db.prepare("SELECT * FROM services WHERE active = 1 AND enabled = 1 AND client_id IS NULL ORDER BY priority DESC, name").all();
+      }
     } else {
       rows = all
         ? await db.prepare('SELECT * FROM services WHERE active = 1 AND client_id IS NULL ORDER BY priority DESC, name').all()
@@ -39,6 +44,16 @@ router.get('/my', requireAuth, async (req, res, next) => {
     const all = req.query.all === '1';
     const clientId = req.user.clientId || null;
     if (clientId) {
+      const countRow = await db.prepare('SELECT COUNT(*) AS c FROM services WHERE client_id = ?').get(clientId);
+      if (parseInt(countRow.c) === 0) {
+        const defaults = await db.prepare("SELECT name, description, avg_duration_minutes, priority, daily_limit FROM services WHERE client_id IS NULL AND active = 1").all();
+        for (const d of defaults) {
+          await db.pool.query(
+            'INSERT INTO services (name, description, avg_duration_minutes, priority, daily_limit, client_id) VALUES ($1,$2,$3,$4,$5,$6)',
+            [d.name, d.description, d.avg_duration_minutes, d.priority, d.daily_limit, clientId]
+          );
+        }
+      }
       const rows = all
         ? await db.prepare('SELECT * FROM services WHERE active = 1 AND client_id = ? ORDER BY priority DESC, name').all(clientId)
         : await db.prepare('SELECT * FROM services WHERE active = 1 AND enabled = 1 AND client_id = ? ORDER BY priority DESC, name').all(clientId);
