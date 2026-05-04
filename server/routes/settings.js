@@ -50,7 +50,6 @@ router.put('/registration', requireAuth, async (req, res, next) => {
     const { getIo } = require('../services/socketSetup');
     const io = getIo();
     if (io && clientId) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('registration:changed', { open: newVal === '1' });
-    else if (io) io.emit('registration:changed', { open: newVal === '1' });
     res.json({ open: newVal === '1' });
   } catch (err) { next(err); }
 });
@@ -136,7 +135,6 @@ router.put('/ads', requireAuth, async (req, res, next) => {
     const { getIo } = require('../services/socketSetup');
     const io = getIo();
     if (io && clientId) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('ads:config', { ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab });
-    else if (io) io.emit('ads:config', { ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab });
     const { USE_S3 } = require('../services/storage');
     res.json({ ticket_display_time: t, dashboard_idle_time: d, dashboard_interval: iv, ads_before_dashboard: ab, s3_configured: USE_S3, storage_type: USE_S3 ? 's3' : 'local' });
   } catch (err) { next(err); }
@@ -153,13 +151,13 @@ router.get('/windows', async (req, res, next) => {
 router.put('/windows', requireAuth, async (req, res, next) => {
   try {
     const clientId = req.user.clientId || null;
+    if (!clientId) return res.status(400).json({ error: 'Настройки окон доступны только в контексте клиента (требуется SSO-авторизация)' });
     const count = clampInt(req.body.windows_count, 1, 20, 1);
     await setClientSetting('windows_count', String(count), clientId);
     await log(req, 'settings.windows', `windows_count=${count}`);
     const { getIo } = require('../services/socketSetup');
     const io = getIo();
-    if (io && clientId) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('windows:updated', { windows_count: count });
-    else if (io) io.emit('windows:updated', { windows_count: count });
+    if (io) io.to(`admin:${clientId}`).to(`public:${clientId}`).emit('windows:updated', { windows_count: count });
     res.json({ windows_count: count });
   } catch (err) { next(err); }
 });
