@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { Icon, P, Modal, TABS, ALL_SETTINGS_TABS, INACTIVITY_MS } from '../components/admin/shared';
 import QueueTab from '../components/admin/QueueTab';

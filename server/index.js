@@ -12,6 +12,7 @@ const { setIo } = require('./services/socketSetup');
 const { setIo: setEmitIo } = require('./services/emitQueueUpdate');
 const { today } = require('./services/queueState');
 const { USE_S3, UPLOADS_DIR } = require('./services/storage');
+const log = require('./services/logger');
 
 // ─── Route modules ────────────────────────────────────────────────────────────
 const authRouter = require('./routes/auth');
@@ -144,7 +145,7 @@ io.on('connection', async (socket) => {
       ads_before_dashboard: parseInt(adBefore, 10),
     });
   } catch (err) {
-    console.error('[socket] connection handler error:', err);
+    log.error('socket', 'connection handler error:', err);
   }
 });
 
@@ -179,16 +180,16 @@ async function runAutoReset() {
         );
         await setClientSetting('queue_reset_last_id', String(maxRow.rows[0]?.max_id || 0), cid);
         await setClientSetting('auto_reset_last_date', d, cid);
-        console.log(`[auto-reset] Queue reset for client ${cid} at ${currentTime}`);
+        log.info('auto-reset', `Queue reset for client ${cid} at ${currentTime}`);
 
         const { emitQueueUpdate } = require('./services/emitQueueUpdate');
         await emitQueueUpdate(cid);
       } catch (clientErr) {
-        console.error(`[auto-reset] Error for client ${cid}:`, clientErr);
+        log.error('auto-reset', `Error for client ${cid}:`, clientErr);
       }
     }
   } catch (err) {
-    console.error('[auto-reset] Error:', err);
+    log.error('auto-reset', 'Error:', err);
   }
 }
 
@@ -209,12 +210,12 @@ const PORT = process.env.PORT || 3001;
 (async () => {
   await initDb();
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Queue server on http://0.0.0.0:${PORT}`);
+    log.info(null, `Server on http://0.0.0.0:${PORT}`);
   });
 })();
 
 function shutdown(signal) {
-  console.log(`${signal} received — shutting down gracefully`);
+  log.info(null, `${signal} received — shutting down gracefully`);
   server.close(() => {
     db.pool.end().then(() => process.exit(0)).catch(() => process.exit(1));
   });
@@ -224,9 +225,9 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled promise rejection:', reason);
+  log.error(null, 'Unhandled promise rejection:', reason);
 });
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
+  log.error(null, 'Uncaught exception:', err);
   shutdown('uncaughtException');
 });

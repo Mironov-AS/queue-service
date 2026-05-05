@@ -7,6 +7,7 @@ const { requireAuth } = require('../middleware/requireAuth');
 const { requireAdmin } = require('../middleware/requireAdmin');
 const { getAdUrl, deleteAdFile, saveAdFile, makeAdKey, UPLOADS_DIR } = require('../services/storage');
 const { log } = require('../services/logging');
+const logger = require('../services/logger');
 
 const router = express.Router();
 
@@ -58,7 +59,7 @@ async function enrichAds(ads) {
       const url = await getAdUrl(ad.file_key);
       return { ...ad, url };
     } catch (err) {
-      console.error(`[ads] Failed to get URL for ad ${ad.id}:`, err.message);
+      logger.error('ads', `Failed to get URL for ad ${ad.id}:`, err.message);
       return { ...ad, url: null };
     }
   }));
@@ -154,7 +155,7 @@ router.post('/chunk', requireAuth, (req, res) => {
 
       return res.json({ done: true, ad: { ...ad, url } });
     } catch (e) {
-      console.error('Chunk assembly error:', e);
+      logger.error('ads', 'Chunk assembly error:', e);
       return res.status(500).json({ error: 'Ошибка сборки файла: ' + e.message });
     }
   });
@@ -210,7 +211,7 @@ router.post('/', requireAuth, (req, res) => {
       if (io) io.emit('ads:updated');
       res.json({ ...ad, url });
     } catch (e) {
-      console.error('Ad upload error:', e);
+      logger.error('ads', 'Ad upload error:', e);
       res.status(500).json({ error: 'Ошибка загрузки: ' + e.message });
     }
   });
@@ -270,7 +271,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     try {
       await deleteAdFile(ad.file_key);
     } catch (e) {
-      console.error('Ad file delete error:', e);
+      logger.error('ads', 'Ad file delete error:', e);
     }
     await db.prepare('DELETE FROM advertisements WHERE id = ?').run(id);
     await log(req, 'ad.deleted', ad.name);

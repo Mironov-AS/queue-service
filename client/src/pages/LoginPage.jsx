@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import socket from '../socket';
 
 export default function LoginPage() {
   const [form, setForm] = useState({ username: '', password: '' });
@@ -22,8 +23,7 @@ export default function LoginPage() {
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminUser', JSON.stringify(data.user));
       localStorage.removeItem('mustChangePassword');
-      // Reconnect socket with new auth token so admin gets full queue state
-      import('../socket').then(({ default: socket }) => socket.disconnect().connect());
+      socket.disconnect().connect();
       navigate('/admin', { replace: true });
     } catch {
       setError('Ошибка соединения с сервером');

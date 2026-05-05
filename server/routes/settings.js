@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { db, getClientSetting, setClientSetting } = require('../database');
 const { requireAuth } = require('../middleware/requireAuth');
 const { getJwtSecret } = require('../config');
@@ -74,8 +75,6 @@ router.put('/auto-reset', requireAuth, async (req, res, next) => {
     res.json({ enabled: !!enabled, time: timeVal });
   } catch (err) { next(err); }
 });
-
-const bcrypt = require('bcryptjs');
 
 router.put('/password', requireAuth, async (req, res, next) => {
   try {

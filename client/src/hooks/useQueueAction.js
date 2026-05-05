@@ -25,8 +25,7 @@ export function useQueueAction({ setLoading, defaultError = 'Ошибка' }) {
         const d = await r.json().catch(() => null);
         if (d) onSuccess?.(transformData ? transformData(d) : d);
       }
-    } catch (err) {
-      console.error(`Queue action error (${url}):`, err);
+    } catch {
       alert('Ошибка соединения с сервером');
     } finally {
       setLoading(false);

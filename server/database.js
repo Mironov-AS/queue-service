@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const createPgDb = require('../../../shared/db');
+const log = require('./services/logger');
 
 const db = createPgDb(process.env.DATABASE_URL);
 
@@ -114,9 +115,9 @@ async function initDb() {
       await db.exec("ALTER TABLE advertisements ADD COLUMN IF NOT EXISTS client_id TEXT DEFAULT NULL");
       await db.exec("CREATE INDEX IF NOT EXISTS idx_ads_client_id ON advertisements(client_id)");
       await db.pool.query("INSERT INTO schema_migrations (version, name) VALUES (100, 'per_client_isolation') ON CONFLICT DO NOTHING");
-      console.log('[db] Migration 100: per-client isolation applied');
+      log.info('db', 'Migration 100: per-client isolation applied');
     } catch (e) {
-      console.warn('[db] Migration 100 warning:', e.message);
+      log.warn('db', 'Migration 100 warning:', e.message);
     }
   }
 
@@ -126,9 +127,9 @@ async function initDb() {
     try {
       await db.exec("ALTER TABLE advertisements ALTER COLUMN owner_id TYPE TEXT USING owner_id::TEXT");
       await db.pool.query("INSERT INTO schema_migrations (version, name) VALUES (101, 'owner_id_to_text') ON CONFLICT DO NOTHING");
-      console.log('[db] Migration 101: owner_id changed to TEXT');
+      log.info('db', 'Migration 101: owner_id changed to TEXT');
     } catch (e) {
-      console.warn('[db] Migration 101 warning:', e.message);
+      log.warn('db', 'Migration 101 warning:', e.message);
     }
   }
 
@@ -179,13 +180,13 @@ async function initDb() {
     try {
       await db.exec("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS window_number INTEGER DEFAULT NULL");
       await db.pool.query("INSERT INTO schema_migrations (version, name) VALUES (102, 'ticket_window_number') ON CONFLICT DO NOTHING");
-      console.log('[db] Migration 102: window_number column added to tickets');
+      log.info('db', 'Migration 102: window_number column added to tickets');
     } catch (e) {
-      console.warn('[db] Migration 102 warning:', e.message);
+      log.warn('db', 'Migration 102 warning:', e.message);
     }
   }
 
-  console.log('[db] PostgreSQL schema initialized');
+  log.info('db', 'PostgreSQL schema initialized');
 }
 
 async function getClientSetting(key, clientId, defaultValue = null) {

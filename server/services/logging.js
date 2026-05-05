@@ -1,4 +1,5 @@
 const { db } = require('../database');
+const logger = require('./logger');
 
 function normalizeNumericId(id) {
   if (id === null || id === undefined || id === '') return null;
@@ -14,7 +15,7 @@ async function log(req, action, details = '') {
     await db.prepare('INSERT INTO action_logs (user_id, username, action, details, client_id) VALUES (?,?,?,?,?)')
       .run(userId, username, action, details, clientId);
   } catch (err) {
-    console.warn('[logging] failed to write action log:', err.message);
+    logger.warn('logging', 'failed to write action log:', err.message);
   }
 }
 
