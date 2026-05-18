@@ -21,6 +21,7 @@ const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
 
 if (!USE_S3) {
 	fs.mkdirSync(path.join(UPLOADS_DIR, "ads"), { recursive: true });
+	fs.mkdirSync(path.join(UPLOADS_DIR, "logo"), { recursive: true });
 }
 
 const s3 = new S3Client({
@@ -37,6 +38,8 @@ const s3 = new S3Client({
 		: {}),
 });
 
+// ── Ad helpers ────────────────────────────────────────────────────────────────
+
 async function getAdUrl(fileKey) {
 	if (!fileKey) return null;
 	if (USE_S3) {
@@ -46,7 +49,7 @@ async function getAdUrl(fileKey) {
 			{ expiresIn: 3600 },
 		);
 	}
-	// SPA runs behind nginx at /queue/ — include the prefix so browser can reach it
+	// SPA runs behind nginx at /queue/ — include prefix for browser access
 	return `/queue/uploads/${fileKey}`;
 }
 
@@ -60,14 +63,14 @@ async function deleteAdFile(fileKey) {
 	}
 }
 
-async function saveAdFile(key, buffer, mimetype, originalname) {
+async function saveAdFile(key, buffer, mimetype) {
 	if (USE_S3) {
 		await s3.send(
 			new PutObjectCommand({
 				Bucket: S3_BUCKET,
-				Key: key,
 				Body: buffer,
 				ContentType: mimetype,
+				Key: key,
 			}),
 		);
 	} else {
@@ -83,9 +86,15 @@ function makeAdKey(ext, mimetype) {
 }
 
 // ── Logo helpers ──────────────────────────────────────────────────────────────
+// Logo is stored under uploads/logo/ subdirectory.
+// makeLogoKey returns just the filename (e.g. "abc123.webp").
+// saveLogoFile always writes to uploads/logo/.
+// getLogoUrl returns /queue/uploads/logo/<filename>.
+// deleteLogoFile always deletes from uploads/logo/.
+
 function makeLogoKey(ext) {
 	const extension = (ext || "png").toLowerCase().replace(/^\.+/, "");
-	return `logo/${Date.now()}_${Math.random().toString(36).slice(2)}.${extension}`;
+	return `${Date.now()}_${Math.random().toString(36).slice(2)}.${extension}`;
 }
 
 async function getLogoUrl(fileKey) {
@@ -93,21 +102,25 @@ async function getLogoUrl(fileKey) {
 	if (USE_S3) {
 		return getSignedUrl(
 			s3,
-			new GetObjectCommand({ Bucket: S3_BUCKET, Key: fileKey }),
+			new GetObjectCommand({ Bucket: S3_BUCKET, Key: `logo/${fileKey}` }),
 			{ expiresIn: 3600 },
 		);
 	}
-	// SPA runs behind nginx at /queue/ — include the prefix so browser can reach it
-	return `/queue/uploads/${fileKey}`;
+	// SPA runs behind nginx at /queue/ — include prefix for browser access
+	return `/queue/uploads/logo/${fileKey}`;
 }
 
 async function deleteLogoFile(fileKey) {
 	if (!fileKey) return;
 	if (USE_S3) {
-		await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: fileKey }));
+		await s3.send(
+			new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `logo/${fileKey}` }),
+		);
 	} else {
-		const filePath = path.join(UPLOADS_DIR, fileKey);
-		if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+		const filePath = path.join(UPLOADS_DIR, "logo", fileKey);
+		if (fs.existsSync(filePath)) {
+			fs.unlinkSync(filePath);
+		}
 	}
 }
 
@@ -116,13 +129,14 @@ async function saveLogoFile(key, buffer, mimetype) {
 		await s3.send(
 			new PutObjectCommand({
 				Bucket: S3_BUCKET,
-				Key: key,
 				Body: buffer,
 				ContentType: mimetype,
+				Key: `logo/${key}`,
 			}),
 		);
 	} else {
-		const filePath = path.join(UPLOADS_DIR, key);
+		// key is just the filename — always save to uploads/logo/
+		const filePath = path.join(UPLOADS_DIR, "logo", key);
 		fs.mkdirSync(path.dirname(filePath), { recursive: true });
 		fs.writeFileSync(filePath, buffer);
 	}
