@@ -97,47 +97,29 @@ function makeAdKey(ext, mimetype) {
 // Logo is stored ONLY in the database as BYTEA.
 // The settings table stores logo_key (filename) under 'dashboard_logo_key'.
 // The binary blob is stored in logo_blobs (key, data BYTEA, mime_type).
-//
-// DB-based logo helpers delegate to database.js to avoid circular require.
+// These functions delegate to database.js — no circular dependency since
+// database.js does NOT require storage.js.
+const {
+	saveLogoData: _dbSaveLogoData,
+	getLogoData: _dbGetLogoData,
+	deleteLogoData: _dbDeleteLogoData,
+} = require("../database");
 
 function makeLogoKey(ext) {
 	const extension = (ext || "png").toLowerCase().replace(/^\.+/, "");
 	return `${Date.now()}_${Math.random().toString(36).slice(2)}.${extension}`;
 }
 
-/**
- * saveLogoData — stores binary logo in PostgreSQL BYTEA.
- * @param {string} key   logo key (filename)
- * @param {Buffer} buffer  raw image bytes
- * @param {string} mimetype  image mime type
- */
 async function saveLogoData(key, buffer, mimetype) {
-	const { getDb } = require("../database");
-	const db = getDb();
-	await db.saveLogoData(key, buffer, mimetype);
+	await _dbSaveLogoData(key, buffer, mimetype);
 }
 
-/**
- * getLogoData — returns { buffer, mimetype } for a logo key.
- * @param {string} key
- * @returns {{ buffer: Buffer, mimetype: string } | null}
- */
 async function getLogoData(key) {
-	if (!key) return null;
-	const { getDb } = require("../database");
-	const db = getDb();
-	return db.getLogoData(key);
+	return _dbGetLogoData(key);
 }
 
-/**
- * deleteLogoData — removes logo blob from DB.
- * @param {string} key
- */
 async function deleteLogoData(key) {
-	if (!key) return;
-	const { getDb } = require("../database");
-	const db = getDb();
-	return db.deleteLogoData(key);
+	await _dbDeleteLogoData(key);
 }
 
 // getLogoUrl / deleteLogoFile / saveLogoFile — no longer used for logo.

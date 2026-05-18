@@ -434,6 +434,10 @@ async function deleteLogoData(key) {
 	await db.prepare("DELETE FROM logo_blobs WHERE key = ?").run(key);
 }
 
+function getDb() {
+	return db;
+}
+
 module.exports = {
 	db,
 	initDb,
@@ -442,4 +446,5 @@ module.exports = {
 	saveLogoData,
 	getLogoData,
 	deleteLogoData,
+	getDb,
 };
