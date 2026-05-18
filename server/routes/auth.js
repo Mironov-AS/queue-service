@@ -5,7 +5,6 @@ const rateLimit = require('express-rate-limit');
 const { db } = require('../database');
 const { getJwtSecret } = require('../config');
 const { requireAuth } = require('../middleware/requireAuth');
-const { emitQueueUpdate } = require('../services/emitQueueUpdate');
 
 const router = express.Router();
 
@@ -19,11 +18,13 @@ const loginLimiter = rateLimit({
 
 router.post('/login', loginLimiter, async (req, res, next) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
+    // Support both username+password (queue-service UI) and email+password (main app)
+    const { username, email, password } = req.body;
+    const loginKey = username || email; // treat email as username for DB lookup
+    if (!loginKey || !password || typeof loginKey !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ error: 'Логин и пароль обязательны' });
     }
-    const user = await db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    const user = await db.prepare('SELECT * FROM users WHERE username = ?').get(loginKey);
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
     }
