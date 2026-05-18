@@ -1,0 +1,38 @@
+{
+  "files": {
+    "vite.config.js": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 28
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-18T10:38:20.660Z"
+    },
+    "src/components/admin/SettingsTab.jsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 344
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-18T09:25:21.734Z"
+    },
+    "src/pages/DashboardPage.jsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 734
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-18T10:58:41.001Z"
+    }
+  },
+  "turnCycles": 0,
+  "maxCycles": 3,
+  "lastUpdated": "2026-05-18T10:58:41.001Z",
+  "sessionId": "lens-mpb38mpl-27c80d8f"
+}
