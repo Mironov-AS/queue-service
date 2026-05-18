@@ -34,6 +34,7 @@ export default function SettingsTab() {
 			.then((d) => {
 				if (d) {
 					setLogoKey(d.logo_key);
+					// logo_url is /api/settings/logo/data when logo is set
 					setLogoUrl(d.logo_url);
 				}
 			});

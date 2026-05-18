@@ -261,10 +261,11 @@ export default function DashboardPage() {
 			})
 			.catch(() => {});
 
-		// Fetch logo (API returns URL with /queue/ prefix for browser access)
+		// Fetch logo (DB BYTEA — served via /api/settings/logo/data)
 		fetch("/api/settings/logo")
 			.then((r) => (r.ok ? r.json() : null))
 			.then((d) => {
+				// logo_url is /api/settings/logo/data when logo is set, null otherwise
 				if (d?.logo_url) setLogoUrl(d.logo_url);
 			})
 			.catch(() => {});

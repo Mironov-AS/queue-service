@@ -8,9 +8,8 @@ const { getJwtSecret } = require("../config");
 const { log } = require("../services/logging");
 const {
 	makeLogoKey,
-	getLogoUrl,
-	deleteLogoFile,
-	saveLogoFile,
+	saveLogoData,
+	deleteLogoData,
 } = require("../services/storage");
 
 const router = express.Router();
@@ -261,6 +260,13 @@ router.put("/windows", requireAuth, async (req, res, next) => {
 });
 
 // ── Logo settings ──────────────────────────────────────────────────────────────
+// Logo is stored as binary BYTEA in PostgreSQL (logo_blobs table) and the
+// key (filename) is tracked in settings (dashboard_logo_key).
+// GET /logo      → returns { logo_key, logo_url } (logo_url = /api/settings/logo/data)
+// POST /logo      → saves binary to DB
+// GET /logo/data  → streams raw binary with correct Content-Type (used by <img>)
+// DELETE /logo    → removes from DB
+
 router.get("/logo", async (req, res, next) => {
 	try {
 		const clientId = await resolveClientId(req);
@@ -269,8 +275,7 @@ router.get("/logo", async (req, res, next) => {
 			clientId,
 			null,
 		);
-		const logoUrl = logoKey ? await getLogoUrl(logoKey) : null;
-		res.json({ logo_key: logoKey, logo_url: logoUrl });
+		res.json({ logo_key: logoKey, logo_url: logoKey ? `/api/settings/logo/data` : null });
 	} catch (err) {
 		next(err);
 	}
@@ -284,30 +289,65 @@ router.post(
 		try {
 			const clientId = req.user.clientId || null;
 			if (!req.file) return res.status(400).json({ error: "Файл не загружен" });
+
+
 			const oldKey = await getClientSetting(
 				"dashboard_logo_key",
 				clientId,
 				null,
 			);
-			if (oldKey) await deleteLogoFile(oldKey).catch(() => {});
-			const newKey = makeLogoKey(req.file.originalname.split(".").pop());
-			await saveLogoFile(newKey, req.file.buffer, req.file.mimetype);
+			if (oldKey) {
+				await deleteLogoData(oldKey).catch(() => {});
+			}
+
+			const newKey = makeLogoKey(
+				req.file.originalname.split(".").pop(),
+			);
+			await saveLogoData(newKey, req.file.buffer, req.file.mimetype);
 			await setClientSetting("dashboard_logo_key", newKey, clientId);
-			const logoUrl = await getLogoUrl(newKey);
 			await log(req, "settings.logo_uploaded", newKey);
-			res.json({ logo_key: newKey, logo_url: logoUrl });
+
+			res.json({ logo_key: newKey, logo_url: `/api/settings/logo/data` });
 		} catch (err) {
 			next(err);
 		}
 	},
 );
 
+// Serve logo binary directly — no file system / nginx alias needed
+router.get("/logo/data", async (req, res, next) => {
+	try {
+		const clientId = await resolveClientId(req);
+		const logoKey = await getClientSetting(
+			"dashboard_logo_key",
+			clientId,
+			null,
+		);
+		if (!logoKey) return res.status(404).json({ error: "Логотип не установлен" });
+
+
+		const { getLogoData } = require("../services/storage");
+		const logoData = await getLogoData(logoKey);
+		if (!logoData) return res.status(404).json({ error: "Логотип не найден" });
+
+		res.setHeader("Content-Type", logoData.mimetype);
+		res.setHeader("Cache-Control", "private, max-age=3600");
+		res.send(logoData.buffer);
+	} catch (err) {
+		next(err);
+	}
+});
+
 router.delete("/logo", requireAuth, async (req, res, next) => {
 	try {
 		const clientId = req.user.clientId || null;
-		const oldKey = await getClientSetting("dashboard_logo_key", clientId, null);
+		const oldKey = await getClientSetting(
+			"dashboard_logo_key",
+			clientId,
+			null,
+		);
 		if (oldKey) {
-			await deleteLogoFile(oldKey).catch(() => {});
+			await deleteLogoData(oldKey).catch(() => {});
 			await setClientSetting("dashboard_logo_key", "", clientId);
 			await log(req, "settings.logo_deleted", oldKey);
 		}

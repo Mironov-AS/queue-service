@@ -342,6 +342,29 @@ async function initDb() {
 		}
 	}
 
+	// Migration 106: logo_blobs table (PostgreSQL BYTEA for persistent logo storage)
+	const migV106 = await db
+		.prepare("SELECT version FROM schema_migrations WHERE version = 106")
+		.get();
+	if (!migV106) {
+		try {
+			await db.exec(`
+				CREATE TABLE IF NOT EXISTS logo_blobs (
+					key TEXT PRIMARY KEY,
+					data BYTEA NOT NULL,
+					mime_type TEXT NOT NULL DEFAULT 'image/png',
+					created_at TIMESTAMPTZ DEFAULT NOW()
+				)
+			`);
+			await db.pool.query(
+				"INSERT INTO schema_migrations (version, name) VALUES (106, 'logo_blobs_table') ON CONFLICT DO NOTHING",
+			);
+			log.info("db", "Migration 106: logo_blobs table created");
+		} catch (e) {
+			log.warn("db", "Migration 106 warning:", e.message);
+		}
+	}
+
 	log.info("db", "PostgreSQL schema initialized");
 }
 
@@ -366,4 +389,57 @@ async function setClientSetting(key, value, clientId) {
 	);
 }
 
-module.exports = { db, initDb, getClientSetting, setClientSetting };
+// ── Logo blob helpers (PostgreSQL BYTEA) ───────────────────────────────────
+
+/**
+ * saveLogoData — stores binary logo in logo_blobs BYTEA table.
+ * Upsert: replaces existing blob for the same key.
+ * @param {string} key   logo key (filename)
+ * @param {Buffer} buffer  raw image bytes
+ * @param {string} mimetype
+ */
+async function saveLogoData(key, buffer, mimetype) {
+	await db.pool.query(
+		`INSERT INTO logo_blobs (key, data, mime_type)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT(key) DO UPDATE
+		 SET data = EXCLUDED.data, mime_type = EXCLUDED.mime_type, created_at = NOW()`,
+		[key, buffer, mimetype || "image/png"],
+	);
+}
+
+/**
+ * getLogoData — retrieves logo blob from logo_blobs.
+ * @param {string} key
+ * @returns {{ buffer: Buffer, mimetype: string } | null}
+ */
+async function getLogoData(key) {
+	if (!key) return null;
+	const row = await db
+		.prepare("SELECT data, mime_type FROM logo_blobs WHERE key = ?")
+		.get(key);
+	if (!row) return null;
+	// pg returns Buffer already — wrap if needed
+	const buffer =
+		Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data);
+	return { buffer, mimetype: row.mime_type || "image/png" };
+}
+
+/**
+ * deleteLogoData — removes logo blob from logo_blobs.
+ * @param {string} key
+ */
+async function deleteLogoData(key) {
+	if (!key) return;
+	await db.prepare("DELETE FROM logo_blobs WHERE key = ?").run(key);
+}
+
+module.exports = {
+	db,
+	initDb,
+	getClientSetting,
+	setClientSetting,
+	saveLogoData,
+	getLogoData,
+	deleteLogoData,
+};
