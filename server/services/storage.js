@@ -36,8 +36,7 @@ function getS3() {
 			...(process.env.AWS_ENDPOINT_URL
 				? {
 						endpoint: process.env.AWS_ENDPOINT_URL,
-						forcePathStyle:
-							process.env.AWS_S3_FORCE_PATH_STYLE === "true",
+						forcePathStyle: process.env.AWS_S3_FORCE_PATH_STYLE === "true",
 					}
 				: {}),
 		});

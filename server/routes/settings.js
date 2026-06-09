@@ -202,14 +202,12 @@ router.put("/ads", requireAuth, async (req, res, next) => {
 		const { getIo } = require("../services/socketSetup");
 		const io = getIo();
 		if (io && clientId)
-			io.to(`admin:${clientId}`)
-				.to(`public:${clientId}`)
-				.emit("ads:config", {
-					ticket_display_time: t,
-					dashboard_idle_time: d,
-					dashboard_interval: iv,
-					ads_before_dashboard: ab,
-				});
+			io.to(`admin:${clientId}`).to(`public:${clientId}`).emit("ads:config", {
+				ticket_display_time: t,
+				dashboard_idle_time: d,
+				dashboard_interval: iv,
+				ads_before_dashboard: ab,
+			});
 		const { USE_S3 } = require("../services/storage");
 		res.json({
 			ticket_display_time: t,
@@ -238,12 +236,10 @@ router.put("/windows", requireAuth, async (req, res, next) => {
 	try {
 		const clientId = req.user.clientId || null;
 		if (!clientId)
-			return res
-				.status(400)
-				.json({
-					error:
-						"Настройки окон доступны только в контексте клиента (требуется SSO-авторизация)",
-				});
+			return res.status(400).json({
+				error:
+					"Настройки окон доступны только в контексте клиента (требуется SSO-авторизация)",
+			});
 		const count = clampInt(req.body.windows_count, 1, 20, 1);
 		await setClientSetting("windows_count", String(count), clientId);
 		await log(req, "settings.windows", `windows_count=${count}`);
@@ -275,7 +271,10 @@ router.get("/logo", async (req, res, next) => {
 			clientId,
 			null,
 		);
-		res.json({ logo_key: logoKey, logo_url: logoKey ? `/api/settings/logo/data` : null });
+		res.json({
+			logo_key: logoKey,
+			logo_url: logoKey ? `/api/settings/logo/data` : null,
+		});
 	} catch (err) {
 		next(err);
 	}
@@ -290,7 +289,6 @@ router.post(
 			const clientId = req.user.clientId || null;
 			if (!req.file) return res.status(400).json({ error: "Файл не загружен" });
 
-
 			const oldKey = await getClientSetting(
 				"dashboard_logo_key",
 				clientId,
@@ -300,9 +298,7 @@ router.post(
 				await deleteLogoData(oldKey).catch(() => {});
 			}
 
-			const newKey = makeLogoKey(
-				req.file.originalname.split(".").pop(),
-			);
+			const newKey = makeLogoKey(req.file.originalname.split(".").pop());
 			await saveLogoData(newKey, req.file.buffer, req.file.mimetype);
 			await setClientSetting("dashboard_logo_key", newKey, clientId);
 			await log(req, "settings.logo_uploaded", newKey);
@@ -323,8 +319,8 @@ router.get("/logo/data", async (req, res, next) => {
 			clientId,
 			null,
 		);
-		if (!logoKey) return res.status(404).json({ error: "Логотип не установлен" });
-
+		if (!logoKey)
+			return res.status(404).json({ error: "Логотип не установлен" });
 
 		const { getLogoData } = require("../services/storage");
 		const logoData = await getLogoData(logoKey);
@@ -341,11 +337,7 @@ router.get("/logo/data", async (req, res, next) => {
 router.delete("/logo", requireAuth, async (req, res, next) => {
 	try {
 		const clientId = req.user.clientId || null;
-		const oldKey = await getClientSetting(
-			"dashboard_logo_key",
-			clientId,
-			null,
-		);
+		const oldKey = await getClientSetting("dashboard_logo_key", clientId, null);
 		if (oldKey) {
 			await deleteLogoData(oldKey).catch(() => {});
 			await setClientSetting("dashboard_logo_key", "", clientId);

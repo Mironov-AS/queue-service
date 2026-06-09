@@ -420,8 +420,7 @@ async function getLogoData(key) {
 		.get(key);
 	if (!row) return null;
 	// pg returns Buffer already — wrap if needed
-	const buffer =
-		Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data);
+	const buffer = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data);
 	return { buffer, mimetype: row.mime_type || "image/png" };
 }
 
