@@ -16,6 +16,8 @@ export default function SystemSettingsTab() {
 	const [autoResetSaved, setAutoResetSaved] = useState(false);
 	const [autoOpen, setAutoOpen] = useState({ enabled: false, time: "09:00" });
 	const [autoOpenSaved, setAutoOpenSaved] = useState(false);
+	const [terminalCountdown, setTerminalCountdown] = useState(30);
+	const [terminalSaved, setTerminalSaved] = useState(false);
 	const navigate = useNavigate();
 	const user = (() => {
 		try {
@@ -42,6 +44,11 @@ export default function SystemSettingsTab() {
 			.then((d) => {
 				if (d) setAutoOpen(d);
 			});
+		apiFetch("/api/settings/terminal-countdown")
+			.then((r) => r?.json())
+			.then((d) => {
+				if (d) setTerminalCountdown(d.seconds || 30);
+			});
 	}, []);
 
 	const saveAutoReset = async (patch) => {
@@ -67,6 +74,18 @@ export default function SystemSettingsTab() {
 		if (r?.ok) {
 			setAutoOpenSaved(true);
 			setTimeout(() => setAutoOpenSaved(false), 2000);
+		}
+	};
+
+	const saveTerminalCountdown = async (seconds) => {
+		setTerminalCountdown(seconds);
+		const r = await apiFetch("/api/settings/terminal-countdown", {
+			method: "PUT",
+			body: JSON.stringify({ seconds }),
+		});
+		if (r?.ok) {
+			setTerminalSaved(true);
+			setTimeout(() => setTerminalSaved(false), 2000);
 		}
 	};
 
@@ -201,6 +220,38 @@ export default function SystemSettingsTab() {
 						<span className="text-green-600 text-xs">Сохранено</span>
 					)}
 				</div>
+			</div>
+
+			{/* Terminal countdown */}
+			<div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 space-y-4">
+				<h3 className="font-semibold text-gray-800">Терминал регистрации</h3>
+				<p className="text-sm text-gray-500">
+					Интервал обратного отсчёта после получения талона на экране терминала.
+					Ссылка: /terminal
+				</p>
+				<div className="flex items-center gap-3">
+					<span className="text-sm font-medium text-gray-700">
+						Пауза после талона:
+					</span>
+					<input
+						type="number"
+						min="5"
+						max="300"
+						value={terminalCountdown}
+						onChange={(e) =>
+							saveTerminalCountdown(parseInt(e.target.value, 10) || 30)
+						}
+						className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 w-24"
+					/>
+					<span className="text-sm text-gray-500">секунд</span>
+					{terminalSaved && (
+						<span className="text-green-600 text-xs">Сохранено</span>
+					)}
+				</div>
+				<p className="text-xs text-gray-400">
+					5–300 секунд. По истечении отсчёта откроется экран «Спасибо!», затем —
+					выбор услуги.
+				</p>
 			</div>
 
 			{/* Reset queue */}

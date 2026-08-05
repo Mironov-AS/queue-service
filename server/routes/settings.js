@@ -145,6 +145,27 @@ router.get("/ads", (req, res) => {
 	});
 });
 
+// GET /api/settings/terminal-countdown
+router.get("/terminal-countdown", (req, res) => {
+	const row = db
+		.prepare(
+			"SELECT value FROM settings WHERE key='terminal_countdown_seconds'",
+		)
+		.get();
+	res.json({ seconds: parseInt(row?.value || "30", 10) });
+});
+
+// PUT /api/settings/terminal-countdown
+router.put("/terminal-countdown", requireAuth, (req, res) => {
+	const { seconds } = req.body;
+	const sec = clampInt(seconds, 5, 300, 30);
+	db.prepare(
+		"INSERT OR REPLACE INTO settings (key, value) VALUES ('terminal_countdown_seconds', ?)",
+	).run(String(sec));
+	log(req, "settings.terminal_countdown", `seconds=${sec}`);
+	res.json({ seconds: sec });
+});
+
 // PUT /api/settings/ads
 router.put("/ads", requireAuth, (req, res) => {
 	const {
