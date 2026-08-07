@@ -268,41 +268,42 @@ export default function SystemSettingsTab() {
 					)}
 				</div>
 				<p className="text-xs text-gray-400">
-						5–300 секунд. По истечении отсчёта откроется экран «Спасибо!», затем —
-						выбор услуги.
-					</p>
-				</div>
+					5–300 секунд. По истечении отсчёта откроется экран «Спасибо!», затем —
+					выбор услуги.
+				</p>
+			</div>
 
-				{/* Field minimum length */}
-				<div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 space-y-4">
-					<h3 className="font-semibold text-gray-800">Обязательные поля услуг</h3>
-					<p className="text-sm text-gray-500">
-						Минимальное количество символов для обязательных полей (например, номер авто).
-					</p>
-					<div className="flex items-center gap-3">
-						<span className="text-sm font-medium text-gray-700">
-							Мин. символов:
-						</span>
-						<input
-							type="number"
-							min="1"
-							max="50"
-							value={fieldMinLength}
-							onChange={(e) =>
-								saveFieldMinLength(parseInt(e.target.value, 10) || 3)
-							}
-							className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-20"
-						/>
-						<span className="text-sm text-gray-500">символов</span>
-						{fieldMinLengthSaved && (
-							<span className="text-green-600 text-xs">Сохранено</span>
-						)}
-					</div>
+			{/* Field minimum length */}
+			<div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 space-y-4">
+				<h3 className="font-semibold text-gray-800">Обязательные поля услуг</h3>
+				<p className="text-sm text-gray-500">
+					Минимальное количество символов для обязательных полей (например,
+					номер авто).
+				</p>
+				<div className="flex items-center gap-3">
+					<span className="text-sm font-medium text-gray-700">
+						Мин. символов:
+					</span>
+					<input
+						type="number"
+						min="1"
+						max="50"
+						value={fieldMinLength}
+						onChange={(e) =>
+							saveFieldMinLength(parseInt(e.target.value, 10) || 3)
+						}
+						className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-20"
+					/>
+					<span className="text-sm text-gray-500">символов</span>
+					{fieldMinLengthSaved && (
+						<span className="text-green-600 text-xs">Сохранено</span>
+					)}
 				</div>
+			</div>
 
-				{/* Reset queue */}
-				<div className="bg-white rounded-2xl shadow-sm border border-red-100 p-6 space-y-4">
-					<h3 className="font-semibold text-gray-800">Сброс очереди</h3>
+			{/* Reset queue */}
+			<div className="bg-white rounded-2xl shadow-sm border border-red-100 p-6 space-y-4">
+				<h3 className="font-semibold text-gray-800">Сброс очереди</h3>
 				<p className="text-sm text-gray-500">
 					Все ожидающие талоны сегодняшнего дня будут отменены. Действие
 					необратимо.

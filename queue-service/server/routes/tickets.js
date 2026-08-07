@@ -19,7 +19,9 @@ function parseId(val) {
 
 // Get minimum field length from settings
 function getMinFieldLength() {
-	const row = db.prepare("SELECT value FROM settings WHERE key = 'field_min_length'").get();
+	const row = db
+		.prepare("SELECT value FROM settings WHERE key = 'field_min_length'")
+		.get();
 	return parseInt(row?.value || "3", 10);
 }
 
@@ -85,25 +87,27 @@ router.post("/", ticketLimiter, (req, res) => {
 			}
 
 			if (invalidFields.length > 0) {
-				const emptyFields = invalidFields.filter(f => f.reason === "empty");
-				const shortFields = invalidFields.filter(f => f.reason !== "empty");
-				
+				const emptyFields = invalidFields.filter((f) => f.reason === "empty");
+				const shortFields = invalidFields.filter((f) => f.reason !== "empty");
+
 				let errorMsg = "";
 				if (emptyFields.length > 0) {
-					const labels = emptyFields.map(f => `«${f.label}»`).join(", ");
+					const labels = emptyFields.map((f) => `«${f.label}»`).join(", ");
 					errorMsg = `Не заполнены обязательные поля: ${labels}`;
 				}
 				if (shortFields.length > 0) {
 					if (errorMsg) errorMsg += "; ";
-					const labels = shortFields.map(f => `«${f.label}» (${f.reason})`).join(", ");
+					const labels = shortFields
+						.map((f) => `«${f.label}» (${f.reason})`)
+						.join(", ");
 					errorMsg += `Слишком короткие значения: ${labels}`;
 				}
-				
+
 				return res.status(400).json({
 					error: errorMsg,
 					missing_fields: invalidFields.map((f) => ({
 						id: f.id,
-					label: f.label,
+						label: f.label,
 						reason: f.reason,
 					})),
 				});
@@ -222,27 +226,29 @@ router.post("/manual", requireAuth, (req, res) => {
 			}
 
 			if (invalidFields.length > 0) {
-				const emptyFields = invalidFields.filter(f => f.reason === "empty");
-				const shortFields = invalidFields.filter(f => f.reason !== "empty");
-				
+				const emptyFields = invalidFields.filter((f) => f.reason === "empty");
+				const shortFields = invalidFields.filter((f) => f.reason !== "empty");
+
 				let errorMsg = "";
 				if (emptyFields.length > 0) {
-					const labels = emptyFields.map(f => `«${f.label}»`).join(", ");
+					const labels = emptyFields.map((f) => `«${f.label}»`).join(", ");
 					errorMsg = `Не заполнены обязательные поля: ${labels}`;
 				}
 				if (shortFields.length > 0) {
 					if (errorMsg) errorMsg += "; ";
-					const labels = shortFields.map(f => `«${f.label}» (${f.reason})`).join(", ");
+					const labels = shortFields
+						.map((f) => `«${f.label}» (${f.reason})`)
+						.join(", ");
 					errorMsg += `Слишком короткие значения: ${labels}`;
 				}
-				
+
 				return res.status(400).json({
 					error: errorMsg,
 					missing_fields: invalidFields.map((f) => ({
 						id: f.id,
 						label: f.label,
-							reason: f.reason,
-						})),
+						reason: f.reason,
+					})),
 				});
 			}
 		}
