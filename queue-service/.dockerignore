@@ -1,0 +1,19 @@
+# Dependencies — always reinstalled during build
+node_modules/
+server/node_modules/
+client/node_modules/
+
+# Git metadata
+.git/
+.gitignore
+
+# Built client output (rebuilt in Dockerfile stage 1)
+client/dist/
+
+# Env files with secrets — pass via docker-compose environment instead
+server/.env
+.env.local
+
+# Dev/editor artifacts
+*.log
+.DS_Store
