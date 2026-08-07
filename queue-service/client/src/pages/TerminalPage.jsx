@@ -249,31 +249,32 @@ function ServiceForm({ service, onBack, onTicket }) {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-blue-700 to-blue-900 flex flex-col items-center justify-center p-6">
+		<div className="min-h-screen bg-gradient-to-br from-blue-700 to-blue-900 flex flex-col items-center p-4 pt-6">
 			<div className="w-full max-w-lg">
-				{/* Header - show service name prominently */}
-				<div className="text-center mb-6">
-					<div className="text-4xl mb-2">📋</div>
-					<h1 className="text-4xl font-black text-white">{service.name}</h1>
+				{/* Header - compact when keyboard is visible */}
+				<div className="text-center mb-4">
+					<h1 className="text-2xl font-black text-white">{service.name}</h1>
 					{service.description && (
-						<p className="text-blue-200 mt-1 text-lg">{service.description}</p>
+						<p className="text-blue-200 mt-1 text-base">
+							{service.description}
+						</p>
 					)}
 				</div>
 
 				{/* Form card */}
-				<div className="bg-white/10 backdrop-blur rounded-3xl shadow-2xl p-6 space-y-4">
+				<div className="bg-white/10 backdrop-blur rounded-3xl shadow-2xl p-5 space-y-3">
 					{fields.length > 0 ? (
-						<div className="space-y-4">
+						<div className="space-y-3">
 							{fields.map((f) => (
 								<div
 									key={f.id}
-									className={`rounded-2xl p-1 transition-all ${
+									className={`rounded-xl p-0.5 transition-all ${
 										activeFieldId === f.id
 											? "bg-green-500/50 ring-2 ring-green-400"
 											: "bg-transparent"
 									}`}
 								>
-									<label className="block text-xl font-semibold text-white mb-2 px-2">
+									<label className="block text-base font-semibold text-white mb-1 px-2">
 										{f.label}
 										{f.required && (
 											<span className="text-yellow-300 ml-1">*</span>
@@ -286,7 +287,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 											setFieldValues((v) => ({ ...v, [f.id]: e.target.value }))
 										}
 										onClick={() => setActiveFieldId(f.id)}
-										className="w-full border-2 border-white/30 bg-white/90 rounded-2xl px-5 py-5 text-2xl focus:outline-none focus:border-yellow-400 focus:bg-white transition cursor-pointer"
+										className="w-full border-2 border-white/30 bg-white/90 rounded-xl px-4 py-3 text-xl focus:outline-none focus:border-yellow-400 focus:bg-white transition cursor-pointer"
 										placeholder={`Введите ${f.label.toLowerCase()}`}
 										autoComplete="off"
 									/>
@@ -311,7 +312,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 					<button
 						onClick={getTicket}
 						disabled={loading}
-						className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 active:from-green-700 active:to-emerald-800 disabled:opacity-50 text-white font-black py-6 rounded-2xl text-2xl transition shadow-xl mt-4"
+						className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 active:from-green-700 active:to-emerald-800 disabled:opacity-50 text-white font-black py-5 rounded-2xl text-xl transition shadow-xl mt-3"
 					>
 						{loading ? "Оформляем..." : "ПОЛУЧИТЬ ТАЛОН"}
 					</button>
@@ -319,16 +320,18 @@ function ServiceForm({ service, onBack, onTicket }) {
 					{/* Back button */}
 					<button
 						onClick={onBack}
-						className="w-full text-white/70 hover:text-white py-4 text-center text-lg transition"
+						className="w-full text-white/70 hover:text-white py-3 text-center text-base transition"
 					>
 						← Назад
 					</button>
 				</div>
 
-				{/* Logo */}
-				<div className="mt-6 flex justify-center">
-					<Logo />
-				</div>
+				{/* Logo - скрываем когда клавиатура видна */}
+				{fields.length === 0 && (
+					<div className="mt-6 flex justify-center">
+						<Logo />
+					</div>
+				)}
 			</div>
 
 			{/* Touch Keyboard - always visible when there are fields */}
