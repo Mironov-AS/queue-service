@@ -173,4 +173,10 @@ if (!regSetting) {
   db.prepare("INSERT INTO settings (key, value) VALUES ('registration_open', '1')").run();
 }
 
+// Default field minimum length setting
+const fieldMinLenSetting = db.prepare("SELECT value FROM settings WHERE key = 'field_min_length'").get();
+if (!fieldMinLenSetting) {
+  db.prepare("INSERT INTO settings (key, value) VALUES ('field_min_length', '3')").run();
+}
+
 module.exports = db;

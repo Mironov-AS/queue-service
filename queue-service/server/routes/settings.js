@@ -215,4 +215,23 @@ router.put("/ads", requireAuth, (req, res) => {
 	});
 });
 
+// GET /api/settings/field-min-length
+router.get("/field-min-length", (req, res) => {
+	const row = db
+		.prepare("SELECT value FROM settings WHERE key = 'field_min_length'")
+		.get();
+	res.json({ min_length: parseInt(row?.value || "3", 10) });
+});
+
+// PUT /api/settings/field-min-length
+router.put("/field-min-length", requireAuth, (req, res) => {
+	const { min_length } = req.body;
+	const val = clampInt(min_length, 1, 50, 3);
+	db.prepare(
+		"INSERT OR REPLACE INTO settings (key, value) VALUES ('field_min_length', ?)",
+	).run(String(val));
+	log(req, "settings.field_min_length", `set to ${val}`);
+	res.json({ min_length: val });
+});
+
 module.exports = router;
