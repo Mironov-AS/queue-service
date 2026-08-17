@@ -56,25 +56,27 @@ export default function TouchKeyboard({
 		>
 			{/* Active field indicator */}
 			<div
-				className="flex items-center justify-center py-1.5 bg-gray-900 cursor-pointer"
+				className="flex items-center justify-center py-2 bg-gray-900 cursor-pointer"
 				onClick={() => setShowKeyboard(false)}
 			>
-				<span className="text-green-400 text-xs sm:text-sm">Клавиатура</span>
-				<span className="text-white/40 text-xs ml-2">
+				<span className="text-green-400 text-sm sm:text-base font-medium">
+					Клавиатура
+				</span>
+				<span className="text-white/50 text-xs sm:text-sm ml-3">
 					(нажмите чтобы скрыть)
 				</span>
 			</div>
 
-			{/* Keyboard — compact for terminal screens */}
-			<div className="max-w-3xl mx-auto px-1 py-2">
+			{/* Keyboard — enlarged for comfortable touch input */}
+			<div className="max-w-4xl mx-auto px-2 py-3">
 				{KEYBOARD_ROWS.map((row, rowIdx) => (
-					<div key={rowIdx} className="flex justify-center gap-1 my-1">
+					<div key={rowIdx} className="flex justify-center gap-1.5 my-1.5">
 						{row.map((key, keyIdx) => (
 							<button
 								key={`${rowIdx}-${keyIdx}`}
 								type="button"
 								onClick={() => handleKey(key)}
-								className="min-w-[28px] h-9 px-1 text-sm bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-lg flex items-center justify-center text-white font-medium transition-colors select-none touch-manipulation"
+								className="min-w-[42px] h-14 px-2 text-lg bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-xl flex items-center justify-center text-white font-medium transition-colors select-none touch-manipulation"
 							>
 								{key}
 							</button>
@@ -83,12 +85,12 @@ export default function TouchKeyboard({
 				))}
 
 				{/* Bottom row with special keys */}
-				<div className="flex justify-center gap-1 mt-1">
+				<div className="flex justify-center gap-2 mt-2">
 					{/* Backspace */}
 					<button
 						type="button"
 						onClick={() => handleKey("back")}
-						className="h-10 px-3 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-lg flex items-center justify-center text-white text-lg transition-colors select-none touch-manipulation"
+						className="h-14 px-5 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-xl flex items-center justify-center text-white text-xl transition-colors select-none touch-manipulation"
 					>
 						⌫
 					</button>
@@ -97,7 +99,7 @@ export default function TouchKeyboard({
 					<button
 						type="button"
 						onClick={() => handleKey("space")}
-						className="flex-1 h-10 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-lg flex items-center justify-center text-white text-sm transition-colors select-none touch-manipulation"
+						className="flex-1 h-14 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-xl flex items-center justify-center text-white text-base transition-colors select-none touch-manipulation"
 					>
 						пробел
 					</button>
@@ -107,7 +109,7 @@ export default function TouchKeyboard({
 						<button
 							type="button"
 							onClick={() => handleKey("enter")}
-							className="h-10 px-4 bg-green-600 hover:bg-green-500 active:bg-green-400 rounded-lg flex items-center justify-center text-white text-lg font-bold transition-colors select-none touch-manipulation"
+							className="h-14 px-6 bg-green-600 hover:bg-green-500 active:bg-green-400 rounded-xl flex items-center justify-center text-white text-xl font-bold transition-colors select-none touch-manipulation"
 						>
 							✓
 						</button>
