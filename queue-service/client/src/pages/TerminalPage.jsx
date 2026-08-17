@@ -374,8 +374,8 @@ function ServiceForm({ service, onBack, onTicket }) {
 				</div>
 			</div>
 
-			{/* Virtual Keyboard — sticky внизу, вытесняет контент */}
-			<div className="w-full max-w-lg mt-auto sticky bottom-0">
+			{/* Virtual Keyboard — sticky внизу, вытесняет контент, на всю ширину */}
+			<div className="w-full mt-auto sticky bottom-0">
 				<TouchKeyboard
 					fieldValues={fieldValues}
 					onFieldChange={(id, value) =>
