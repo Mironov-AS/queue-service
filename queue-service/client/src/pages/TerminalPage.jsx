@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import socket from "../socket";
-import TouchKeyboard from "../components/TouchKeyboard";
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 function Logo({ cls = "h-16" }) {
@@ -133,38 +132,41 @@ function ServiceSelection({ onSelect }) {
 		<div className="min-h-screen bg-gradient-to-br from-blue-700 to-blue-900 flex flex-col items-center justify-center p-6">
 			<div className="w-full max-w-2xl">
 				{/* Header */}
-				<div className="text-center mb-8">
-					<div className="text-5xl mb-3">🎫</div>
-					<h1 className="text-3xl font-black text-white">Получить талон</h1>
-					{services.length > 1 && (
-						<p className="text-blue-200 mt-1 text-base">Выберите услугу</p>
-					)}
+				<div className="text-center mb-10">
+					<div className="text-6xl mb-4">🎫</div>
+					<h1 className="text-4xl font-black text-white">Получите талон</h1>
+					<p className="text-blue-200 mt-2 text-lg">Выберите услугу</p>
 				</div>
 
-				{/* Services grid - large touch-friendly buttons */}
-				<div className="space-y-4">
+				{/* Services grid */}
+				<div className="grid gap-5">
 					{services.map((svc) => (
 						<button
 							key={svc.id}
 							onClick={() => onSelect(svc)}
-							className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 active:from-green-700 active:to-emerald-800 rounded-3xl p-6 shadow-xl hover:shadow-2xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-150"
+							className="bg-white rounded-3xl p-8 shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all duration-200 text-left group"
 						>
 							<div className="flex items-center justify-between">
-								<div className="flex-1 text-left">
-									<h2 className="text-3xl font-black text-white leading-tight">
+								<div className="flex-1">
+									<h2 className="text-2xl font-bold text-gray-900 group-hover:text-blue-700 transition">
 										{svc.name}
 									</h2>
 									{svc.description && (
-										<p className="text-green-100 mt-1 text-base">
+										<p className="text-gray-500 mt-1 text-base">
 											{svc.description}
 										</p>
 									)}
 								</div>
-								{svc.avg_duration_minutes > 0 && (
-									<span className="text-white/80 text-sm bg-white/20 px-3 py-1 rounded-full shrink-0">
-										~{svc.avg_duration_minutes} мин
-									</span>
-								)}
+								<div className="flex items-center gap-4">
+									{svc.avg_duration_minutes > 0 && (
+										<span className="text-gray-400 text-sm bg-gray-100 px-3 py-1 rounded-full">
+											~{svc.avg_duration_minutes} мин
+										</span>
+									)}
+									<div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl group-hover:bg-blue-700 transition">
+										→
+									</div>
+								</div>
 							</div>
 						</button>
 					))}
@@ -186,7 +188,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 	const [fieldValues, setFieldValues] = useState({});
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
-	const [activeFieldId, setActiveFieldId] = useState(null);
+	const [duplicateTicket, setDuplicateTicket] = useState(null);
 
 	useEffect(() => {
 		fetch(`/api/services/${service.id}/fields`)
@@ -198,10 +200,6 @@ function ServiceForm({ service, onBack, onTicket }) {
 					init[f.id] = "";
 				});
 				setFieldValues(init);
-				// Автофокус на первое поле сразу при загрузке
-				if (data.length > 0) {
-					setActiveFieldId(data[0].id);
-				}
 			});
 	}, [service]);
 
@@ -213,6 +211,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 			}
 		}
 		setError("");
+		setDuplicateTicket(null);
 		setLoading(true);
 		try {
 			const fvArray = fields
@@ -226,6 +225,29 @@ function ServiceForm({ service, onBack, onTicket }) {
 						fv.value.trim() !== "" ||
 						fields.find((f) => f.id === fv.field_id)?.required,
 				);
+
+			// Check for duplicates (if there are fields with require_check)
+			const hasCheckFields = fields.some(
+				(f) => f.require_check && fieldValues[f.id]?.trim(),
+			);
+			if (hasCheckFields && fvArray.length > 0) {
+				const checkRes = await fetch("/api/service-fields/check-duplicate", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						service_id: service.id,
+						field_values: fvArray,
+					}),
+				});
+				if (checkRes.ok) {
+					const checkData = await checkRes.json();
+					if (checkData.duplicate && checkData.ticket) {
+						setDuplicateTicket(checkData.ticket);
+						setLoading(false);
+						return;
+					}
+				}
+			}
 
 			const res = await fetch("/api/tickets", {
 				method: "POST",
@@ -249,11 +271,12 @@ function ServiceForm({ service, onBack, onTicket }) {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-blue-700 to-blue-900 flex flex-col items-center p-4 pt-6">
+		<div className="min-h-screen bg-gradient-to-br from-blue-700 to-blue-900 flex flex-col items-center justify-center p-6">
 			<div className="w-full max-w-lg">
-				{/* Header - compact when keyboard is visible */}
-				<div className="text-center mb-4">
-					<h1 className="text-2xl font-black text-white">{service.name}</h1>
+				{/* Header */}
+				<div className="text-center mb-8">
+					<div className="text-5xl mb-3">📋</div>
+					<h1 className="text-3xl font-black text-white">{service.name}</h1>
 					{service.description && (
 						<p className="text-blue-200 mt-1 text-base">
 							{service.description}
@@ -262,23 +285,17 @@ function ServiceForm({ service, onBack, onTicket }) {
 				</div>
 
 				{/* Form card */}
-				<div className="bg-white/10 backdrop-blur rounded-3xl shadow-2xl p-5 space-y-3">
-					{fields.length > 0 ? (
-						<div className="space-y-3">
+				<div className="bg-white rounded-3xl shadow-2xl p-8 space-y-5">
+					{fields.length > 0 && (
+						<>
+							<p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+								Заполните данные
+							</p>
 							{fields.map((f) => (
-								<div
-									key={f.id}
-									className={`rounded-xl p-0.5 transition-all ${
-										activeFieldId === f.id
-											? "bg-green-500/50 ring-2 ring-green-400"
-											: "bg-transparent"
-									}`}
-								>
-									<label className="block text-base font-semibold text-white mb-1 px-2">
+								<div key={f.id}>
+									<label className="block text-base font-medium text-gray-700 mb-2">
 										{f.label}
-										{f.required && (
-											<span className="text-yellow-300 ml-1">*</span>
-										)}
+										{f.required && <span className="text-red-500 ml-1">*</span>}
 									</label>
 									<input
 										type={FIELD_INPUT_TYPES[f.field_type] || "text"}
@@ -286,67 +303,73 @@ function ServiceForm({ service, onBack, onTicket }) {
 										onChange={(e) =>
 											setFieldValues((v) => ({ ...v, [f.id]: e.target.value }))
 										}
-										onClick={() => setActiveFieldId(f.id)}
-										className="w-full border-2 border-white/30 bg-white/90 rounded-xl px-4 py-3 text-xl focus:outline-none focus:border-yellow-400 focus:bg-white transition cursor-pointer"
+										className="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition"
 										placeholder={`Введите ${f.label.toLowerCase()}`}
-										autoComplete="off"
 									/>
 								</div>
 							))}
-						</div>
-					) : (
-						<div className="text-center text-white/70 text-xl py-8">
-							Нажмите кнопку ниже для получения талона
-						</div>
+						</>
 					)}
 
 					{error && (
-						<div className="bg-red-100 border-2 border-red-400 rounded-2xl p-4">
-							<p className="text-red-700 text-xl text-center font-bold">
-								{error}
-							</p>
+						<div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+							<p className="text-red-600 text-center font-medium">{error}</p>
 						</div>
 					)}
 
-					{/* Large touch-friendly get ticket button */}
+					{duplicateTicket && (
+						<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+							<div className="flex items-center gap-2 text-amber-700 font-semibold">
+								<span className="text-2xl">⚠️</span>
+								Автомобиль уже в очереди!
+							</div>
+							<div className="bg-white rounded-xl p-4 text-center">
+								<p className="text-sm text-gray-500">Ваш талон</p>
+								<p className="text-5xl font-black text-amber-600">
+									№{duplicateTicket.number}
+								</p>
+								<p className="text-sm text-gray-400 mt-2">
+									{duplicateTicket.status === "called"
+										? "⏳ Вызван"
+										: "⏳ В очереди"}
+								</p>
+							</div>
+							<button
+								onClick={() => onTicket(duplicateTicket)}
+								className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-2xl text-lg transition"
+							>
+								Посмотреть статус
+							</button>
+							<button
+								onClick={() => setDuplicateTicket(null)}
+								className="w-full text-gray-500 hover:text-gray-700 py-2 text-center transition"
+							>
+								← Ввести другой номер
+							</button>
+						</div>
+					)}
+
 					<button
 						onClick={getTicket}
 						disabled={loading}
-						className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 active:from-green-700 active:to-emerald-800 disabled:opacity-50 text-white font-black py-5 rounded-2xl text-xl transition shadow-xl mt-3"
+						className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white font-bold py-5 rounded-2xl text-xl transition shadow-lg shadow-blue-200"
 					>
-						{loading ? "Оформляем..." : "ПОЛУЧИТЬ ТАЛОН"}
+						{loading ? "Оформляем..." : "Получить талон"}
 					</button>
 
-					{/* Back button */}
 					<button
 						onClick={onBack}
-						className="w-full text-white/70 hover:text-white py-3 text-center text-base transition"
+						className="w-full text-gray-500 hover:text-gray-700 py-3 text-center transition"
 					>
-						← Назад
+						← Назад к услугам
 					</button>
 				</div>
 
-				{/* Logo - скрываем когда клавиатура видна */}
-				{fields.length === 0 && (
-					<div className="mt-6 flex justify-center">
-						<Logo />
-					</div>
-				)}
+				{/* Logo */}
+				<div className="mt-8 flex justify-center">
+					<Logo />
+				</div>
 			</div>
-
-			{/* Touch Keyboard - always visible when there are fields */}
-			{fields.length > 0 && (
-				<TouchKeyboard
-					fieldValues={fieldValues}
-					onFieldChange={(fieldId, val) =>
-						setFieldValues((v) => ({ ...v, [fieldId]: val }))
-					}
-					activeFieldId={activeFieldId}
-					onFieldFocus={setActiveFieldId}
-					onSubmit={getTicket}
-					hasFields={fields.length > 0}
-				/>
-			)}
 		</div>
 	);
 }
@@ -422,14 +445,14 @@ function TicketCountdown({ ticket, onNewTicket }) {
 			<div className="min-h-screen bg-gradient-to-br from-green-600 to-emerald-800 flex flex-col items-center justify-center p-6">
 				<div className="w-full max-w-lg text-center space-y-8">
 					<div className="text-8xl animate-bounce">🙏</div>
-					<h1 className="text-5xl font-black text-white">Спасибо!</h1>
-					<p className="text-green-100 text-2xl">Хорошего дня!</p>
+					<h1 className="text-4xl font-black text-white">Спасибо!</h1>
+					<p className="text-green-100 text-xl">Хорошего дня!</p>
 
 					<button
 						onClick={resetToServices}
-						className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 active:from-green-700 active:to-emerald-800 text-white font-black py-8 rounded-3xl text-2xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+						className="w-full bg-white text-green-700 font-bold py-6 rounded-3xl text-2xl shadow-2xl hover:scale-[1.02] transition"
 					>
-						🎫 ПОЛУЧИТЬ НОВЫЙ ТАЛОН
+						Получить новый талон
 					</button>
 				</div>
 
@@ -476,12 +499,12 @@ function TicketCountdown({ ticket, onNewTicket }) {
 					</div>
 				</div>
 
-				{/* New ticket button - large touch-friendly */}
+				{/* New ticket button */}
 				<button
 					onClick={resetToServices}
-					className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 active:from-green-700 active:to-emerald-800 text-white font-black py-6 rounded-3xl text-2xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+					className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-6 rounded-3xl text-2xl shadow-2xl hover:scale-[1.02] transition"
 				>
-					🎫 ПОЛУЧИТЬ НОВЫЙ ТАЛОН
+					🎫 Новый талон
 				</button>
 
 				{/* Logo */}

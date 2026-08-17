@@ -197,6 +197,11 @@ const MIGRATIONS = [
 		name: "seed_ad_ads_before_dashboard",
 		sql: `INSERT OR IGNORE INTO settings (key, value) VALUES ('ad_ads_before_dashboard', '0')`,
 	},
+	{
+		version: 22,
+		name: "add_service_fields_require_check",
+		sql: `ALTER TABLE service_fields ADD COLUMN require_check INTEGER DEFAULT 0`,
+	},
 	// ── Add new migrations here, incrementing version ──
 ];
 
