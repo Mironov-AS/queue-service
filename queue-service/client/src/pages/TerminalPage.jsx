@@ -145,29 +145,22 @@ function ServiceSelection({ onSelect }) {
 						<button
 							key={svc.id}
 							onClick={() => onSelect(svc)}
-							className="bg-white rounded-3xl p-8 shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all duration-200 text-left group"
+							className="bg-green-500 hover:bg-green-600 active:bg-green-700 rounded-3xl p-8 shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all duration-200 text-left group"
 						>
 							<div className="flex items-center justify-between">
 								<div className="flex-1">
-									<h2 className="text-2xl font-bold text-gray-900 group-hover:text-blue-700 transition">
-										{svc.name}
-									</h2>
+									<h2 className="text-2xl font-bold text-white">{svc.name}</h2>
 									{svc.description && (
-										<p className="text-gray-500 mt-1 text-base">
+										<p className="text-green-100 mt-1 text-base">
 											{svc.description}
 										</p>
 									)}
 								</div>
-								<div className="flex items-center gap-4">
-									{svc.avg_duration_minutes > 0 && (
-										<span className="text-gray-400 text-sm bg-gray-100 px-3 py-1 rounded-full">
-											~{svc.avg_duration_minutes} мин
-										</span>
-									)}
-									<div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl group-hover:bg-blue-700 transition">
-										→
-									</div>
-								</div>
+								{svc.avg_duration_minutes > 0 && (
+									<span className="text-green-100 text-sm bg-green-600 px-3 py-1 rounded-full">
+										~{svc.avg_duration_minutes} мин
+									</span>
+								)}
 							</div>
 						</button>
 					))}
