@@ -190,6 +190,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [duplicateTicket, setDuplicateTicket] = useState(null);
+	const [activeFieldId, setActiveFieldId] = useState(null);
 
 	useEffect(() => {
 		fetch(`/api/services/${service.id}/fields`)
@@ -201,6 +202,10 @@ function ServiceForm({ service, onBack, onTicket }) {
 					init[f.id] = "";
 				});
 				setFieldValues(init);
+				// Auto-focus first field
+				if (data.length > 0) {
+					setActiveFieldId(data[0].id);
+				}
 			});
 	}, [service]);
 
@@ -300,11 +305,13 @@ function ServiceForm({ service, onBack, onTicket }) {
 									</label>
 									<input
 										type={FIELD_INPUT_TYPES[f.field_type] || "text"}
+										inputMode="none"
 										value={fieldValues[f.id] || ""}
 										onChange={(e) =>
 											setFieldValues((v) => ({ ...v, [f.id]: e.target.value }))
 										}
-										className="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition"
+										onFocus={() => setActiveFieldId(f.id)}
+										className="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition cursor-pointer"
 										placeholder={`Введите ${f.label.toLowerCase()}`}
 									/>
 								</div>
@@ -371,6 +378,16 @@ function ServiceForm({ service, onBack, onTicket }) {
 					<Logo />
 				</div>
 			</div>
+
+			{/* Virtual Keyboard */}
+			<TouchKeyboard
+				fieldValues={fieldValues}
+				onFieldChange={(id, value) => setFieldValues((v) => ({ ...v, [id]: value }))}
+				activeFieldId={activeFieldId}
+				onFieldFocus={(id) => setActiveFieldId(id)}
+				onSubmit={getTicket}
+				hasFields={fields.length > 0}
+			/>
 		</div>
 	);
 }
