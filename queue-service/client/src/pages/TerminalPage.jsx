@@ -202,10 +202,6 @@ function ServiceForm({ service, onBack, onTicket }) {
 					init[f.id] = "";
 				});
 				setFieldValues(init);
-				// Auto-focus first field
-				if (data.length > 0) {
-					setActiveFieldId(data[0].id);
-				}
 			});
 	}, [service]);
 
@@ -305,13 +301,11 @@ function ServiceForm({ service, onBack, onTicket }) {
 									</label>
 									<input
 										type={FIELD_INPUT_TYPES[f.field_type] || "text"}
-										inputMode="none"
 										value={fieldValues[f.id] || ""}
 										onChange={(e) =>
 											setFieldValues((v) => ({ ...v, [f.id]: e.target.value }))
 										}
-										onFocus={() => setActiveFieldId(f.id)}
-										className={`w-full border-2 rounded-2xl px-5 py-4 text-lg transition cursor-pointer ${activeFieldId === f.id ? "border-green-500 bg-green-50 shadow-lg shadow-green-200" : "border-gray-200 focus:border-blue-500"}`}
+										className="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition"
 										placeholder={`Введите ${f.label.toLowerCase()}`}
 									/>
 								</div>
