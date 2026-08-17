@@ -1,0 +1,202 @@
+# Инфраструктура: Электронная очередь МаксиМа
+Support migration from legacy Timeweb App Platform
+## Метаданные
+- Тип: Облачный сервер
+- Ключ ресурса: queue-vm
+- Service type: vm
+- Статус: live
+- Render service ID: 8708011
+- URL: ssh://root@109.73.193.156
+- Project ID: e16376c9-336e-44fb-aad2-42c598f7e844
+- Sandbox ID: 36a2e14e-72d1-46ae-a473-859d5593463d
+- Framework / engine: server
+- Timeweb type: server
+- Preset ID: 4799
+- Availability zone: msk-1
+- OS ID: 99
+- Bandwidth: 1000
+- Specs: preset 4799, msk-1, server
+## VM доступ
+- Host/IP: 109.73.193.156
+- SSH command: ssh -i /home/user/.promto/deploy-keys/queue-vm-36a2e14e root@109.73.193.156
+- SSH URL: ssh://root@109.73.193.156
+- Логин: root
+- Root пароль: frA-,@F9ZQVooK
+## VM информация
+- Тип: Облачный сервер
+- Framework: ubuntu
+- Language: linux
+- IP: 109.73.193.156
+- Создан: 2026-07-30T20:02:31.674775
+- Запущен: 2026-07-30T13:47:37.000Z
+- Timeweb status: on
+- Status: live
+## VM ресурсы
+- CPU: 2 vCPU · 3.3 GHz
+- RAM: 2 GB
+- OS: ubuntu 24.04
+- Локация: ru-3 · msk-1
+- Статус изменён: 2026-07-30T19:47:51.000Z
+- QEMU agent: Включён
+- DDoS guard: Выключен
+- Диски: [object Object]
+- Сеть: [object Object]
+- Публичные IP: 2a03:6f00:a::3:c73, 109.73.193.156
+## Resource spec
+```json
+{
+  "type": "vm",
+  "friendly_name": "Электронная очередь МаксиМа",
+  "description": "Support migration from legacy Timeweb App Platform",
+  "availability_zone": "msk-1",
+  "os_id": 99,
+  "bandwidth": 1000,
+  "preset_id": 4799,
+  "deploy_id": "8708011",
+  "deploy_url": "ssh://root@109.73.193.156",
+  "live_status": "live",
+  "live_url": "ssh://root@109.73.193.156",
+  "tw_type": "server"
+}
+```
+## Deployment
+```json
+{
+  "id": 606,
+  "render_service_id": "8708011",
+  "service_name": "queue-vm",
+  "service_type": "vm",
+  "service_url": "ssh://root@109.73.193.156",
+  "status": "live",
+  "config": {
+    "os_id": 99,
+    "location": "ru-3",
+    "ssh_user": "root",
+    "bandwidth": 1000,
+    "preset_id": 4799,
+    "public_ip": "109.73.193.156",
+    "tw_service": "server",
+    "description": "Support migration from legacy Timeweb App Platform",
+    "ssh_command": "ssh -i /home/user/.promto/deploy-keys/queue-vm-36a2e14e root@109.73.193.156",
+    "friendly_name": "Электронная очередь МаксиМа",
+    "floating_ip_id": "b0622531-18c7-4ee0-8773-acc4a8994131",
+    "availability_zone": "msk-1",
+    "migration_overlap": true,
+    "ssh_public_key_path": "/home/user/.promto/deploy-keys/queue-vm-36a2e14e.pub",
+    "ssh_private_key_path": "/home/user/.promto/deploy-keys/queue-vm-36a2e14e",
+    "billing_payer_user_id": 942033752,
+    "migration_source_render_service_id": "198002"
+  },
+  "created_at": "2026-07-30T20:02:31.674775",
+  "last_commit_sha": null,
+  "last_commit_msg": null,
+  "scheduled_deletion_at": null
+}
+```
+## Live detail snapshot
+```json
+{
+  "app": {
+    "id": "8708011",
+    "name": "promto-queue-vm-36a2e14e",
+    "status": "live",
+    "tw_status": "on",
+    "type": "vm",
+    "service_type": "vm",
+    "framework": "ubuntu",
+    "language": "linux",
+    "domains": [],
+    "ip": "109.73.193.156",
+    "envs": {},
+    "commit_sha": null,
+    "branch_name": "",
+    "build_cmd": "",
+    "run_cmd": null,
+    "index_dir": null,
+    "start_time": "2026-07-30T13:47:37.000Z",
+    "preset_id": 4799,
+    "is_auto_deploy": false,
+    "cpu": 2,
+    "ram_mb": 2048,
+    "cpu_frequency": "3.3",
+    "location": "ru-3",
+    "availability_zone": "msk-1",
+    "os": {
+      "id": 99,
+      "name": "ubuntu",
+      "version": "24.04"
+    },
+    "disks": [
+      {
+        "size": 40960,
+        "used": 6010,
+        "id": 25409085,
+        "type": "nvme",
+        "is_mounted": true,
+        "is_system": true,
+        "status": "done",
+        "system_name": "vda",
+        "is_auto_backup": false,
+        "comment": "",
+        "display_name": ""
+      }
+    ],
+    "networks": [
+      {
+        "type": "public",
+        "bandwidth": 1000,
+        "ips": [
+          {
+            "ip": "2a03:6f00:a::3:c73",
+            "is_main": true,
+            "ptr": null,
+            "type": "ipv6"
+          },
+          {
+            "ip": "109.73.193.156",
+            "id": "b0622531-18c7-4ee0-8773-acc4a8994131",
+            "is_main": true,
+            "ptr": null,
+            "type": "ipv4"
+          }
+        ],
+        "blocked_ports": []
+      }
+    ],
+    "root_login": "root",
+    "root_pass": "frA-,@F9ZQVooK",
+    "vnc_pass": "",
+    "is_ddos_guard": false,
+    "is_qemu_agent": true,
+    "status_changed_at": "2026-07-30T19:47:51.000Z"
+  },
+  "deployment": {
+    "id": 606,
+    "service_name": "queue-vm",
+    "service_url": "ssh://root@109.73.193.156",
+    "created_at": "2026-07-30T20:02:31.674775",
+    "config": {
+      "os_id": 99,
+      "location": "ru-3",
+      "ssh_user": "root",
+      "bandwidth": 1000,
+      "preset_id": 4799,
+      "public_ip": "109.73.193.156",
+      "tw_service": "server",
+      "description": "Support migration from legacy Timeweb App Platform",
+      "ssh_command": "ssh -i /home/user/.promto/deploy-keys/queue-vm-36a2e14e root@109.73.193.156",
+      "friendly_name": "Электронная очередь МаксиМа",
+      "floating_ip_id": "b0622531-18c7-4ee0-8773-acc4a8994131",
+      "availability_zone": "msk-1",
+      "migration_overlap": true,
+      "ssh_public_key_path": "/home/user/.promto/deploy-keys/queue-vm-36a2e14e.pub",
+      "ssh_private_key_path": "/home/user/.promto/deploy-keys/queue-vm-36a2e14e",
+      "billing_payer_user_id": 942033752,
+      "migration_source_render_service_id": "198002"
+    }
+  },
+  "deploys": [],
+  "logs": []
+}
+```
+Используй этот контекст, когда пользователь попросит изменить, подключить, проверить или отладить этот инфраструктурный ресурс.
