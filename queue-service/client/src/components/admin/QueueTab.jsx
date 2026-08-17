@@ -567,7 +567,7 @@ export default function QueueTab() {
 		apiFetch("/api/queue/full")
 			.then((r) => r?.json())
 			.then((d) => d && setQueue(d));
-		apiFetch("/api/services/my?all=1")
+		apiFetch("/api/services?all=1")
 			.then((r) => r?.json())
 			.then((d) => d && setServices(d));
 		socket.on("queue:updated", setQueue);

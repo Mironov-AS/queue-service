@@ -260,7 +260,7 @@ export default function ServicesTab() {
 	const [fieldsModal, setFieldsModal] = useState(null);
 
 	const load = () =>
-		apiFetch("/api/services/my?all=1")
+		apiFetch("/api/services?all=1")
 			.then((r) => r?.json())
 			.then((d) => d && setServices(d));
 	useEffect(() => {
