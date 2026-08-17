@@ -379,17 +379,20 @@ function ServiceForm({ service, onBack, onTicket }) {
 				</div>
 			</div>
 
-			{/* Virtual Keyboard */}
-			<TouchKeyboard
-				fieldValues={fieldValues}
-				onFieldChange={(id, value) =>
-					setFieldValues((v) => ({ ...v, [id]: value }))
-				}
-				activeFieldId={activeFieldId}
-				onFieldFocus={(id) => setActiveFieldId(id)}
-				onSubmit={getTicket}
-				hasFields={fields.length > 0}
-			/>
+			{/* Virtual Keyboard — sticky внизу, вытесняет контент */}
+			<div className="w-full max-w-lg mt-auto sticky bottom-0">
+				<TouchKeyboard
+					fieldValues={fieldValues}
+					onFieldChange={(id, value) =>
+						setFieldValues((v) => ({ ...v, [id]: value }))
+					}
+					activeFieldId={activeFieldId}
+					onFieldFocus={(id) => setActiveFieldId(id)}
+					onSubmit={getTicket}
+					hasFields={fields.length > 0}
+					noFixed
+				/>
+			</div>
 		</div>
 	);
 }

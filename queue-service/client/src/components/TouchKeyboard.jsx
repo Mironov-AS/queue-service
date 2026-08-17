@@ -18,6 +18,7 @@ export default function TouchKeyboard({
 	onFieldFocus,
 	onSubmit,
 	hasFields = false,
+	noFixed = false,
 }) {
 	const [showKeyboard, setShowKeyboard] = useState(false);
 
@@ -51,7 +52,9 @@ export default function TouchKeyboard({
 	if (!showKeyboard || !hasFields) return null;
 
 	return (
-		<div className="fixed inset-x-0 bottom-0 bg-gray-800/95 backdrop-blur-sm border-t-2 border-green-600 z-50 safe-area-bottom">
+		<div
+			className={`bg-gray-800/95 backdrop-blur-sm border-t-2 border-green-600 safe-area-bottom ${noFixed ? "" : "fixed inset-x-0 bottom-0 z-50"}`}
+		>
 			{/* Active field indicator */}
 			<div
 				className="flex items-center justify-center py-2 bg-gray-900/50 cursor-pointer"
