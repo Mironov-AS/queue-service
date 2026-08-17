@@ -365,6 +365,27 @@ async function initDb() {
 		}
 	}
 
+	// Migration 107: add require_check column to service_fields
+	const migV107 = await db
+		.prepare("SELECT version FROM schema_migrations WHERE version = 107")
+		.get();
+	if (!migV107) {
+		try {
+			await db.exec(
+				"ALTER TABLE service_fields ADD COLUMN IF NOT EXISTS require_check INTEGER DEFAULT 0",
+			);
+			await db.pool.query(
+				"INSERT INTO schema_migrations (version, name) VALUES (107, 'service_fields_require_check') ON CONFLICT DO NOTHING",
+			);
+			log.info(
+				"db",
+				"Migration 107: require_check column added to service_fields",
+			);
+		} catch (e) {
+			log.warn("db", "Migration 107 warning:", e.message);
+		}
+	}
+
 	log.info("db", "PostgreSQL schema initialized");
 }
 

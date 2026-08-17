@@ -73,6 +73,7 @@ app.get("/health", (req, res) =>
 app.use("/api/auth", authRouter);
 app.use("/api/services", servicesRouter);
 app.use("/api/services", serviceFieldsRouter);
+app.use("/api/service-fields", serviceFieldsRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/queue", queueRouter);
 app.use("/api/stats", statsRouter);

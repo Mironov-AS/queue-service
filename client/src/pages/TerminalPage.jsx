@@ -188,6 +188,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 	const [fieldValues, setFieldValues] = useState({});
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
+	const [duplicateTicket, setDuplicateTicket] = useState(null);
 
 	useEffect(() => {
 		fetch(`/api/services/${service.id}/fields`)
@@ -210,6 +211,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 			}
 		}
 		setError("");
+		setDuplicateTicket(null);
 		setLoading(true);
 		try {
 			const fvArray = fields
@@ -223,6 +225,29 @@ function ServiceForm({ service, onBack, onTicket }) {
 						fv.value.trim() !== "" ||
 						fields.find((f) => f.id === fv.field_id)?.required,
 				);
+
+			// Check for duplicates (if there are fields with require_check)
+			const hasCheckFields = fields.some(
+				(f) => f.require_check && fieldValues[f.id]?.trim(),
+			);
+			if (hasCheckFields && fvArray.length > 0) {
+				const checkRes = await fetch("/api/service-fields/check-duplicate", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						service_id: service.id,
+						field_values: fvArray,
+					}),
+				});
+				if (checkRes.ok) {
+					const checkData = await checkRes.json();
+					if (checkData.duplicate && checkData.ticket) {
+						setDuplicateTicket(checkData.ticket);
+						setLoading(false);
+						return;
+					}
+				}
+			}
 
 			const res = await fetch("/api/tickets", {
 				method: "POST",
@@ -289,6 +314,38 @@ function ServiceForm({ service, onBack, onTicket }) {
 					{error && (
 						<div className="bg-red-50 border border-red-200 rounded-2xl p-4">
 							<p className="text-red-600 text-center font-medium">{error}</p>
+						</div>
+					)}
+
+					{duplicateTicket && (
+						<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+							<div className="flex items-center gap-2 text-amber-700 font-semibold">
+								<span className="text-2xl">⚠️</span>
+								Автомобиль уже в очереди!
+							</div>
+							<div className="bg-white rounded-xl p-4 text-center">
+								<p className="text-sm text-gray-500">Ваш талон</p>
+								<p className="text-5xl font-black text-amber-600">
+									№{duplicateTicket.number}
+								</p>
+								<p className="text-sm text-gray-400 mt-2">
+									{duplicateTicket.status === "called"
+										? "⏳ Вызван"
+										: "⏳ В очереди"}
+								</p>
+							</div>
+							<button
+								onClick={() => onTicket(duplicateTicket)}
+								className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-2xl text-lg transition"
+							>
+								Посмотреть статус
+							</button>
+							<button
+								onClick={() => setDuplicateTicket(null)}
+								className="w-full text-gray-500 hover:text-gray-700 py-2 text-center transition"
+							>
+								← Ввести другой номер
+							</button>
 						</div>
 					)}
 
