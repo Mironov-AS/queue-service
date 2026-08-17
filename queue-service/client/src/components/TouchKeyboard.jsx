@@ -67,16 +67,16 @@ export default function TouchKeyboard({
 				</span>
 			</div>
 
-			{/* Keyboard — full width, extra large for touch */}
-			<div className="w-full px-2 py-3">
+			{/* Keyboard — comfortable size, centered */}
+			<div className="max-w-3xl mx-auto px-2 py-3">
 				{KEYBOARD_ROWS.map((row, rowIdx) => (
-					<div key={rowIdx} className="flex justify-center gap-2 my-1.5">
+					<div key={rowIdx} className="flex justify-center gap-1.5 my-1.5">
 						{row.map((key, keyIdx) => (
 							<button
 								key={`${rowIdx}-${keyIdx}`}
 								type="button"
 								onClick={() => handleKey(key)}
-								className="min-w-[48px] h-16 px-2 text-xl bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-xl flex items-center justify-center text-white font-bold transition-colors select-none touch-manipulation"
+								className="min-w-[38px] h-12 px-1.5 text-base bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-lg flex items-center justify-center text-white font-medium transition-colors select-none touch-manipulation"
 							>
 								{key}
 							</button>
@@ -85,12 +85,12 @@ export default function TouchKeyboard({
 				))}
 
 				{/* Bottom row with special keys */}
-				<div className="flex justify-center gap-3 mt-2">
+				<div className="flex justify-center gap-2 mt-2">
 					{/* Backspace */}
 					<button
 						type="button"
 						onClick={() => handleKey("back")}
-						className="h-16 px-6 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-xl flex items-center justify-center text-white text-2xl transition-colors select-none touch-manipulation"
+						className="h-12 px-4 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-lg flex items-center justify-center text-white text-lg transition-colors select-none touch-manipulation"
 					>
 						⌫
 					</button>
@@ -99,7 +99,7 @@ export default function TouchKeyboard({
 					<button
 						type="button"
 						onClick={() => handleKey("space")}
-						className="flex-1 h-16 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-xl flex items-center justify-center text-white text-lg transition-colors select-none touch-manipulation"
+						className="flex-1 h-12 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-lg flex items-center justify-center text-white text-sm transition-colors select-none touch-manipulation"
 					>
 						пробел
 					</button>
@@ -109,7 +109,7 @@ export default function TouchKeyboard({
 						<button
 							type="button"
 							onClick={() => handleKey("enter")}
-							className="h-16 px-8 bg-green-600 hover:bg-green-500 active:bg-green-400 rounded-xl flex items-center justify-center text-white text-2xl font-bold transition-colors select-none touch-manipulation"
+							className="h-12 px-5 bg-green-600 hover:bg-green-500 active:bg-green-400 rounded-lg flex items-center justify-center text-white text-lg font-bold transition-colors select-none touch-manipulation"
 						>
 							✓
 						</button>
