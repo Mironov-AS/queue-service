@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import socket from "../socket";
+import TouchKeyboard from "../components/TouchKeyboard";
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 function Logo({ cls = "h-16" }) {
