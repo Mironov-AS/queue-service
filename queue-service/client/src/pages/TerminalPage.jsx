@@ -382,7 +382,9 @@ function ServiceForm({ service, onBack, onTicket }) {
 			{/* Virtual Keyboard */}
 			<TouchKeyboard
 				fieldValues={fieldValues}
-				onFieldChange={(id, value) => setFieldValues((v) => ({ ...v, [id]: value }))}
+				onFieldChange={(id, value) =>
+					setFieldValues((v) => ({ ...v, [id]: value }))
+				}
 				activeFieldId={activeFieldId}
 				onFieldFocus={(id) => setActiveFieldId(id)}
 				onSubmit={getTicket}
