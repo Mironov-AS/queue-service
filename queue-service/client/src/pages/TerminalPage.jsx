@@ -195,6 +195,10 @@ function ServiceForm({ service, onBack, onTicket }) {
 					init[f.id] = "";
 				});
 				setFieldValues(init);
+				// Auto-focus first field for virtual keyboard
+				if (data.length > 0) {
+					setActiveFieldId(data[0].id);
+				}
 			});
 	}, [service]);
 
@@ -286,7 +290,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 							<p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
 								Заполните данные
 							</p>
-							{fields.map((f) => (
+							{fields.map((f, idx) => (
 								<div key={f.id}>
 									<label className="block text-base font-medium text-gray-700 mb-2">
 										{f.label}
@@ -299,6 +303,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 											setFieldValues((v) => ({ ...v, [f.id]: e.target.value }))
 										}
 										onFocus={() => setActiveFieldId(f.id)}
+										autoFocus={idx === 0}
 										className="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition"
 										placeholder={`Введите ${f.label.toLowerCase()}`}
 									/>
