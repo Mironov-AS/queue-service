@@ -298,6 +298,7 @@ function ServiceForm({ service, onBack, onTicket }) {
 										onChange={(e) =>
 											setFieldValues((v) => ({ ...v, [f.id]: e.target.value }))
 										}
+										onFocus={() => setActiveFieldId(f.id)}
 										className="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition"
 										placeholder={`Введите ${f.label.toLowerCase()}`}
 									/>
