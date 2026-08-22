@@ -1,14 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
 
 // ─── Touch Keyboard Component ───────────────────────────────────────────────────
-// Unified keyboard: Russian letters + numbers on same layout
+// Unified keyboard: Russian + English letters + numbers
 // Shows automatically when there are fields to fill
 
-const KEYBOARD_ROWS = [
+const RU_KEYBOARD_ROWS = [
 	["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
 	["й", "ц", "у", "к", "е", "н", "г", "ш", "щ", "з", "х"],
 	["ф", "ы", "в", "а", "п", "р", "о", "л", "д", "ж", "э"],
 	["ё", "я", "ч", "с", "м", "и", "т", "ь", "б", "ю"],
+];
+
+const EN_KEYBOARD_ROWS = [
+	["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+	["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+	["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+	["z", "x", "c", "v", "b", "n", "m"],
 ];
 
 export default function TouchKeyboard({
@@ -20,6 +27,7 @@ export default function TouchKeyboard({
 	noFixed = false,
 }) {
 	const [showKeyboard, setShowKeyboard] = useState(false);
+	const [lang, setLang] = useState("ru"); // 'ru' or 'en'
 
 	// Show keyboard automatically when there are fields to fill
 	useEffect(() => {
@@ -48,28 +56,52 @@ export default function TouchKeyboard({
 		[fieldValues, activeFieldId, onFieldChange, onSubmit],
 	);
 
+	const currentRows = lang === "ru" ? RU_KEYBOARD_ROWS : EN_KEYBOARD_ROWS;
+
 	if (!showKeyboard || !hasFields) return null;
 
 	return (
 		<div
 			className={`bg-gray-800 border-t-2 border-green-500 safe-area-bottom ${noFixed ? "" : "fixed inset-x-0 bottom-0 z-50"}`}
 		>
-			{/* Active field indicator */}
-			<div
-				className="flex items-center justify-center py-2 bg-gray-900 cursor-pointer"
-				onClick={() => setShowKeyboard(false)}
-			>
-				<span className="text-green-400 text-sm sm:text-base font-medium">
-					Клавиатура
-				</span>
-				<span className="text-white/50 text-xs sm:text-sm ml-3">
-					(нажмите чтобы скрыть)
-				</span>
+			{/* Header with language toggle */}
+			<div className="flex items-center justify-between px-3 py-2 bg-gray-900">
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => setLang(lang === "ru" ? "en" : "ru")}
+						className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+							lang === "ru"
+								? "bg-blue-600 text-white"
+								: "bg-gray-700 text-gray-300 hover:bg-gray-600"
+						}`}
+					>
+						RU
+					</button>
+					<button
+						type="button"
+						onClick={() => setLang(lang === "en" ? "ru" : "en")}
+						className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+							lang === "en"
+								? "bg-blue-600 text-white"
+								: "bg-gray-700 text-gray-300 hover:bg-gray-600"
+						}`}
+					>
+						EN
+					</button>
+				</div>
+				<button
+					type="button"
+					className="text-white/50 hover:text-white text-xs transition-colors"
+					onClick={() => setShowKeyboard(false)}
+				>
+					✕ скрыть
+				</button>
 			</div>
 
-			{/* Keyboard — comfortable size, centered */}
+			{/* Keyboard rows */}
 			<div className="max-w-3xl mx-auto px-2 py-3">
-				{KEYBOARD_ROWS.map((row, rowIdx) => (
+				{currentRows.map((row, rowIdx) => (
 					<div key={rowIdx} className="flex justify-center gap-1.5 my-1">
 						{row.map((key, keyIdx) => (
 							<button
@@ -101,7 +133,7 @@ export default function TouchKeyboard({
 						onClick={() => handleKey("space")}
 						className="flex-1 h-14 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-xl flex items-center justify-center text-white text-base transition-colors select-none touch-manipulation"
 					>
-						пробел
+						{lang === "ru" ? "пробел" : "space"}
 					</button>
 
 					{/* Enter / Submit */}
