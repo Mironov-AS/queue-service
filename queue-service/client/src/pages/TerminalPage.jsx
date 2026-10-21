@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import socket from "../socket";
 import TouchKeyboard from "../components/TouchKeyboard";
 
@@ -364,6 +365,19 @@ function ServiceForm({ service, onBack, onTicket }) {
 					>
 						← Назад к услугам
 					</button>
+
+					<p className="text-center text-sm text-gray-500 leading-relaxed">
+						Нажимая «Получить талон», вы подтверждаете согласие на
+						обработку персональных данных. Подробнее:{" "}
+						<Link to="/consent" className="underline text-blue-600 hover:text-blue-800">
+							Согласие
+						</Link>{" "}
+						и{" "}
+						<Link to="/privacy" className="underline text-blue-600 hover:text-blue-800">
+							Политика
+						</Link>
+						.
+					</p>
 				</div>
 
 				{/* Logo */}

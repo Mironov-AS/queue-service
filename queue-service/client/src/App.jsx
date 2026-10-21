@@ -10,6 +10,7 @@ import VisitorPage from "./pages/VisitorPage";
 import TerminalPage from "./pages/TerminalPage";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
+import { PrivacyPolicyPage, ConsentPage } from "./pages/LegalPages";
 
 function RequireAuth({ children }) {
 	const token = localStorage.getItem("adminToken");
@@ -36,6 +37,8 @@ export default function App() {
 				/>
 				<Route path="/visitor" element={<VisitorPage />} />
 				<Route path="/terminal" element={<TerminalPage />} />
+				<Route path="/privacy" element={<PrivacyPolicyPage />} />
+				<Route path="/consent" element={<ConsentPage />} />
 				<Route path="/dashboard" element={<DashboardPage />} />
 				<Route path="/" element={<Navigate to="/visitor" replace />} />
 				<Route path="*" element={<Navigate to="/" replace />} />

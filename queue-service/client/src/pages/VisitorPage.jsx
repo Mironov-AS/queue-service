@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import socket from "../socket";
 
 export default function VisitorPage() {
@@ -337,6 +337,18 @@ function GetTicket({ preService, clientId }) {
 							</button>
 							<p className="text-center text-xs text-gray-400">
 								Подойдите к стойке, когда вас вызовут
+							</p>
+							<p className="text-center text-xs text-gray-500 leading-relaxed">
+								Нажимая «Получить талон», вы подтверждаете согласие на
+								обработку персональных данных. Подробнее:{" "}
+								<Link to="/consent" className="underline text-blue-600 hover:text-blue-800">
+									Согласие
+								</Link>{" "}
+								и{" "}
+								<Link to="/privacy" className="underline text-blue-600 hover:text-blue-800">
+									Политика
+								</Link>
+								.
 							</p>
 						</>
 					) : (
