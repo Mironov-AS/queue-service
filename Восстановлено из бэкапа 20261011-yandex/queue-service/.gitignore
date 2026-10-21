@@ -1,0 +1,9 @@
+node_modules/
+server/queue.db
+server/queue.db-shm
+server/queue.db-wal
+client/dist/
+.env.local
+server/.env
+
+.deploy-work/
