@@ -1,20 +1,9 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../api";
+import { defaultBookingConfig } from "./bookingDefaults";
 
 const weekdays = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-const initial = {
-	enabled: false,
-	duration_minutes: 30,
-	capacity: 1,
-	timezone: "Europe/Moscow",
-	schedule: [1, 2, 3, 4, 5].map((day) => ({
-		day,
-		start: "09:00",
-		end: "18:00",
-	})),
-	exceptions: [],
-	fields: [],
-};
+const initial = defaultBookingConfig();
 const control = "rounded-lg border border-gray-300 px-3 py-2 text-sm";
 
 export default function BookingSettings({ service, onClose }) {

@@ -153,6 +153,14 @@ function createBookingRouter({
 		}),
 	);
 	router.get(
+		"/services",
+		requireAuth,
+		requireAdmin,
+		handle(async (_req, res) => {
+			return res.json({ services: await repository.getServiceChannels() });
+		}),
+	);
+	router.get(
 		"/services/:serviceId/config",
 		requireAuth,
 		requireAdmin,

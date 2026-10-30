@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "../../api";
 import BookingSettings from "./BookingSettings";
+import { defaultBookingConfig } from "./bookingDefaults";
 import { Icon, P, Modal, FIELD_TYPES } from "./shared";
 
 // UI only. Server must independently keep booking API disabled until release.
@@ -259,15 +260,47 @@ export default function ServicesTab() {
 		avg_duration_minutes: 5,
 		priority: 0,
 		daily_limit: "",
+		queue_enabled: true,
+		booking_enabled: false,
 	});
 	const [error, setError] = useState("");
 	const [fieldsModal, setFieldsModal] = useState(null);
 	const [bookingModal, setBookingModal] = useState(null);
+	const [channels, setChannels] = useState({});
+	const [channelError, setChannelError] = useState("");
 
-	const load = () =>
-		apiFetch("/api/services?all=1")
-			.then((r) => r?.json())
-			.then((d) => d && setServices(d));
+	// Booking channel state is stored in the booking module, the queue channel
+	// in the queue directory, so both are merged here by service id.
+	const bookingRequest = async (url, options) => {
+		const res = await apiFetch(url, options);
+		if (!res) throw new Error("Необходима авторизация");
+		const content = res.headers.get("content-type") || "";
+		if (!content.includes("application/json"))
+			throw new Error("Модуль записи пока не подключён");
+		const result = await res.json();
+		if (!res.ok) throw new Error(result.error || "Не удалось выполнить запрос");
+		return result;
+	};
+
+	const loadChannels = async () => {
+		if (!bookingEnabled) return {};
+		const result = await bookingRequest("/api/booking/services");
+		const map = {};
+		for (const item of result.services || []) map[item.id] = item;
+		return map;
+	};
+
+	const load = async () => {
+		const list = await apiFetch("/api/services?all=1").then((r) => r?.json());
+		if (list) setServices(list);
+		if (!bookingEnabled) return;
+		try {
+			setChannels(await loadChannels());
+			setChannelError("");
+		} catch (e) {
+			setChannelError(e.message);
+		}
+	};
 	useEffect(() => {
 		load();
 	}, []);
@@ -277,22 +310,46 @@ export default function ServicesTab() {
 			setError("Введите название");
 			return;
 		}
+		if (!form.queue_enabled && !form.booking_enabled) {
+			setError("Включите хотя бы один канал: «Очередь» или «Запись»");
+			return;
+		}
 		setError("");
+		setChannelError("");
 		const body = {
-			...form,
+			name: form.name,
+			description: form.description,
+			avg_duration_minutes: form.avg_duration_minutes,
+			priority: form.priority,
 			daily_limit: form.daily_limit ? parseInt(form.daily_limit) : null,
+			enabled: form.queue_enabled,
 		};
+		let saved = null;
 		if (editing) {
-			await apiFetch(`/api/services/${editing}`, {
+			const res = await apiFetch(`/api/services/${editing}`, {
 				method: "PUT",
 				body: JSON.stringify(body),
 			});
+			saved = await res?.json();
 			setEditing(null);
 		} else {
-			await apiFetch("/api/services", {
+			const res = await apiFetch("/api/services", {
 				method: "POST",
 				body: JSON.stringify(body),
 			});
+			saved = await res?.json();
+		}
+		// The booking channel is stored in the booking module.
+		if (bookingEnabled && saved?.id) {
+			const current = channels[saved.id]?.booking_enabled === true;
+			if (form.booking_enabled !== current) {
+				try {
+					await setBookingChannel(saved.id, form.booking_enabled);
+					if (form.booking_enabled) setBookingModal(saved);
+				} catch (e) {
+					setChannelError(e.message);
+				}
+			}
 		}
 		setForm({
 			name: "",
@@ -300,8 +357,41 @@ export default function ServicesTab() {
 			avg_duration_minutes: 5,
 			priority: 0,
 			daily_limit: "",
+			queue_enabled: true,
+			booking_enabled: false,
 		});
 		load();
+	};
+
+	// Switching the booking channel keeps the schedule and the permanent
+	// widget link of the service.
+	const setBookingChannel = async (serviceId, enabled) => {
+		const base = `/api/booking/services/${serviceId}`;
+		const config = (await bookingRequest(`${base}/config`)) || defaultBookingConfig();
+		return bookingRequest(`${base}/config`, {
+			method: "PUT",
+			body: JSON.stringify({ ...config, enabled }),
+		});
+	};
+
+	const toggleBookingChannel = async (s) => {
+		setChannelError("");
+		const current = channels[s.id]?.booking_enabled === true;
+		if (!current && !window.confirm(
+			`Включить запись для услуги «${s.name}»? Расписание и ссылку на виджет можно будет настроить в параметрах записи.`,
+		))
+			return;
+		if (current && !window.confirm(
+			`Отключить запись для услуги «${s.name}»? Ссылка на виджет сохранится, новые записи приниматься не будут.`,
+		))
+			return;
+		try {
+			await setBookingChannel(s.id, !current);
+			await load();
+			if (!current) setBookingModal(s);
+		} catch (e) {
+			setChannelError(e.message);
+		}
 	};
 
 	const startEdit = (s) => {
@@ -312,6 +402,8 @@ export default function ServicesTab() {
 			avg_duration_minutes: s.avg_duration_minutes,
 			priority: s.priority || 0,
 			daily_limit: s.daily_limit || "",
+			queue_enabled: !!s.enabled,
+			booking_enabled: channels[s.id]?.booking_enabled === true,
 		});
 		setError("");
 		window.scrollTo({ top: 0, behavior: "smooth" });
@@ -415,8 +507,52 @@ export default function ServicesTab() {
 							className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
 						/>
 					</div>
+					<div className="sm:col-span-2">
+						<label className="text-xs text-gray-500 mb-1 block">
+							Каналы
+						</label>
+						<div className="flex flex-wrap gap-5">
+							<label className="flex items-center gap-2 text-sm text-gray-700">
+								<input
+									type="checkbox"
+									checked={form.queue_enabled}
+									onChange={(e) =>
+										setForm((f) => ({
+											...f,
+											queue_enabled: e.target.checked,
+										}))
+									}
+									className="h-4 w-4 rounded border-gray-300"
+								/>
+								Очередь
+							</label>
+							{bookingEnabled && (
+								<label className="flex items-center gap-2 text-sm text-gray-700">
+									<input
+										type="checkbox"
+										checked={form.booking_enabled}
+										onChange={(e) =>
+											setForm((f) => ({
+												...f,
+												booking_enabled: e.target.checked,
+											}))
+										}
+										className="h-4 w-4 rounded border-gray-300"
+									/>
+									Запись
+								</label>
+							)}
+						</div>
+						<p className="text-xs text-gray-400 mt-1.5">
+							Каналы независимы: можно оставить услугу только в очереди, только
+							в записи или в обоих каналах сразу.
+						</p>
+					</div>
 				</div>
 				{error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+				{channelError && (
+					<p className="text-red-500 text-sm mt-1">{channelError}</p>
+				)}
 				<div className="flex gap-2 mt-4">
 					<button
 						onClick={save}
@@ -435,6 +571,8 @@ export default function ServicesTab() {
 									avg_duration_minutes: 5,
 									priority: 0,
 									daily_limit: "",
+									queue_enabled: true,
+									booking_enabled: false,
 								});
 							}}
 							className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700"
@@ -469,6 +607,9 @@ export default function ServicesTab() {
 							</th>
 							<th className="text-center px-4 py-3 text-gray-500 font-semibold">
 								Очередь
+							</th>
+							<th className="text-center px-4 py-3 text-gray-500 font-semibold">
+								Запись
 							</th>
 							<th className="px-4 py-3 w-28"></th>
 						</tr>
@@ -538,8 +679,27 @@ export default function ServicesTab() {
 										{s.enabled ? "Активна" : "Отключена"}
 									</button>
 								</td>
+								<td className="px-4 py-4 text-center">
+									{bookingEnabled ? (
+										<button
+											onClick={() => toggleBookingChannel(s)}
+											title={
+												channels[s.id]?.booking_enabled
+													? "Отключить канал записи"
+													: "Включить канал записи"
+											}
+											className={`text-xs px-3 py-1 rounded-full font-medium ${channels[s.id]?.booking_enabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+										>
+											{channels[s.id]?.booking_enabled
+												? "Включена"
+												: "Выключена"}
+										</button>
+									) : (
+										<span className="text-xs text-gray-400">—</span>
+									)}
+								</td>
 								<td className="px-4 py-4">
-                                    <button type="button" disabled={!bookingEnabled} title={bookingEnabled ? "Настройки записи" : "Запись пока недоступна"} onClick={() => setBookingModal(s)} className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed">Запись</button>
+                                    <button type="button" disabled={!bookingEnabled} title={bookingEnabled ? "Расписание, ссылка и поля записи" : "Запись пока недоступна"} onClick={() => setBookingModal(s)} className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed">Параметры</button>
 									<div className="flex gap-1 justify-end">
 										<button
 											onClick={() => startEdit(s)}

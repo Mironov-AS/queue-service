@@ -173,6 +173,7 @@ async function withAdminServer(run, overrides = {}, role = "admin") {
 		cancel: async () => true,
 		getAvailability: async () => null,
 		getAdminBookings: async () => ({ month: "2026-11", bookings: [] }),
+		getServiceChannels: async () => [],
 		getAdminMonth: async () => ({
 			month: "2026-11",
 			timezone: "Europe/Moscow",
@@ -318,4 +319,58 @@ test("список записей скрывает услугу без расп�
 			assert.equal(r.status, 404);
 		},
 		{ getAdminBookings: async () => null },
+	));
+
+test("состояние каналов услуг доступно только администратору", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services`);
+			assert.equal(r.status, 401);
+		},
+		{},
+		null,
+	));
+
+test("состояние каналов услуг недоступно оператору", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services`);
+			assert.equal(r.status, 403);
+		},
+		{},
+		"operator",
+	));
+
+test("состояние каналов показывает включённый канал записи и постоянный идентификатор виджета", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services`);
+			assert.equal(r.status, 200);
+			const body = await r.json();
+			assert.equal(body.services.length, 2);
+			assert.deepEqual(body.services[0], {
+				id: 2,
+				name: "Только запись",
+				booking_enabled: false,
+				public_id: null,
+			});
+			assert.equal(body.services[1].booking_enabled, true);
+			assert.equal(body.services[1].public_id, publicId);
+		},
+		{
+			getServiceChannels: async () => [
+				{
+					id: 2,
+					name: "Только запись",
+					booking_enabled: false,
+					public_id: null,
+				},
+				{
+					id: 1,
+					name: "Ремонт ГБО",
+					booking_enabled: true,
+					public_id: publicId,
+				},
+			],
+		},
 	));

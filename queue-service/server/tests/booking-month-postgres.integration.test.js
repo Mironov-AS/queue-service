@@ -98,6 +98,20 @@ test("PostgreSQL: календарь месяца отмечает закрыт�
 		assert.equal(adminByDate[freeDay].slots, 1);
 		// The overview carries counters, never client data.
 		assert.equal(JSON.stringify(adminMonth).includes("answers"), false);
+		// The channel state lists every service with its booking channel.
+		const channels = await repo.getServiceChannels();
+		const channel = channels.find((c) => c.id === 1);
+		assert.equal(channel.booking_enabled, true);
+		assert.equal(channel.public_id, saved.public_id);
+		assert.equal(channel.name, "Тестовая услуга");
+		// A service without a booking configuration is reported as disabled.
+		await pool.query(
+			"INSERT INTO services(id,name,active) VALUES(3,'Только очередь',1)",
+		);
+		const after = await repo.getServiceChannels();
+		const queueOnly = after.find((c) => c.id === 3);
+		assert.equal(queueOnly.booking_enabled, false);
+		assert.equal(queueOnly.public_id, null);
 		// The administrator list of the month contains the client data.
 		const adminBookings = await repo.getAdminBookings(1, month);
 		assert.equal(adminBookings.month, month);

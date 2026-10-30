@@ -21,9 +21,11 @@ router.get('/', (req, res) => {
 router.post('/', requireAuth, (req, res) => {
   const { name, description, avg_duration_minutes, priority, daily_limit } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Название обязательно' });
+  // The queue channel can stay off: a service may exist for booking only.
+  const enabled = req.body.enabled === false || req.body.enabled === 0 ? 0 : 1;
   const r = db.prepare(
-    'INSERT INTO services (name, description, avg_duration_minutes, priority, daily_limit) VALUES (?,?,?,?,?)'
-  ).run(name.trim(), description || null, avg_duration_minutes || 5, priority || 0, daily_limit || null);
+    'INSERT INTO services (name, description, avg_duration_minutes, priority, daily_limit, enabled) VALUES (?,?,?,?,?,?)'
+  ).run(name.trim(), description || null, avg_duration_minutes || 5, priority || 0, daily_limit || null, enabled);
   const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(r.lastInsertRowid);
   const { log } = require('../services/logging');
   log(req, 'service.created', name.trim());
@@ -35,9 +37,16 @@ router.put('/:id', requireAuth, (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Некорректный id' });
   const { name, description, avg_duration_minutes, priority, daily_limit } = req.body;
-  db.prepare(
-    'UPDATE services SET name=?, description=?, avg_duration_minutes=?, priority=?, daily_limit=? WHERE id=?'
-  ).run(name, description || null, avg_duration_minutes, priority || 0, daily_limit || null, id);
+  if (req.body.enabled === undefined) {
+    db.prepare(
+      'UPDATE services SET name=?, description=?, avg_duration_minutes=?, priority=?, daily_limit=? WHERE id=?'
+    ).run(name, description || null, avg_duration_minutes, priority || 0, daily_limit || null, id);
+  } else {
+    const enabled = req.body.enabled === false || req.body.enabled === 0 ? 0 : 1;
+    db.prepare(
+      'UPDATE services SET name=?, description=?, avg_duration_minutes=?, priority=?, daily_limit=?, enabled=? WHERE id=?'
+    ).run(name, description || null, avg_duration_minutes, priority || 0, daily_limit || null, enabled, id);
+  }
   const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
   const { log } = require('../services/logging');
   log(req, 'service.updated', name);

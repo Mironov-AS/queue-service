@@ -110,6 +110,20 @@ function bookingRepository(pool) {
 	return {
 		schema,
 		// The same public id is preserved whenever booking is disabled and re-enabled.
+		// Channel state of every service: is the booking channel on and does the
+		// service already have its permanent widget id. The queue channel state
+		// lives in the queue database and is merged by the client.
+		async getServiceChannels() {
+			const rows = await pool.query(
+				"SELECT s.id,s.name,COALESCE(b.enabled,false) AS booking_enabled,b.public_id FROM services s LEFT JOIN booking_config b ON b.service_id = s.id WHERE s.active = 1 ORDER BY s.name",
+			);
+			return rows.rows.map((row) => ({
+				id: row.id,
+				name: row.name,
+				booking_enabled: row.booking_enabled === true,
+				public_id: row.public_id || null,
+			}));
+		},
 		async saveConfig(serviceId, config) {
 			if (
 				!Number.isInteger(serviceId) ||
