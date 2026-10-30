@@ -48,22 +48,7 @@ if (!USE_S3) {
 }
 
 // ─── Security headers ─────────────────────────────────────────────────────────
-app.use((req, res, next) => {
-	res.setHeader("X-Content-Type-Options", "nosniff");
-	res.setHeader("X-Frame-Options", "SAMEORIGIN");
-	res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-	if (process.env.NODE_ENV === "production") {
-		res.setHeader(
-			"Strict-Transport-Security",
-			"max-age=31536000; includeSubDomains",
-		);
-	}
-	res.setHeader(
-		"Content-Security-Policy",
-		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: *; media-src blob: *; connect-src 'self' ws: wss: *;",
-	);
-	next();
-});
+app.use(require("./middleware/securityHeaders").securityHeaders);
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) =>
