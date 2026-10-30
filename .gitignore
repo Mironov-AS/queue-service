@@ -120,3 +120,6 @@ target/
 
 # Локальная PostgreSQL песочницы (служебные данные вне Git)
 pg-sandbox/
+
+# служебные файлы проверки вкладки записи
+queue-service/client/.booking-tab-check/

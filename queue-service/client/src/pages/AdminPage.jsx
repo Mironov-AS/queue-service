@@ -107,12 +107,16 @@ export default function AdminPage() {
 	const initialTab =
 		searchParams.get("tab") || (isAdvertiser ? "my-campaigns" : "queue");
 	const SETTINGS_IDS = SETTINGS_TABS.map((t) => t.id);
+	// The booking tab shows client data and is available to administrators only.
+	const TABS_VISIBLE = TABS.filter((t) => t.id !== "booking" || isAdmin);
 	const [tab, setTab] = useState(
 		isAdvertiser
 			? "my-campaigns"
 			: SETTINGS_IDS.includes(initialTab)
 				? "settings"
-				: initialTab,
+				: initialTab === "booking" && !isAdmin
+					? "queue"
+					: initialTab,
 	);
 	const [settingsTab, setSettingsTab] = useState(
 		SETTINGS_IDS.includes(initialTab)
@@ -306,7 +310,7 @@ export default function AdminPage() {
 				</div>
 				<div className="max-w-6xl mx-auto px-4 overflow-x-auto">
 					<div className="flex gap-0.5 min-w-max">
-						{TABS.map((t) => (
+						{TABS_VISIBLE.map((t) => (
 							<button
 								key={t.id}
 								onClick={() => setTab(t.id)}
