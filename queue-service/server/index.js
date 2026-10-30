@@ -67,9 +67,17 @@ app.use("/api/users", usersRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/qrcode", qrRouter);
 app.use("/api/logs", logsRouter);
-// This legacy SQLite server cannot safely enable booking: PostgreSQL and the
+// The legacy SQLite server cannot safely enable booking: PostgreSQL and the
 // legal documents must be integrated first. Unknown API calls must not fall
 // through to the SPA and appear to have succeeded.
+// The real router is attached only after PostgreSQL has confirmed the
+// connection; until then the service answers 503 (fail closed) and the queue
+// keeps working unchanged.
+app.use("/api/booking", (req, res, next) => {
+	const state = require("./services/bookingIntegration").getBookingState();
+	if (state && state.enabled) return state.router(req, res, next);
+	return next();
+});
 app.use(
 	"/api/booking",
 	require("./routes/bookingAvailability").createBookingAvailability(),
@@ -204,8 +212,23 @@ if (fs.existsSync(publicDir)) {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, "0.0.0.0", () => {
+server.listen(PORT, "0.0.0.0", async () => {
 	console.log(`Queue server on http://0.0.0.0:${PORT}`);
+	// The queue is already serving requests. The booking module connects to
+	// PostgreSQL afterwards and stays disabled if the connection fails.
+	try {
+		const state = await require("./services/bookingIntegration").startBooking({
+			db,
+		});
+		require("./services/bookingIntegration").setBookingState(state);
+		if (!state.enabled)
+			console.log(`[booking] запись недоступна: ${state.reason}`);
+	} catch (err) {
+		console.error(
+			"[booking] ошибка запуска модуля записи:",
+			err && err.message ? err.message : err,
+		);
+	}
 });
 
 function shutdown(signal) {

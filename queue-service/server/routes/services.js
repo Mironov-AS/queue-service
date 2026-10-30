@@ -51,6 +51,7 @@ router.post("/", requireAuth, (req, res) => {
 	const { log } = require("../services/logging");
 	log(req, "service.created", name.trim());
 	emitQueueUpdate();
+	require("../services/bookingIntegration").notifyServicesChanged();
 	res.json(svc);
 });
 
@@ -88,6 +89,7 @@ router.put("/:id", requireAuth, (req, res) => {
 	const svc = db.prepare("SELECT * FROM services WHERE id = ?").get(id);
 	const { log } = require("../services/logging");
 	log(req, "service.updated", name);
+	require("../services/bookingIntegration").notifyServicesChanged();
 	res.json(svc);
 });
 
@@ -125,6 +127,7 @@ router.put("/:id/toggle", requireAuth, (req, res) => {
 	);
 	const { log } = require("../services/logging");
 	log(req, newEnabled ? "service.enabled" : "service.disabled", svc.name);
+	require("../services/bookingIntegration").notifyServicesChanged();
 	res.json({ ...svc, enabled: newEnabled });
 });
 
@@ -143,6 +146,7 @@ router.delete("/:id", requireAuth, (req, res) => {
 	const { log } = require("../services/logging");
 	log(req, "service.deleted", svc.name);
 	emitQueueUpdate();
+	require("../services/bookingIntegration").notifyServicesChanged();
 	res.json({ success: true });
 });
 
