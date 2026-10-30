@@ -25,6 +25,11 @@ cat >"$root/control" <<'CONTROL'
 set -eu
 root=$(dirname "$0"); action=$1
 failure=$(cat "$root/failure")
+# Simulate systemctl stopping the process but reporting failure.
+if [ "$action" = stop ] && [ "$failure" = stop-partial ]; then
+ echo stopped > "$root/state"
+ exit 1
+fi
 if [ "$action" = "$failure" ]; then exit 1; fi
 case "$action" in
  validate) test -f "$2/version";;
@@ -39,6 +44,7 @@ chmod +x "$root/control"
 run_case validate old
 run_case snapshot old
 run_case stop old
+run_case stop-partial old
 run_case check-new old
 run_case none new
 if SWITCH_TEST_ROOT=/opt/queue-service bash "$engine" >/dev/null 2>&1; then

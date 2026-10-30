@@ -18,7 +18,7 @@ phase=preflight
 rollback() {
 	status=$?
 	trap - ERR
-	if [ "$phase" = stopped ] || [ "$phase" = switched ]; then
+	if [ "$phase" = stopping ] || [ "$phase" = stopped ] || [ "$phase" = switched ]; then
 		"$root/control" stop || true
 		if [ -d "$old" ]; then
 			if [ -e "$live" ]; then mv "$live" "$root/failed" || exit 3; fi
@@ -35,6 +35,8 @@ trap rollback ERR
 cp -a "$candidate" "$stage"
 "$root/control" validate "$stage"
 "$root/control" snapshot
+# A failed stop can still have stopped the service; recovery must begin before it.
+phase=stopping
 "$root/control" stop
 phase=stopped
 mv "$live" "$old"
