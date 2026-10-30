@@ -1,6 +1,7 @@
 // UI check of the service directory: every service must show its channel state
-// ("Очередь" and "Запись" work independently), the creation form must allow
-// choosing channels, and switching the booking channel must keep the schedule.
+// ("Очередь" and "Запись" work independently), the editor modal must offer
+// both channels together with the queue and booking settings, and switching
+// the booking channel must keep the schedule.
 //
 // Run: node client/scripts/check-service-channels.mjs <tokenFile>
 import { JSDOM } from "jsdom";
@@ -99,6 +100,16 @@ await flush();
 await Promise.allSettled(pending);
 await flush();
 
+// The button for a new service must be visible above the list.
+const addButton = [...document.querySelectorAll("button")].find(
+	(b) => b.textContent.trim() === "Добавить услугу",
+);
+console.log("кнопка «Добавить услугу»:", !!addButton);
+if (!addButton) {
+	console.error("Нет кнопки «Добавить услугу»");
+	process.exit(1);
+}
+
 const rows = [...document.querySelectorAll("tbody tr")];
 console.log("услуг в справочнике:", rows.length);
 if (rows.length === 0) {
@@ -108,14 +119,8 @@ if (rows.length === 0) {
 
 function channelBadges(row) {
 	return [...row.querySelectorAll("button")]
-		.map((b) => b.textContent.trim())
-		.filter(
-			(t) =>
-				t === "Активна" ||
-				t === "Отключена" ||
-				t === "Включена" ||
-				t === "Выключена",
-		);
+		.map((b) => b.textContent.trim().replace(/\s+/g, " "))
+		.filter((t) => t.startsWith("Очередь:") || t.startsWith("Запись:"));
 }
 
 const perRow = rows.map((row) => ({
@@ -135,14 +140,13 @@ for (const item of perRow) {
 }
 
 // The booking channel must be switchable independently of the queue channel.
-const bookingRow = rows.find((r) => {
-	const badges = channelBadges(r);
-	return badges.includes("Включена") || badges.includes("Выключена");
-});
-const bookingBadge = [...bookingRow.querySelectorAll("button")].find((b) =>
-	["Включена", "Выключена"].includes(b.textContent.trim()),
+const bookingRow = rows.find((r) =>
+	channelBadges(r).some((t) => t.startsWith("Запись:")),
 );
-const wasEnabled = bookingBadge.textContent.trim() === "Включена";
+const bookingBadge = [...bookingRow.querySelectorAll("button")].find((b) =>
+	b.textContent.trim().startsWith("Запись:"),
+);
+const wasEnabled = bookingBadge.textContent.trim() === "Запись: вкл";
 global.window.confirm = () => true;
 await act(async () => {
 	bookingBadge.dispatchEvent(
@@ -173,20 +177,7 @@ if (sent.enabled === wasEnabled) {
 	process.exit(1);
 }
 
-// The creation form must offer both channels.
-const checkboxes = [...document.querySelectorAll("input[type=checkbox]")];
-const labels = checkboxes.map((c) => c.closest("label")?.textContent.trim());
-console.log("чекбоксы в форме услуги:", labels);
-if (!labels.includes("Очередь")) {
-	console.error("В форме услуги нет канала «Очередь»");
-	process.exit(1);
-}
-if (!labels.includes("Запись")) {
-	console.error("В форме услуги нет канала «Запись»");
-	process.exit(1);
-}
-
-// The channel state is restored after the check.
+// The state of the channel is restored after the check.
 await act(async () => {
 	bookingBadge.dispatchEvent(
 		new dom.window.MouseEvent("click", { bubbles: true }),
@@ -208,28 +199,76 @@ if (restoredSent.enabled !== wasEnabled) {
 	process.exit(1);
 }
 
-// The settings of the service must contain the permanent widget and the link
-// to open it: the booking tab must not carry them.
-const paramsButton = [...document.querySelectorAll("button")].find(
-	(b) => b.textContent.trim() === "Параметры",
+// The editor of the service must open as a modal with both channels and with
+// the settings of the queue and of the booking. The service with the queue
+// channel is used, so both tabs are available.
+const queueRow = rows.find((r) =>
+	channelBadges(r).some((t) => t === "Очередь: вкл"),
 );
-if (!paramsButton) {
-	console.error("Кнопка «Параметры» услуги не найдена");
+if (!queueRow) {
+	console.error("Нет услуги с включённым каналом «Очередь»");
+	process.exit(1);
+}
+const editButton = [...queueRow.querySelectorAll("button")].find(
+	(b) => b.textContent.trim() === "Редактировать",
+);
+if (!editButton) {
+	console.error("Кнопка «Редактировать» услуги не найдена");
 	process.exit(1);
 }
 await act(async () => {
-	paramsButton.dispatchEvent(
+	editButton.dispatchEvent(
 		new dom.window.MouseEvent("click", { bubbles: true }),
 	);
 });
 await flush(1500);
 await Promise.allSettled(pending);
 await flush(800);
+
 const modal = document.querySelector("[role=dialog]");
-const modalText = (modal?.textContent || "").replace(/\s+/g, " ");
-console.log("окно настроек услуги открыто:", !!modal);
-console.log("в настройках есть «Открыть виджет»:", /Открыть виджет/.test(modalText));
-if (!modal || !/Открыть виджет/.test(modalText)) {
+console.log("модальное окно услуги открыто:", !!modal);
+if (!modal) {
+	console.error("Модальное окно редактирования услуги не открылось");
+	process.exit(1);
+}
+
+const modalText = (modal.textContent || "").replace(/\s+/g, " ");
+console.log("в окне есть вкладки:", ["Основное", "Очередь", "Запись"].filter((t) => modalText.includes(t)));
+
+const channelCheckboxes = [...modal.querySelectorAll("input[type=checkbox]")]
+	.map((c) => c.closest("label")?.textContent.replace(/\s+/g, " ").trim())
+	.filter((t) => t && (t.startsWith("Очередь") || t.startsWith("Запись")));
+console.log("чекбоксы каналов в окне:", channelCheckboxes);
+if (!channelCheckboxes.some((t) => t.startsWith("Очередь"))) {
+	console.error("В окне услуги нет галочки канала «Очередь»");
+	process.exit(1);
+}
+if (!channelCheckboxes.some((t) => t.startsWith("Запись"))) {
+	console.error("В окне услуги нет галочки канала «Запись»");
+	process.exit(1);
+}
+
+// The tab of the booking channel holds the schedule and the permanent widget.
+const bookingTab = [...modal.querySelectorAll("button")].find(
+	(b) => b.textContent.trim() === "Запись",
+);
+if (!bookingTab) {
+	console.error("В окне услуги нет вкладки «Запись»");
+	process.exit(1);
+}
+await act(async () => {
+	bookingTab.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
+});
+await flush(600);
+await Promise.allSettled(pending);
+await flush(400);
+
+const bookingText = (modal.textContent || "").replace(/\s+/g, " ");
+console.log("во вкладке «Запись» есть расписание:", /Рабочие дни/.test(bookingText));
+console.log("во вкладке «Запись» есть «Открыть виджет»:", /Открыть виджет/.test(bookingText));
+if (!/Открыть виджет/.test(bookingText)) {
 	console.error("В настройках услуги нет кнопки «Открыть виджет»");
 	process.exit(1);
 }
@@ -239,6 +278,23 @@ const widgetLink = [...modal.querySelectorAll("input")].find(
 console.log("постоянная ссылка на виджет:", widgetLink?.value || "нет");
 if (!widgetLink?.value) {
 	console.error("В настройках услуги нет постоянной ссылки на виджет");
+	process.exit(1);
+}
+
+// The tab of the queue channel holds the settings of the queue.
+const queueTab = [...modal.querySelectorAll("button")].find(
+	(b) => b.textContent.trim() === "Очередь",
+);
+await act(async () => {
+	queueTab.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
+});
+await flush(600);
+const queueText = (modal.textContent || "").replace(/\s+/g, " ");
+console.log("во вкладке «Очередь» есть лимит и приоритет:", /Лимит талонов в день/.test(queueText) && /Приоритет/.test(queueText));
+if (!/Лимит талонов в день/.test(queueText)) {
+	console.error("В настройках услуги нет настроек очереди");
 	process.exit(1);
 }
 
