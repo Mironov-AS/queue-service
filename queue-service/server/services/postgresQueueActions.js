@@ -98,11 +98,56 @@ function createPostgresQueueActions(
 			return r.rows[0] || null;
 		});
 	}
+	async function returnSpecific(id) {
+		if (!Number.isSafeInteger(id) || id < 1) throw new Error("Некорректный id");
+		return withDayLock(async (client, date) => {
+			const found = await client.query(
+				"SELECT * FROM tickets WHERE id=$1 AND date=$2 FOR UPDATE",
+				[id, date],
+			);
+			if (!found.rowCount) return { result: "not_found" };
+			if (found.rows[0].status === "waiting")
+				return { result: "already_waiting" };
+			const updated = await client.query(
+				"UPDATE tickets SET status='waiting',called_at=NULL,served_at=NULL WHERE id=$1 RETURNING *",
+				[id],
+			);
+			return { result: "returned", ticket: updated.rows[0] };
+		});
+	}
+	async function returnAll() {
+		return withDayLock(async (client, date) => {
+			const r = await client.query(
+				"UPDATE tickets SET status='waiting',called_at=NULL,served_at=NULL WHERE date=$1 AND status IN ('called','served')",
+				[date],
+			);
+			return r.rowCount;
+		});
+	}
+	async function reset() {
+		return withDayLock(async (client, date) => {
+			await client.query(
+				"UPDATE tickets SET status='served',served_at=to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS') WHERE date=$1 AND status IN ('waiting','called')",
+				[date],
+			);
+			const last = await client.query(
+				"SELECT COALESCE(MAX(id),0)::text AS max_id FROM tickets WHERE date=$1",
+				[date],
+			);
+			await client.query(
+				"INSERT INTO settings (key,value) VALUES ('queue_reset_last_id',$1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
+				[last.rows[0].max_id],
+			);
+		});
+	}
 	return {
 		callNext: () => call(),
 		callSpecific: (id) => call(id),
 		complete,
 		returnCurrent,
+		returnSpecific,
+		returnAll,
+		reset,
 	};
 }
 module.exports = { createPostgresQueueActions };

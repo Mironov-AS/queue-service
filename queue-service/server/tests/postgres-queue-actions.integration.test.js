@@ -84,6 +84,28 @@ test("PostgreSQL: вызов следующего и конкретного та
 		assert.equal(await queue.complete(), null);
 		assert.equal(await queue.returnCurrent(), null);
 		assert.equal(await queue.callNext(), null);
+		assert.deepEqual(await queue.returnSpecific(999), { result: "not_found" });
+		assert.equal((await queue.returnSpecific(1)).result, "returned");
+		assert.equal((await queue.returnSpecific(1)).result, "already_waiting");
+		assert.equal(await queue.returnAll(), 2);
+		await queue.callNext();
+		await queue.reset();
+		assert.equal(
+			(
+				await pool.query(
+					"SELECT count(*)::int AS n FROM tickets WHERE status='served'",
+				)
+			).rows[0].n,
+			3,
+		);
+		assert.equal(
+			(
+				await pool.query(
+					"SELECT value FROM settings WHERE key='queue_reset_last_id'",
+				)
+			).rows[0].value,
+			"3",
+		);
 	} finally {
 		if (pool) await pool.end();
 		if (created) await admin.query(`DROP SCHEMA "${schema}" CASCADE`);
