@@ -47,7 +47,7 @@ test("PostgreSQL: календарь месяца отмечает закрыт�
 			enabled: true,
 			duration_minutes: 60,
 			capacity: 1,
-			schedule: [{ day: weekday, start: "09:00", end: "11:00" }],
+			schedule: [{ day: weekday, start: "09:00", end: "10:00" }],
 			exceptions: [],
 			fields: [],
 			timezone: "Europe/Moscow",
