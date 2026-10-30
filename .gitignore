@@ -123,3 +123,4 @@ pg-sandbox/
 
 # служебные файлы проверки вкладки записи
 queue-service/client/.booking-tab-check/
+queue-service/client/.admin-tabs-check/
