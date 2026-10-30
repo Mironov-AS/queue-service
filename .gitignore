@@ -125,3 +125,4 @@ pg-sandbox/
 queue-service/client/.booking-tab-check/
 queue-service/client/.admin-tabs-check/
 queue-service/client/.services-check/
+queue-service/client/.widget-check/
