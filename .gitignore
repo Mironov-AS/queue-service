@@ -117,3 +117,6 @@ target/
 *.ai
 *.sketch
 *.fig
+
+# Локальная PostgreSQL песочницы (служебные данные вне Git)
+pg-sandbox/

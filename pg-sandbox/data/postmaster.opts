@@ -1,1 +1,0 @@
-/home/user/pg-sandbox/node_modules/@embedded-postgres/linux-x64/native/bin/postgres "-D" "/home/user/pg-sandbox/data" "-p" "5433" "-k" "/home/user/pg-sandbox/run" "-c" "listen_addresses=127.0.0.1"
