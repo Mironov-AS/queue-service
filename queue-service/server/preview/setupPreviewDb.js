@@ -16,8 +16,7 @@ const ADMIN_URL =
 	process.env.PREVIEW_DATABASE_ADMIN_URL ||
 	"postgresql://postgres@127.0.0.1:5433/postgres";
 const SQLITE_PATH =
-	process.env.PREVIEW_SQLITE_PATH ||
-	path.join(__dirname, "..", "queue.db");
+	process.env.PREVIEW_SQLITE_PATH || path.join(__dirname, "..", "queue.db");
 
 function assertLocal(url) {
 	const parsed = new URL(url);

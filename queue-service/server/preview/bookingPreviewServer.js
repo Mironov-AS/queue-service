@@ -87,7 +87,9 @@ async function main() {
 	app.use(
 		"/api/booking",
 		createBookingRouter({
-			repository: require("../services/bookingRepository").bookingRepository(pool),
+			repository: require("../services/bookingRepository").bookingRepository(
+				pool,
+			),
 			approvedConsent: previewConsent,
 			requireAuth,
 			requireAdmin,
