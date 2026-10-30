@@ -30,7 +30,7 @@ function __TempAuth() {
 		"adminUser",
 		JSON.stringify({ id: 1, username: "admin", role: "admin" }),
 	);
-	return <Navigate to="/admin?tab=services" replace />;
+	return <AdminPage />;
 }
 
 export default function App() {
