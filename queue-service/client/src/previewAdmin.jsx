@@ -1,4 +1,5 @@
 import React from "react";
+import "./index.css";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import AdminPage from "./pages/AdminPage.jsx";
