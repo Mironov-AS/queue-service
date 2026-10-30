@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -76,6 +76,8 @@ function linkParams() {
 
 export default function BookingPage() {
 	const { publicId } = useParams();
+	const widgetRef = useRef(null);
+	const embedded = window.parent !== window;
 	const [month, setMonth] = useState(null);
 	const [days, setDays] = useState([]);
 	const [timezone, setTimezone] = useState("");
@@ -211,22 +213,24 @@ export default function BookingPage() {
 		setAgreementChecked(false);
 	}, [consent?.version, publicId]);
 
-	// Сообщаем встраивающему сайту высоту виджета, чтобы iframe с
-	// height:auto подстраивался под содержимое (мобильные и десктоп).
+	// Measure the content itself rather than viewport scrollHeight, allowing the
+	// iframe to shrink as well as grow. ResizeObserver covers wrapping, fonts and
+	// width changes in addition to React state changes.
 	useEffect(() => {
-		try {
-			const height = document.documentElement.scrollHeight;
-			if (window.parent !== window) {
-				window.parent.postMessage(
-					{ type: "booking-widget-height", publicId, height },
-					"*",
-				);
-			}
-		} catch {
-			// postMessage недоступен — виджет продолжает работать, высота
-			// фрейма останется как задана в коде встраивания.
-		}
-	}, [publicId, month, selectedDate, slots, slot, receipt, loading, error]);
+		if (!embedded || !widgetRef.current) return;
+		const element = widgetRef.current;
+		const sendHeight = () => {
+			const height = Math.ceil(element.getBoundingClientRect().height);
+			if (height > 0) window.parent.postMessage(
+				{ type: "booking-widget-height", publicId, height }, "*",
+			);
+		};
+		const observer = typeof ResizeObserver === "function" ? new ResizeObserver(sendHeight) : null;
+		observer?.observe(element);
+		window.addEventListener("resize", sendHeight);
+		sendHeight();
+		return () => { observer?.disconnect(); window.removeEventListener("resize", sendHeight); };
+	}, [embedded, publicId, month, selectedDate, slots, slot, receipt, loading, error]);
 
 	const submit = async (event) => {
 		event.preventDefault();
@@ -283,7 +287,7 @@ export default function BookingPage() {
 	const canGoBack = month && month > minMonth;
 
 	return (
-		<main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-800">
+		<main ref={widgetRef} className={`${embedded ? "" : "min-h-screen "}bg-slate-50 px-4 py-8 text-slate-800`}>
 			<div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 shadow-lg sm:p-8">
 				<div className="flex items-center justify-between gap-4">
 					<p className="text-sm font-bold uppercase tracking-wider text-blue-600">
