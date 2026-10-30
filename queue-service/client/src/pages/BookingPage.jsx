@@ -80,6 +80,7 @@ export default function BookingPage() {
 	const [days, setDays] = useState([]);
 	const [timezone, setTimezone] = useState("");
 	const [consent, setConsent] = useState(null);
+	const [consentChecked, setConsentChecked] = useState(false);
 	const [fields, setFields] = useState([]);
 	const [service, setService] = useState({ name: "", description: "" });
 	const [selectedDate, setSelectedDate] = useState(null);
@@ -203,9 +204,21 @@ export default function BookingPage() {
 		}
 	};
 
+	// A new version of the agreement requires a fresh confirmation.
+	useEffect(() => {
+		setConsentChecked(false);
+	}, [consent?.version, publicId]);
+
 	const submit = async (event) => {
 		event.preventDefault();
-		if (sending || !slot || !consent?.version || !selectedDate) return;
+		if (
+			sending ||
+			!slot ||
+			!consent?.version ||
+			!selectedDate ||
+			!consentChecked
+		)
+			return;
 		setSending(true);
 		setError("");
 		try {
@@ -471,15 +484,24 @@ export default function BookingPage() {
 													<div className="rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
 														<p>{consent.text}</p>
 														<p className="mt-2">
-															Нажимая «Записаться», вы соглашаетесь на обработку
-															персональных данных. Ознакомьтесь с{" "}
+															Подробнее —{" "}
+															<a
+																href={consent.agreementUrl || "/agreement"}
+																target="_blank"
+																rel="noreferrer"
+																className="text-blue-700 underline"
+															>
+																{consent.agreementTitle ||
+																	"пользовательское соглашение"}
+															</a>
+															,{" "}
 															<a
 																href={consent.policyUrl}
 																target="_blank"
 																rel="noreferrer"
 																className="text-blue-700 underline"
 															>
-																политикой обработки персональных данных
+																политика обработки персональных данных
 															</a>{" "}
 															и{" "}
 															<a
@@ -488,10 +510,32 @@ export default function BookingPage() {
 																rel="noreferrer"
 																className="text-blue-700 underline"
 															>
-																согласием
+																согласие на обработку персональных данных
 															</a>
 															.
 														</p>
+														<label className="mt-3 flex items-start gap-2 text-xs text-slate-700">
+															<input
+																type="checkbox"
+																checked={consentChecked}
+																onChange={(e) => setConsentChecked(e.target.checked)}
+																className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400"
+															/>
+															<span>
+																Нажимая кнопку «Записаться», Вы соглашаетесь с
+																условиями{" "}
+																<a
+																	href={consent.agreementUrl || "/agreement"}
+																	target="_blank"
+																	rel="noreferrer"
+																	className="text-blue-700 underline"
+																>
+																	{consent.agreementTitle ||
+																		"пользовательского соглашения"}
+																</a>
+																.
+															</span>
+														</label>
 													</div>
 												) : (
 													<p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -504,6 +548,7 @@ export default function BookingPage() {
 													disabled={
 														!slot ||
 														sending ||
+														!consentChecked ||
 														!consent?.policyUrl ||
 														!consent?.consentUrl
 													}

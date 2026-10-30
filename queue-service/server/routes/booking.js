@@ -100,6 +100,8 @@ function createBookingRouter({
 				consent: {
 					version: approvedConsent.version,
 					text: approvedConsent.text,
+					agreementUrl: approvedConsent.agreementUrl,
+					agreementTitle: approvedConsent.agreementTitle,
 					policyUrl: approvedConsent.policyUrl,
 					consentUrl: approvedConsent.consentUrl,
 				},
@@ -128,6 +130,8 @@ function createBookingRouter({
 				consent: {
 					version: approvedConsent.version,
 					text: approvedConsent.text,
+					agreementUrl: approvedConsent.agreementUrl,
+					agreementTitle: approvedConsent.agreementTitle,
 					policyUrl: approvedConsent.policyUrl,
 					consentUrl: approvedConsent.consentUrl,
 				},

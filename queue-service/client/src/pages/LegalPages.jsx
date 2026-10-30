@@ -4,6 +4,7 @@ export const ORG_PLACEHOLDERS = {
 	name: "Индивидуальный предприниматель Ильинов Сергей Алексеевич",
 	inn: "150304643015",
 	ogrn: "ОГРНИП: 321265100108420",
+	site: "www.maxima-gbo.ru",
 	address:
 		"Юридический адрес: 140016, МО, г. Люберцы, мкр. Зенино ЖК Самолет, ул. Камова, д. 7, корп. 1, кв. 89. Фактический адрес: 140090, МО, г. Дзержинский, ул. Энергетиков, д. 32 и д. 34, стр. 1",
 	phone: "8 (925) 845-79-23; 8 (495) 205-15-18; 8 (495) 200-15-18",
@@ -32,6 +33,12 @@ function LegalLayout({ title, updated, children }) {
 					{children}
 				</div>
 				<div className="mt-8 pt-4 border-t border-slate-100 flex flex-wrap gap-4 text-sm">
+					<Link
+						to="/agreement"
+						className="text-blue-600 hover:text-blue-800 underline"
+					>
+						Пользовательское соглашение
+					</Link>
 					<Link
 						to="/privacy"
 						className="text-blue-600 hover:text-blue-800 underline"

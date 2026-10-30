@@ -92,17 +92,10 @@ async function syncServices(pool) {
 	);
 }
 
-// Placeholder only. The wording, version and links must be reviewed by the
-// customer before the module is enabled anywhere real.
-const previewConsent = {
-	version: "preview-2026-10-30",
-	text:
-		"Технический текст для проверки в песочнице: нажимая кнопку «Записаться», " +
-		"вы передаёте указанные данные для предварительной записи. Этот текст не является " +
-		"утверждённым документом и используется только для проверки работы формы.",
-	policyUrl: "/privacy",
-	consentUrl: "/consent",
-};
+// The consent text of the widget. It is the wording of our own user
+// agreement (client/src/pages/AgreementPage.jsx) and must be reviewed by a
+// lawyer before the module is enabled on the production queue.
+const { bookingConsent } = require("../services/bookingConsent");
 
 async function main() {
 	const pool = new Pool({ connectionString: DATABASE_URL });
@@ -136,7 +129,7 @@ async function main() {
 			repository: require("../services/bookingRepository").bookingRepository(
 				pool,
 			),
-			approvedConsent: previewConsent,
+			approvedConsent: bookingConsent,
 			requireAuth,
 			requireAdmin,
 		}),
