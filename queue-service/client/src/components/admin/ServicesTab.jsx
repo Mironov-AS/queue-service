@@ -52,9 +52,7 @@ export default function ServicesTab() {
 
 	// TEMP: автооткрытие редактора для снимка превью
 	useEffect(() => {
-		const p = new URLSearchParams(window.location.search).get("editor");
-		if (p === "new") setEditing("new");
-		else if (p === "first" && services.length) setEditing(services[0]);
+		if (services.length) setEditing(services[0]);
 	}, [services]);
 
 	// Switching the booking channel keeps the schedule and the permanent

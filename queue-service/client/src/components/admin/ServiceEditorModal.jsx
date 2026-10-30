@@ -63,7 +63,7 @@ export default function ServiceEditorModal({
 	);
 	const [config, setConfig] = useState(null);
 	const [tab, setTab] = useState(
-		() => new URLSearchParams(window.location.search).get("editorTab") || "main",
+		() => "booking",
 	);
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
