@@ -20,6 +20,8 @@ validate)
 	[ "$(realpath "$2")" = "$root/staged" ] && [ -s "$2/index.js" ] && [ -d "$2/node_modules" ]
 	;;
 snapshot)
+	# Queue backups contain personal data; never inherit a permissive caller umask.
+	umask 077
 	test ! -e "$root/snapshot.db"
 	node - "$root" <<'NODE'
 const r=process.argv[2], D=require(r+'/server/node_modules/better-sqlite3');
