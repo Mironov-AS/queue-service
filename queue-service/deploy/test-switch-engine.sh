@@ -41,6 +41,10 @@ if [ "$action" = check-new ] && [ "$failure" = rollback-upload ]; then
  echo created-after-switch > "$root/server/uploads/new"
  exit 1
 fi
+if [ "$action" = check-new ] && [ "$failure" = rollback-conflict ]; then
+ echo changed-after-switch > "$root/server/uploads/file"
+ exit 1
+fi
 if [ "$action" = "$failure" ] && [ "$action" != stop ]; then exit 1; fi
 case "$action" in
  validate) test -f "$2/version";;
@@ -60,6 +64,20 @@ run_case check-new old
 run_case rollback-upload old
 test "$(cat "$root/server/uploads/new")" = created-after-switch
 echo 'PASS rollback preserves uploads created by candidate'
+# Conflict must leave both versions intact and the stopped candidate accessible.
+rm -rf "$root/server" "$root/candidate" "$root/previous" "$root/staged" "$root/failed"
+mkdir -p "$root/server/uploads" "$root/candidate" "$root/data"
+echo old >"$root/server/version"
+echo new >"$root/candidate/version"
+echo uploaded >"$root/server/uploads/file"
+echo running >"$root/state"
+echo rollback-conflict >"$root/failure"
+if SWITCH_TEST_ROOT="$root" bash "$engine" >"$root/result" 2>&1; then exit 1; fi
+grep -q 'ROLLBACK HALTED: conflicting upload' "$root/result"
+test "$(cat "$root/server/uploads/file")" = changed-after-switch
+test "$(cat "$root/previous/uploads/file")" = uploaded
+test "$(cat "$root/state")" = stopped
+echo 'PASS conflicting uploads retain both versions without overwriting'
 # If stopping the new process fails, retain both versions and never rename live code.
 run_case rollback-stop new
 grep -q 'ROLLBACK HALTED' "$root/result"
