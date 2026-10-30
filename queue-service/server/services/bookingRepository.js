@@ -172,6 +172,48 @@ function bookingRepository(pool) {
 			const slots = configSlots(config, date, rows.rows);
 			return { slots, bookings: rows.rows };
 		},
+		// Administrative month overview: per day the number of slots, the number of
+		// taken places and the number of free places. Client data is not included:
+		// it is returned per day by getCalendar only.
+		async getAdminMonth(serviceId, month) {
+			const config = await this.getConfig(serviceId);
+			if (!config) return null;
+			const target = monthRange(month);
+			const b = await pool.query(
+				"SELECT to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI') AS start,to_char(end_time,'HH24:MI') AS end FROM bookings WHERE service_id=$1 AND booking_date BETWEEN $2 AND $3 AND status='booked'",
+				[serviceId, target.first, target.last],
+			);
+			const byDate = {};
+			for (const row of b.rows) {
+				(byDate[row.booking_date] = byDate[row.booking_date] || []).push({
+					start: row.start,
+					end: row.end,
+				});
+			}
+			const days = [];
+			for (let i = 1; i <= target.days; i++) {
+				const date = `${month}-${String(i).padStart(2, "0")}`;
+				const slots = configSlots(config, date, byDate[date] || []);
+				const capacity = slots.reduce((sum, s) => sum + s.capacity, 0);
+				const booked = slots.reduce((sum, s) => sum + s.booked, 0);
+				days.push({
+					date,
+					slots: slots.length,
+					capacity,
+					booked,
+					free: capacity - booked,
+				});
+			}
+			return {
+				month,
+				timezone: config.timezone,
+				public_id: config.public_id,
+				enabled: config.enabled,
+				duration_minutes: config.duration_minutes,
+				fields: config.fields,
+				days,
+			};
+		},
 		async cancel(serviceId, bookingId) {
 			const result = await pool.query(
 				"UPDATE bookings SET status='cancelled' WHERE id=$1 AND service_id=$2 AND status='booked' RETURNING id",

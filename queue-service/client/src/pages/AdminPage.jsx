@@ -10,6 +10,7 @@ import {
 	INACTIVITY_MS,
 } from "../components/admin/shared";
 import QueueTab from "../components/admin/QueueTab";
+import BookingTab from "../components/admin/BookingTab";
 import ServicesTab from "../components/admin/ServicesTab";
 import StatsTab from "../components/admin/StatsTab";
 import QRTab from "../components/admin/QRTab";
@@ -325,6 +326,7 @@ export default function AdminPage() {
 
 			<main className="max-w-6xl mx-auto px-4 py-6">
 				{tab === "queue" && <QueueTab />}
+				{tab === "booking" && <BookingTab />}
 				{tab === "settings" && (
 					<div className="space-y-4">
 						<div className="flex gap-1 flex-wrap border-b border-gray-200 pb-0">
