@@ -523,7 +523,9 @@ export default function BookingPage() {
 															<input
 																type="checkbox"
 																checked={consentChecked}
-																onChange={(e) => setConsentChecked(e.target.checked)}
+																onChange={(e) =>
+																	setConsentChecked(e.target.checked)
+																}
 																className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400"
 															/>
 															<span>
