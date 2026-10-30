@@ -354,12 +354,12 @@ export default function BookingPage() {
 									</button>
 								</div>
 
-								<div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400">
+								<div className="mt-4 grid grid-cols-7 gap-0.5 text-center text-xs font-semibold text-slate-400 sm:gap-1">
 									{WEEKDAYS.map((w) => (
 										<div key={w}>{w}</div>
 									))}
 								</div>
-								<div className="mt-1 grid grid-cols-7 gap-1">
+								<div className="mt-1 grid grid-cols-7 gap-0.5 sm:gap-1">
 									{cells.map((day, index) =>
 										day === null ? (
 											<div key={`blank-${index}`} />
@@ -374,7 +374,7 @@ export default function BookingPage() {
 														: REASONS[day.reason] || "Запись недоступна"
 												}
 												onClick={() => chooseDate(day.date)}
-												className={`rounded-xl border p-2 text-sm font-semibold transition ${
+												className={`rounded-lg border p-1 text-xs font-semibold transition sm:rounded-xl sm:p-2 sm:text-sm ${
 													day.available
 														? "border-emerald-400 bg-emerald-100 text-emerald-900 hover:bg-emerald-200"
 														: "cursor-not-allowed border-rose-300 bg-rose-100 text-rose-400"
