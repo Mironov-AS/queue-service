@@ -10,7 +10,10 @@
 // не зависит и работает в любом случае.
 
 const { Pool } = require("pg");
-const { bookingRepository, schema: bookingSchema } = require("./bookingRepository");
+const {
+	bookingRepository,
+	schema: bookingSchema,
+} = require("./bookingRepository");
 const { bookingConsent } = require("./bookingConsent");
 const { createBookingRouter } = require("../routes/booking");
 const { requireAuth } = require("../middleware/requireAuth");
@@ -85,9 +88,7 @@ async function startBooking({ db, logger = console, env = process.env } = {}) {
 		max: Number(env.BOOKING_POOL_MAX || 5),
 		connectionTimeoutMillis: Number(env.BOOKING_CONNECT_TIMEOUT_MS || 5000),
 		idleTimeoutMillis: 30000,
-		...(env.BOOKING_POOL_OPTIONS
-			? { options: env.BOOKING_POOL_OPTIONS }
-			: {}),
+		...(env.BOOKING_POOL_OPTIONS ? { options: env.BOOKING_POOL_OPTIONS } : {}),
 	});
 	try {
 		await pool.query("SELECT 1");
@@ -119,7 +120,10 @@ async function startBooking({ db, logger = console, env = process.env } = {}) {
 		} catch {
 			/* пул уже закрыт */
 		}
-		return { enabled: false, reason: err && err.message ? err.message : String(err) };
+		return {
+			enabled: false,
+			reason: err && err.message ? err.message : String(err),
+		};
 	}
 }
 
@@ -139,7 +143,11 @@ function getBookingState() {
 // новых и изменённых услугах. Ошибка синхронизации не должна ломать
 // операцию в очереди.
 function notifyServicesChanged() {
-	if (!current || !current.enabled || typeof current.syncServices !== "function")
+	if (
+		!current ||
+		!current.enabled ||
+		typeof current.syncServices !== "function"
+	)
 		return;
 	current.syncServices().catch((err) => {
 		console.error(
