@@ -86,9 +86,17 @@ if [ -d "$live/uploads" ]; then
 			false
 		}
 	fi
-	mkdir -p "$stage/uploads"
-	cp -a "$live/uploads/." "$stage/uploads/"
+	if [ ! -e "$stage/uploads" ]; then
+		cp -a "$live/uploads" "$stage/uploads"
+	else
+		cp -a "$live/uploads/." "$stage/uploads/"
+		# cp of contents alone does not preserve the upload root's metadata.
+		chown --reference="$live/uploads" "$stage/uploads"
+		chmod --reference="$live/uploads" "$stage/uploads"
+		touch -r "$live/uploads" "$stage/uploads"
+	fi
 	diff -qr "$live/uploads" "$stage/uploads"
+	[ "$(stat -c '%u:%g:%a' "$live/uploads")" = "$(stat -c '%u:%g:%a' "$stage/uploads")" ]
 fi
 mv "$live" "$old"
 mv "$stage" "$live"

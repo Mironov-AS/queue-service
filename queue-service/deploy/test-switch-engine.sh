@@ -7,6 +7,7 @@ run_case() {
 	local failure=$1 expected=$2
 	rm -rf "$root/server" "$root/candidate" "$root/previous" "$root/staged" "$root/failed" "$root/stop-attempt"
 	mkdir -p "$root/server/uploads" "$root/candidate" "$root/data"
+	chmod 750 "$root/server/uploads"
 	echo uploaded >"$root/server/uploads/file"
 	touch "$root/.isolated-test"
 	echo old >"$root/server/version"
@@ -19,6 +20,7 @@ run_case() {
 	[ "$(cat "$root/state")" = running ]
 	[ "$(cat "$root/data/queue")" = retained ]
 	[ "$(cat "$root/server/uploads/file")" = uploaded ]
+	[ "$(stat -c '%a' "$root/server/uploads")" = 750 ]
 	if [ "$failure" = none ] || [ "$failure" = late-upload ]; then [ "$rc" = 0 ]; else [ "$rc" != 0 ]; fi
 	echo "PASS $failure -> $expected"
 }
