@@ -55,6 +55,54 @@ function createPostgresQueueActions(
 			client.release();
 		}
 	}
-	return { callNext: () => call(), callSpecific: (id) => call(id) };
+	async function withDayLock(fn) {
+		const date = clock();
+		const client = await pool.connect();
+		try {
+			await client.query("BEGIN");
+			await client.query(
+				"SELECT pg_advisory_xact_lock(hashtext('queue-service:queue-day'), hashtext($1))",
+				[date],
+			);
+			const result = await fn(client, date);
+			await client.query("COMMIT");
+			return result;
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
+		}
+	}
+	async function complete(reason) {
+		const sanitized =
+			typeof reason === "string" ? reason.trim().slice(0, 500) || null : null;
+		return withDayLock(async (client, date) => {
+			const r = await client.query(
+				`UPDATE tickets SET status='served',
+                served_at=to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),
+                skip_reason=CASE WHEN $2::text IS NULL THEN skip_reason ELSE $2 END
+                WHERE id=(SELECT id FROM tickets WHERE date=$1 AND status='called' LIMIT 1) RETURNING *`,
+				[date, sanitized],
+			);
+			return r.rows[0] || null;
+		});
+	}
+	async function returnCurrent() {
+		return withDayLock(async (client, date) => {
+			const r = await client.query(
+				`UPDATE tickets SET status='waiting', called_at=NULL
+                WHERE id=(SELECT id FROM tickets WHERE date=$1 AND status='called' LIMIT 1) RETURNING *`,
+				[date],
+			);
+			return r.rows[0] || null;
+		});
+	}
+	return {
+		callNext: () => call(),
+		callSpecific: (id) => call(id),
+		complete,
+		returnCurrent,
+	};
 }
 module.exports = { createPostgresQueueActions };

@@ -72,12 +72,18 @@ test("PostgreSQL: вызов следующего и конкретного та
 			statuses.rows.map((x) => x.status),
 			["served", "called", "served"],
 		);
+		const returned = await queue.returnCurrent();
+		assert.equal(returned.id, 2);
+		assert.equal(returned.status, "waiting");
+		assert.equal(returned.called_at, null);
+		assert.equal((await queue.callNext()).id, 2);
+		const completed = await queue.complete("  Причина  ");
+		assert.equal(completed.id, 2);
+		assert.equal(completed.status, "served");
+		assert.equal(completed.skip_reason, "Причина");
+		assert.equal(await queue.complete(), null);
+		assert.equal(await queue.returnCurrent(), null);
 		assert.equal(await queue.callNext(), null);
-		assert.equal(
-			(await pool.query("SELECT status FROM tickets WHERE id=2")).rows[0]
-				.status,
-			"served",
-		);
 	} finally {
 		if (pool) await pool.end();
 		if (created) await admin.query(`DROP SCHEMA "${schema}" CASCADE`);
