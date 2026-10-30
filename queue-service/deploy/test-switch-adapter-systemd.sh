@@ -67,35 +67,7 @@ UNIT
 systemctl daemon-reload
 cp "$(dirname "$0")/switch-control-rehearsal.sh" "$root/adapter"
 export SWITCH_TEST_ROOT="$root" SWITCH_TEST_UNIT="$unit" SWITCH_TEST_PORT=13085
-cat >"$root/control" <<'CONTROL'
-#!/bin/bash
-set -euo pipefail
-root=/opt/queue-switch-test-booking
-unit=queue-switch-test-booking.service
-dropin=/etc/systemd/system/$unit.d
-if [ "$1" = start ]; then
-  if [ -d "$root/previous" ]; then
-    install -d -m 755 "$dropin"
-    if [ -f "$root/fail-write" ]; then rm "$root/fail-write"; echo 'injected drop-in write failure' >&2; exit 1; fi
-    printf '[Service]\nEnvironmentFile=%s/booking.env\n' "$root" > "$dropin/booking.conf"
-  else
-    rm -f -- "$dropin/booking.conf"
-    rmdir --ignore-fail-on-non-empty "$dropin" 2>/dev/null || true
-  fi
-  if [ -f "$root/fail-reload" ]; then rm "$root/fail-reload"; echo 'injected daemon-reload failure' >&2; exit 1; fi
-  systemctl daemon-reload
-fi
-if [ "$1" = check-new ] && [ -f "$root/fail-new" ]; then exit 1; fi
-if [ "$1" = check-old ]; then
-  [ ! -e "$dropin/booking.conf" ] || exit 1
-  ! systemctl show "$unit" -p EnvironmentFiles --value | grep -Fq "$root/booking.env" || exit 1
-fi
-if [ "$1" = check-new ]; then
-  [ -f "$dropin/booking.conf" ] || exit 1
-  systemctl show "$unit" -p EnvironmentFiles --value | grep -Fq "$root/booking.env" || exit 1
-fi
-exec bash "$root/adapter" "$@"
-CONTROL
+cp "$(dirname "$0")/switch-systemd-control.sh" "$root/control"
 chmod 700 "$root/control"
 systemctl start "$unit"
 "$root/control" check-old
