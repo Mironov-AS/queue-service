@@ -4,6 +4,11 @@ const { calculateSlots } = require("../services/bookingSlots");
 
 // The caller must provide a server-controlled, legally reviewed consent document.
 // This router is intentionally not mounted in the legacy SQLite server.
+function validDocumentUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return false;
+  if (value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) return true;
+  try { return new URL(value).protocol === "https:"; } catch { return false; }
+}
 function createBookingRouter({
 	repository,
 	approvedConsent,
@@ -18,7 +23,9 @@ function createBookingRouter({
 		typeof approvedConsent.version !== "string" ||
 		typeof approvedConsent.text !== "string" ||
 		!approvedConsent.version.trim() ||
-		!approvedConsent.text.trim()
+		!approvedConsent.text.trim() ||
+        !validDocumentUrl(approvedConsent.policyUrl) ||
+        !validDocumentUrl(approvedConsent.consentUrl)
 	)
 		throw new Error("Необходимо настроить утверждённое согласие");
 	const router = express.Router();
@@ -79,6 +86,8 @@ function createBookingRouter({
 				consent: {
 					version: approvedConsent.version,
 					text: approvedConsent.text,
+                    policyUrl: approvedConsent.policyUrl,
+                    consentUrl: approvedConsent.consentUrl,
 				},
 			});
 		}),

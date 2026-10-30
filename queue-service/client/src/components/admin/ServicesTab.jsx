@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "../../api";
+import BookingSettings from "./BookingSettings";
 import { Icon, P, Modal, FIELD_TYPES } from "./shared";
 
 // ─── Service Fields Modal ─────────────────────────────────────────────────────
@@ -258,6 +259,7 @@ export default function ServicesTab() {
 	});
 	const [error, setError] = useState("");
 	const [fieldsModal, setFieldsModal] = useState(null);
+	const [bookingModal, setBookingModal] = useState(null);
 
 	const load = () =>
 		apiFetch("/api/services?all=1")
@@ -463,7 +465,7 @@ export default function ServicesTab() {
 								По умолчанию
 							</th>
 							<th className="text-center px-4 py-3 text-gray-500 font-semibold">
-								Статус
+								Очередь
 							</th>
 							<th className="px-4 py-3 w-28"></th>
 						</tr>
@@ -534,6 +536,7 @@ export default function ServicesTab() {
 									</button>
 								</td>
 								<td className="px-4 py-4">
+                                    <button type="button" onClick={() => setBookingModal(s)} className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg">Запись</button>
 									<div className="flex gap-1 justify-end">
 										<button
 											onClick={() => startEdit(s)}
@@ -555,6 +558,7 @@ export default function ServicesTab() {
 				</table>
 			</div>
 
+			{bookingModal && <BookingSettings service={bookingModal} onClose={() => setBookingModal(null)} />}
 			{fieldsModal && (
 				<ServiceFieldsModal
 					service={fieldsModal}

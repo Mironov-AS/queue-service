@@ -6,6 +6,7 @@ import {
 	useLocation,
 } from "react-router-dom";
 import AdminPage from "./pages/AdminPage";
+import BookingPage from "./pages/BookingPage";
 import VisitorPage from "./pages/VisitorPage";
 import TerminalPage from "./pages/TerminalPage";
 import LoginPage from "./pages/LoginPage";
@@ -36,6 +37,7 @@ export default function App() {
 					}
 				/>
 				<Route path="/visitor" element={<VisitorPage />} />
+				<Route path="/booking/:publicId" element={<BookingPage />} />
 				<Route path="/terminal" element={<TerminalPage />} />
 				<Route path="/privacy" element={<PrivacyPolicyPage />} />
 				<Route path="/consent" element={<ConsentPage />} />

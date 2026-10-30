@@ -18,7 +18,7 @@ async function withServer(run) {
 		"/api/booking",
 		createBookingRouter({
 			repository: repo,
-			approvedConsent: { version: "v1", text: "Согласие" },
+			approvedConsent: { version: "v1", text: "Согласие", policyUrl: "/privacy", consentUrl: "/consent" },
 			requireAuth: (_req, res) =>
 				res.status(401).json({ error: "Не авторизован" }),
 			requireAdmin: (_req, _res, next) => next(),
@@ -46,7 +46,10 @@ test("публичная форма получает серверную верс
 	withServer(async (base) => {
 		const r = await fetch(`${base}/public/${publicId}?date=2026-11-02`);
 		assert.equal(r.status, 200);
-		assert.equal((await r.json()).consent.version, "v1");
+		const consent = (await r.json()).consent;
+        assert.equal(consent.version, "v1");
+        assert.equal(consent.policyUrl, "/privacy");
+        assert.equal(consent.consentUrl, "/consent");
 	}));
 test("чужая или устаревшая версия согласия отклоняется", () =>
 	withServer(async (base) => {
@@ -66,3 +69,9 @@ test("административные данные не раскрываютс�
 		const r = await fetch(`${base}/services/1/calendar?date=2026-11-02`);
 		assert.equal(r.status, 401);
 	}));
+
+test("нельзя включить запись без ссылок на документы или с небезопасным адресом", () => {
+ const guards = {repository:{},requireAuth:()=>{},requireAdmin:()=>{}};
+ assert.throws(() => createBookingRouter({...guards,approvedConsent:{version:'v1',text:'Текст'}}),/согласие/);
+ assert.throws(() => createBookingRouter({...guards,approvedConsent:{version:'v1',text:'Текст',policyUrl:'javascript:alert(1)',consentUrl:'/consent'}}),/согласие/);
+});
