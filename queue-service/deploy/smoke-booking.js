@@ -5,7 +5,8 @@ const path = require("path");
 
 const base = process.argv[2] || "http://127.0.0.1:3002";
 const rehDir = process.argv[3] || "/opt/rehearsal";
-const relDir = process.argv[4] || "/opt/queue-service/releases/2026-10-30-booking/server";
+const relDir =
+	process.argv[4] || "/opt/queue-service/releases/2026-10-30-booking/server";
 
 const Database = require(path.join(relDir, "node_modules/better-sqlite3"));
 const jwt = require(path.join(relDir, "node_modules/jsonwebtoken"));
@@ -86,7 +87,9 @@ function nextWeekday() {
 				{ day: 5, start: "09:00", end: "12:00" },
 			],
 			exceptions: [],
-			fields: [{ id: "phone", label: "Телефон", type: "phone", required: true }],
+			fields: [
+				{ id: "phone", label: "Телефон", type: "phone", required: true },
+			],
 		}),
 	});
 	check(
@@ -170,7 +173,11 @@ function nextWeekday() {
 			consentVersion: pub.json.consent.version,
 		}),
 	});
-	check("третья запись в слот отклоняется", third.status >= 400, `статус ${third.status}`);
+	check(
+		"третья запись в слот отклоняется",
+		third.status >= 400,
+		`статус ${third.status}`,
+	);
 
 	// 8. Календарь администратора показывает данные клиента
 	const cal = await req(`/api/booking/services/1/calendar?date=${date}`, {
@@ -192,11 +199,18 @@ function nextWeekday() {
 		`/api/booking/services/1/bookings/${bookingId}/cancel`,
 		{ method: "POST", headers: auth },
 	);
-	check("отмена записи → 200", cancel.status === 200, JSON.stringify(cancel.json));
+	check(
+		"отмена записи → 200",
+		cancel.status === 200,
+		JSON.stringify(cancel.json),
+	);
 
 	// 10. Страницы интерфейса
 	const visitor = await req("/visitor");
-	check("GET /visitor → 200 HTML", visitor.status === 200 && visitor.text.includes("<html"));
+	check(
+		"GET /visitor → 200 HTML",
+		visitor.status === 200 && visitor.text.includes("<html"),
+	);
 	const widget = await req(`/booking/${publicId}`);
 	check(
 		"GET /booking/:publicId → 200 HTML",
@@ -205,7 +219,11 @@ function nextWeekday() {
 	const agreement = await req("/agreement");
 	check("GET /agreement → 200 HTML", agreement.status === 200);
 
-	console.log(failures === 0 ? "ИТОГ: все проверки пройдены" : `ИТОГ: провалов ${failures}`);
+	console.log(
+		failures === 0
+			? "ИТОГ: все проверки пройдены"
+			: `ИТОГ: провалов ${failures}`,
+	);
 	process.exit(failures === 0 ? 0 : 1);
 })().catch((err) => {
 	console.error("ОШИБКА:", err);

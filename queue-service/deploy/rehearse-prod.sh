@@ -53,10 +53,10 @@ set -a
 set +a
 export BOOKING_DATABASE_URL="${BOOKING_DATABASE_URL%/*}/queue_booking_rehearsal"
 export DATA_DIR="$REH" PORT="$PORT" NODE_ENV=production
-nohup node index.js > "$LOG" 2>&1 &
-echo $! > /tmp/rehearsal.pid
+nohup node index.js >"$LOG" 2>&1 &
+echo $! >/tmp/rehearsal.pid
 for _ in $(seq 1 30); do
-	if curl -sf -m 2 "http://127.0.0.1:$PORT/health" > /dev/null; then break; fi
+	if curl -sf -m 2 "http://127.0.0.1:$PORT/health" >/dev/null; then break; fi
 	sleep 1
 done
 curl -sf -m 5 "http://127.0.0.1:$PORT/health" || {

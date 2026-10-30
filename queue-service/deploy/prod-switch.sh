@@ -31,7 +31,7 @@ fail_and_rollback() {
 	tar -xzf "$ROLLBACK" -C /opt/queue-service
 	systemctl start queue-service
 	sleep 3
-	if curl -sf -m 5 http://127.0.0.1:3001/health > /dev/null; then
+	if curl -sf -m 5 http://127.0.0.1:3001/health >/dev/null; then
 		log "откат выполнен, служба работает"
 	else
 		log "ОТКАТ НЕ УДАЛСЯ — нужна ручная проверка"
@@ -44,44 +44,59 @@ mkdir -p "$BACKUPS"
 log "1/5 резервная копия кода для отката"
 ROLLBACK=/opt/queue-service/releases/rollback-code-$TS.tar.gz
 tar -czf "$ROLLBACK" --exclude=node_modules --exclude=uploads --exclude="queue*.db" \
-	-C /opt/queue-service server || { REASON="не удалось сохранить резервную копию кода"; fail_and_rollback; }
+	-C /opt/queue-service server || {
+	REASON="не удалось сохранить резервную копию кода"
+	fail_and_rollback
+}
 
 log "2/5 снимок базы (согласованный, без остановки службы)"
 node -e "
 const Database = require('$LIVE/node_modules/better-sqlite3');
 const db = new Database('/opt/queue-data/queue.db', { readonly: true });
 db.backup('$BACKUPS/queue-$TS.db').then(() => { db.close(); console.log('снимок: $BACKUPS/queue-$TS.db'); }).catch(e => { console.error(e); process.exit(1); });
-" || { REASON="не удалось создать снимок базы"; fail_and_rollback; }
+" || {
+	REASON="не удалось создать снимок базы"
+	fail_and_rollback
+}
 
 log "3/5 остановка службы и обновление файлов"
 systemctl stop queue-service
-cp -a "$REL/index.js" "$REL/config.js" "$REL/database.js" "$REL/package.json" "$REL/package-lock.json" "$LIVE/" || REASON="не удалось скопировать основные файлы"; fail_and_rollback
+cp -a "$REL/index.js" "$REL/config.js" "$REL/database.js" "$REL/package.json" "$REL/package-lock.json" "$LIVE/" || REASON="не удалось скопировать основные файлы"
+fail_and_rollback
 for dir in middleware routes services migration; do
-	rm -rf "$LIVE/$dir" || REASON="не удалось очистить $dir"; fail_and_rollback
-	cp -a "$REL/$dir" "$LIVE/$dir" || REASON="не удалось скопировать $dir"; fail_and_rollback
+	rm -rf "$LIVE/$dir" || REASON="не удалось очистить $dir"
+	fail_and_rollback
+	cp -a "$REL/$dir" "$LIVE/$dir" || REASON="не удалось скопировать $dir"
+	fail_and_rollback
 done
 # Недостающие пакеты node_modules (pg и его зависимости) добавляются поверх:
 # существующие модули не трогаем, чтобы не сломать запущенную службу.
-cd "$REL/node_modules" || REASON="нет каталога node_modules релиза"; fail_and_rollback
+cd "$REL/node_modules" || REASON="нет каталога node_modules релиза"
+fail_and_rollback
 for d in */ @*/*/; do
 	[ -e "$LIVE/node_modules/$d" ] || cp -a "$d" "$LIVE/node_modules/$d"
 done
 if [ "$WITH_CLIENT" = "1" ]; then
 	log "    обновляем клиентский билет"
-	rm -rf "$LIVE/public" || REASON="не удалось очистить public"; fail_and_rollback
-	cp -a "$REL/public" "$LIVE/public" || REASON="не удалось скопировать клиентский билет"; fail_and_rollback
+	rm -rf "$LIVE/public" || REASON="не удалось очистить public"
+	fail_and_rollback
+	cp -a "$REL/public" "$LIVE/public" || REASON="не удалось скопировать клиентский билет"
+	fail_and_rollback
 fi
 chown -R queueapp:queueapp "$LIVE" 2>/dev/null
 
 log "4/5 запуск службы"
 systemctl start queue-service
 for _ in $(seq 1 30); do
-	curl -sf -m 2 http://127.0.0.1:3001/health > /dev/null && break
+	curl -sf -m 2 http://127.0.0.1:3001/health >/dev/null && break
 	sleep 1
 done
-curl -sf -m 5 http://127.0.0.1:3001/health > /dev/null || REASON="служба не поднялась"; fail_and_rollback
-curl -sf -m 5 http://127.0.0.1:3001/api/queue > /dev/null || REASON="очередь не отвечает"; fail_and_rollback
-curl -sf -m 5 http://127.0.0.1:3001/visitor > /dev/null || REASON="страница посетителя не открывается"; fail_and_rollback
+curl -sf -m 5 http://127.0.0.1:3001/health >/dev/null || REASON="служба не поднялась"
+fail_and_rollback
+curl -sf -m 5 http://127.0.0.1:3001/api/queue >/dev/null || REASON="очередь не отвечает"
+fail_and_rollback
+curl -sf -m 5 http://127.0.0.1:3001/visitor >/dev/null || REASON="страница посетителя не открывается"
+fail_and_rollback
 BOOKING=$(curl -s -o /dev/null -w "%{http_code}" -m 5 http://127.0.0.1:3001/api/booking/services)
 log "    /api/booking/services → $BOOKING (401 — токен не передан, 503 — запись выключена, 200 — запись включена)"
 
