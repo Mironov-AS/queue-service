@@ -54,6 +54,10 @@ function createBookingRouter({
 			return null;
 		}
 	};
+	const month = (value) => {
+		if (value === undefined || value === null || value === "") return null;
+		return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value)) ? String(value) : null;
+	};
 	const handle = (fn) => async (req, res) => {
 		try {
 			await fn(req, res);
@@ -89,6 +93,30 @@ function createBookingRouter({
 					text: approvedConsent.text,
                     policyUrl: approvedConsent.policyUrl,
                     consentUrl: approvedConsent.consentUrl,
+				},
+			});
+		}),
+	);
+	router.get(
+		"/public/:publicId/month",
+		publicLimit,
+		handle(async (req, res) => {
+			if (!uuid.test(req.params.publicId)) return res.status(400).json({ error: "Некорректные параметры" });
+			const requested = month(req.query.month);
+			if (req.query.month !== undefined && !requested)
+				return res.status(400).json({ error: "Некорректные параметры" });
+			const data = await repository.getAvailability(req.params.publicId, requested);
+			if (!data)
+				return res
+					.status(404)
+					.json({ error: "Запись на эту услугу временно недоступна" });
+			return res.json({
+				...data,
+				consent: {
+					version: approvedConsent.version,
+					text: approvedConsent.text,
+					policyUrl: approvedConsent.policyUrl,
+					consentUrl: approvedConsent.consentUrl,
 				},
 			});
 		}),

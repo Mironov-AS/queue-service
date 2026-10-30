@@ -82,6 +82,20 @@ function localNow(timeZone) {
 		time: `${o.hour}:${o.minute}`,
 	};
 }
+
+// "YYYY-MM" of the month that contains the given local date.
+function monthOf(date) {
+	return date.slice(0, 7);
+}
+function monthRange(month) {
+	const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
+	if (!m) throw new Error("Некорректный месяц");
+	const year = Number(m[1]),
+		mon = Number(m[2]);
+	if (year < 2000 || year > 2100) throw new Error("Некорректный месяц");
+	const days = new Date(Date.UTC(year, mon, 0)).getUTCDate();
+	return { year, mon, days, first: `${month}-01`, last: `${month}-${days}` };
+}
 function configSlots(config, date, bookings) {
 	return calculateSlots({
 		date,
@@ -154,6 +168,58 @@ function bookingRepository(pool) {
 		async cancel(serviceId, bookingId) {
 			const result = await pool.query("UPDATE bookings SET status='cancelled' WHERE id=$1 AND service_id=$2 AND status='booked' RETURNING id", [bookingId,serviceId]);
 			return result.rowCount > 0;
+		},
+		// Availability of every day of a month for the public calendar.
+		// Returns aggregated counters only: no client data crosses this boundary.
+		async getAvailability(publicId, month) {
+			const r = await pool.query(
+				"SELECT c.*,s.name,s.active FROM booking_config c JOIN services s ON s.id=c.service_id WHERE c.public_id=$1",
+				[publicId],
+			);
+			const c = r.rows[0];
+			if (!c || !c.active || !c.enabled) return null;
+			const now = localNow(c.timezone);
+			const target = month ? monthRange(month) : monthRange(monthOf(now.date));
+			const b = await pool.query(
+				"SELECT to_char(booking_date,'YYYY-MM-DD') AS booking_date,to_char(start_time,'HH24:MI') AS start,to_char(end_time,'HH24:MI') AS end FROM bookings WHERE service_id=$1 AND booking_date BETWEEN $2 AND $3 AND status='booked'",
+				[c.service_id, target.first, target.last],
+			);
+			const byDate = {};
+			for (const row of b.rows) {
+				(byDate[row.booking_date] = byDate[row.booking_date] || []).push({
+					start: row.start,
+					end: row.end,
+				});
+			}
+			const days = [];
+			for (let i = 1; i <= target.days; i++) {
+				const date = `${target.year}-${String(target.mon).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+				let reason = null;
+				let free = 0;
+				if (date < now.date) {
+					reason = "past";
+				} else {
+					const slots = configSlots(c, date, byDate[date] || []);
+					if (!slots.length) {
+						reason = "closed";
+					} else {
+						free = slots.reduce((sum, s) => {
+							const usable =
+								date === now.date && s.start <= now.time ? 0 : s.available;
+							return sum + usable;
+						}, 0);
+						if (free === 0) reason = "full";
+					}
+				}
+				days.push({ date, available: reason === null, reason, free });
+			}
+			return {
+				month: `${target.year}-${String(target.mon).padStart(2, "0")}`,
+				timezone: c.timezone,
+				name: c.name,
+				description: c.description,
+				days,
+			};
 		},
 		async getPublic(publicId, date) {
 			const r = await pool.query(
