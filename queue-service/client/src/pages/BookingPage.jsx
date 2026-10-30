@@ -6,9 +6,16 @@ function localDate() {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// A widget link may carry an explicit date (?date=YYYY-MM-DD) so an embedder
+// can link directly to a specific day. An invalid value falls back to today.
+function initialDate() {
+	const value = new URLSearchParams(window.location.search).get("date");
+	return /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? value : localDate();
+}
+
 export default function BookingPage() {
 	const { publicId } = useParams();
-	const [date, setDate] = useState(localDate);
+	const [date, setDate] = useState(initialDate);
 	const [data, setData] = useState(null);
 	const [slot, setSlot] = useState("");
 	const [answers, setAnswers] = useState({});

@@ -8,8 +8,12 @@ export default defineConfig({
 		port: 3000,
 		allowedHosts: true,
 		proxy: {
-			// Sandbox preview intentionally targets SQLite port 6620. The future
-			// PostgreSQL runtime remains unimplemented, so this is not a PostgreSQL check.
+			// Sandbox preview: the booking module runs as a separate process on an
+			// isolated local PostgreSQL; the queue itself stays on SQLite.
+			"/api/booking": {
+				target: "http://localhost:6621",
+				changeOrigin: true,
+			},
 			"/api": {
 				target: "http://localhost:6620",
 				changeOrigin: true,
