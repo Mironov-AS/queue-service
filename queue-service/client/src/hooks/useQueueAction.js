@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { apiFetch } from '../api';
+import { useCallback } from "react";
+import { apiFetch } from "../api";
 
 /**
  * Reusable async action hook for queue operations.
@@ -9,36 +9,46 @@ import { apiFetch } from '../api';
  * @param {function} options.setLoading - setLoading state setter
  * @param {function} [options.defaultError] - default error message shown to user
  */
-export function useQueueAction({ setLoading, defaultError = 'Ошибка' }) {
-  return useCallback(async (url, method = 'POST', body, { onSuccess, onFinally, transformData } = {}) => {
-    setLoading(true);
-    try {
-      const r = await apiFetch(url, {
-        method,
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      });
-      if (!r) return;
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        alert(d.error || defaultError);
-      } else {
-        const d = await r.json().catch(() => null);
-        if (d?.warning) {
-          // Do not replay a committed mutation. Fetch the authoritative state instead.
-          alert(d.warning);
-          const refreshed = await apiFetch('/api/queue/full').catch(() => null);
-          if (refreshed?.ok) {
-            const latest = await refreshed.json();
-            onSuccess?.(transformData ? transformData(latest) : latest);
-          }
-        } else if (d) onSuccess?.(transformData ? transformData(d) : d);
-      }
-    } catch (err) {
-      console.error(`Queue action error (${url}):`, err);
-      alert('Ошибка соединения с сервером');
-    } finally {
-      setLoading(false);
-      onFinally?.();
-    }
-  }, [setLoading, defaultError]);
+export function useQueueAction({ setLoading, defaultError = "Ошибка" }) {
+	return useCallback(
+		async (
+			url,
+			method = "POST",
+			body,
+			{ onSuccess, onFinally, transformData } = {},
+		) => {
+			setLoading(true);
+			try {
+				const r = await apiFetch(url, {
+					method,
+					...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+				});
+				if (!r) return;
+				if (!r.ok) {
+					const d = await r.json().catch(() => ({}));
+					alert(d.error || defaultError);
+				} else {
+					const d = await r.json().catch(() => null);
+					if (d?.warning) {
+						// Do not replay a committed mutation. Fetch the authoritative state instead.
+						alert(d.warning);
+						const refreshed = await apiFetch("/api/queue/full").catch(
+							() => null,
+						);
+						if (refreshed?.ok) {
+							const latest = await refreshed.json();
+							onSuccess?.(transformData ? transformData(latest) : latest);
+						}
+					} else if (d) onSuccess?.(transformData ? transformData(d) : d);
+				}
+			} catch (err) {
+				console.error(`Queue action error (${url}):`, err);
+				alert("Ошибка соединения с сервером");
+			} finally {
+				setLoading(false);
+				onFinally?.();
+			}
+		},
+		[setLoading, defaultError],
+	);
 }
