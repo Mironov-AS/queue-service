@@ -107,7 +107,10 @@ const slotButtons = [...document.querySelectorAll("button")].filter((b) =>
 	/^\d{2}:\d{2}/.test(b.textContent.trim()),
 );
 console.log("слотов на выбранный день:", slotButtons.length);
-console.log("ТЕЛО:", (document.body.textContent || "").replace(/\s+/g," ").slice(0, 500));
+console.log(
+	"ТЕЛО:",
+	(document.body.textContent || "").replace(/\s+/g, " ").slice(0, 500),
+);
 if (slotButtons.length === 0) {
 	console.error("Слоты не показаны");
 	process.exit(1);
@@ -160,7 +163,9 @@ if (button?.disabled) {
 }
 
 // Fill the required fields and send the booking.
-for (const input of document.querySelectorAll("input[type=text], input[type=tel]")) {
+for (const input of document.querySelectorAll(
+	"input[type=text], input[type=tel]",
+)) {
 	await act(async () => {
 		const setter = Object.getOwnPropertyDescriptor(
 			dom.window.HTMLInputElement.prototype,

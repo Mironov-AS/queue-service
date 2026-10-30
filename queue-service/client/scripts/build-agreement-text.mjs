@@ -80,7 +80,13 @@ const article = [...document.querySelectorAll("div")].find((d) =>
 const title = article.querySelector("h1").textContent.trim();
 const updated = article.querySelector("p").textContent.trim();
 
-const lines = [`# ${title}`, "", `Версия: ${globalThis.__version}`, `Редакция: ${globalThis.__updated}`, ""];
+const lines = [
+	`# ${title}`,
+	"",
+	`Версия: ${globalThis.__version}`,
+	`Редакция: ${globalThis.__updated}`,
+	"",
+];
 for (const section of article.querySelectorAll("section")) {
 	const heading = section.querySelector("h2");
 	if (!heading) continue;

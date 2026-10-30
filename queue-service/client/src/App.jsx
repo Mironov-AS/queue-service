@@ -38,7 +38,16 @@ export default function App() {
 					}
 				/>
 				<Route path="/visitor" element={<VisitorPage />} />
-				<Route path="/booking/:publicId" element={import.meta.env.VITE_BOOKING_ENABLED === "true" ? <BookingPage /> : <div role="status">Запись временно недоступна</div>} />
+				<Route
+					path="/booking/:publicId"
+					element={
+						import.meta.env.VITE_BOOKING_ENABLED === "true" ? (
+							<BookingPage />
+						) : (
+							<div role="status">Запись временно недоступна</div>
+						)
+					}
+				/>
 				<Route path="/terminal" element={<TerminalPage />} />
 				<Route path="/privacy" element={<PrivacyPolicyPage />} />
 				<Route path="/consent" element={<ConsentPage />} />
