@@ -1,50 +1,156 @@
-
-
-const express = require('express');
-const rateLimit = require('express-rate-limit');
-const { calculateSlots } = require('../services/bookingSlots');
+const express = require("express");
+const rateLimit = require("express-rate-limit");
+const { calculateSlots } = require("../services/bookingSlots");
 
 // The caller must provide a server-controlled, legally reviewed consent document.
 // This router is intentionally not mounted in the legacy SQLite server.
-function createBookingRouter({ repository, approvedConsent, requireAuth, requireAdmin }) {
-  if (typeof requireAuth !== 'function' || typeof requireAdmin !== 'function') throw new Error('Необходимо настроить защиту админки');
-  if (!repository || !approvedConsent || typeof approvedConsent.version !== 'string' || typeof approvedConsent.text !== 'string' || !approvedConsent.version.trim() || !approvedConsent.text.trim()) throw new Error('Необходимо настроить утверждённое согласие');
-  const router = express.Router();
-  const publicLimit = rateLimit({windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: true, legacyHeaders: false});
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const id = value => /^[1-9]\d{0,9}$/.test(String(value)) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
-  const date = value => { try { calculateSlots({date:value,weekdays:[],durationMinutes:1,capacity:1}); return value; } catch { return null; } };
-  const handle = fn => async (req,res) => { try { await fn(req,res); } catch (e) { if (e.code && /^\d{5}$/.test(e.code)) { console.error('booking db error:',e.code); return res.status(500).json({error:'Ошибка сервера'}); } return res.status(400).json({error: e.message || 'Некорректный запрос'}); } };
-  router.get('/public/:publicId',publicLimit,handle(async(req,res)=>{
-    if (!uuid.test(req.params.publicId) || !date(req.query.date)) return res.status(400).json({error:'Некорректные параметры'});
-    const data=await repository.getPublic(req.params.publicId, req.query.date);
-    if(!data) return res.status(404).json({error:'Запись на эту услугу временно недоступна'});
-    return res.json({...data,consent:{version:approvedConsent.version,text:approvedConsent.text}});
-  }));
-  router.post('/public/:publicId',publicLimit,handle(async(req,res)=>{
-    if(!uuid.test(req.params.publicId) || !date(req.body.date)) return res.status(400).json({error:'Некорректные параметры'});
-    if(req.body.consentVersion !== approvedConsent.version) return res.status(409).json({error:'Текст согласия изменился, обновите форму'});
-    const booking=await repository.create(req.params.publicId,req.body,approvedConsent);
-    return res.status(201).json(booking);
-  }));
-  router.get('/services/:serviceId/config',requireAuth,requireAdmin,handle(async(req,res)=>{
-    const serviceId=id(req.params.serviceId); if(!serviceId) return res.status(400).json({error:'Некорректная услуга'});
-    return res.json(await repository.getConfig(serviceId));
-  }));
-  router.put('/services/:serviceId/config',requireAuth,requireAdmin,handle(async(req,res)=>{
-    const serviceId=id(req.params.serviceId); if(!serviceId) return res.status(400).json({error:'Некорректная услуга'});
-    return res.json(await repository.saveConfig(serviceId,req.body));
-  }));
-  router.get('/services/:serviceId/calendar',requireAuth,requireAdmin,handle(async(req,res)=>{
-    const serviceId=id(req.params.serviceId); if(!serviceId || !date(req.query.date)) return res.status(400).json({error:'Некорректные параметры'});
-    const calendar=await repository.getCalendar(serviceId,req.query.date);
-    return calendar ? res.json(calendar) : res.status(404).json({error:'Расписание не настроено'});
-  }));
-  router.post('/services/:serviceId/bookings/:bookingId/cancel',requireAuth,requireAdmin,handle(async(req,res)=>{
-    const serviceId=id(req.params.serviceId), bookingId=id(req.params.bookingId);
-    if(!serviceId || !bookingId) return res.status(400).json({error:'Некорректные параметры'});
-    return (await repository.cancel(serviceId,bookingId)) ? res.json({cancelled:true}) : res.status(404).json({error:'Запись не найдена'});
-  }));
-  return router;
+function createBookingRouter({
+	repository,
+	approvedConsent,
+	requireAuth,
+	requireAdmin,
+}) {
+	if (typeof requireAuth !== "function" || typeof requireAdmin !== "function")
+		throw new Error("Необходимо настроить защиту админки");
+	if (
+		!repository ||
+		!approvedConsent ||
+		typeof approvedConsent.version !== "string" ||
+		typeof approvedConsent.text !== "string" ||
+		!approvedConsent.version.trim() ||
+		!approvedConsent.text.trim()
+	)
+		throw new Error("Необходимо настроить утверждённое согласие");
+	const router = express.Router();
+	const publicLimit = rateLimit({
+		windowMs: 15 * 60 * 1000,
+		limit: 120,
+		standardHeaders: true,
+		legacyHeaders: false,
+	});
+	const uuid =
+		/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+	const id = (value) =>
+		/^[1-9]\d{0,9}$/.test(String(value)) && Number.isSafeInteger(Number(value))
+			? Number(value)
+			: null;
+	const date = (value) => {
+		try {
+			calculateSlots({
+				date: value,
+				weekdays: [],
+				durationMinutes: 1,
+				capacity: 1,
+			});
+			return value;
+		} catch {
+			return null;
+		}
+	};
+	const handle = (fn) => async (req, res) => {
+		try {
+			await fn(req, res);
+		} catch (e) {
+			if (e.code && /^\d{5}$/.test(e.code)) {
+				console.error("booking db error:", e.code);
+				return res.status(500).json({ error: "Ошибка сервера" });
+			}
+			return res
+				.status(400)
+				.json({ error: e.message || "Некорректный запрос" });
+		}
+	};
+	router.get(
+		"/public/:publicId",
+		publicLimit,
+		handle(async (req, res) => {
+			if (!uuid.test(req.params.publicId) || !date(req.query.date))
+				return res.status(400).json({ error: "Некорректные параметры" });
+			const data = await repository.getPublic(
+				req.params.publicId,
+				req.query.date,
+			);
+			if (!data)
+				return res
+					.status(404)
+					.json({ error: "Запись на эту услугу временно недоступна" });
+			return res.json({
+				...data,
+				consent: {
+					version: approvedConsent.version,
+					text: approvedConsent.text,
+				},
+			});
+		}),
+	);
+	router.post(
+		"/public/:publicId",
+		publicLimit,
+		handle(async (req, res) => {
+			if (!uuid.test(req.params.publicId) || !date(req.body.date))
+				return res.status(400).json({ error: "Некорректные параметры" });
+			if (req.body.consentVersion !== approvedConsent.version)
+				return res
+					.status(409)
+					.json({ error: "Текст согласия изменился, обновите форму" });
+			const booking = await repository.create(
+				req.params.publicId,
+				req.body,
+				approvedConsent,
+			);
+			return res.status(201).json(booking);
+		}),
+	);
+	router.get(
+		"/services/:serviceId/config",
+		requireAuth,
+		requireAdmin,
+		handle(async (req, res) => {
+			const serviceId = id(req.params.serviceId);
+			if (!serviceId)
+				return res.status(400).json({ error: "Некорректная услуга" });
+			return res.json(await repository.getConfig(serviceId));
+		}),
+	);
+	router.put(
+		"/services/:serviceId/config",
+		requireAuth,
+		requireAdmin,
+		handle(async (req, res) => {
+			const serviceId = id(req.params.serviceId);
+			if (!serviceId)
+				return res.status(400).json({ error: "Некорректная услуга" });
+			return res.json(await repository.saveConfig(serviceId, req.body));
+		}),
+	);
+	router.get(
+		"/services/:serviceId/calendar",
+		requireAuth,
+		requireAdmin,
+		handle(async (req, res) => {
+			const serviceId = id(req.params.serviceId);
+			if (!serviceId || !date(req.query.date))
+				return res.status(400).json({ error: "Некорректные параметры" });
+			const calendar = await repository.getCalendar(serviceId, req.query.date);
+			return calendar
+				? res.json(calendar)
+				: res.status(404).json({ error: "Расписание не настроено" });
+		}),
+	);
+	router.post(
+		"/services/:serviceId/bookings/:bookingId/cancel",
+		requireAuth,
+		requireAdmin,
+		handle(async (req, res) => {
+			const serviceId = id(req.params.serviceId),
+				bookingId = id(req.params.bookingId);
+			if (!serviceId || !bookingId)
+				return res.status(400).json({ error: "Некорректные параметры" });
+			return (await repository.cancel(serviceId, bookingId))
+				? res.json({ cancelled: true })
+				: res.status(404).json({ error: "Запись не найдена" });
+		}),
+	);
+	return router;
 }
 module.exports = { createBookingRouter };
