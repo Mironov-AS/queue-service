@@ -3,6 +3,9 @@ import { apiFetch } from "../../api";
 import BookingSettings from "./BookingSettings";
 import { Icon, P, Modal, FIELD_TYPES } from "./shared";
 
+// UI only. Server must independently keep booking API disabled until release.
+const bookingEnabled = import.meta.env.VITE_BOOKING_ENABLED === "true";
+
 // ─── Service Fields Modal ─────────────────────────────────────────────────────
 
 function ServiceFieldsModal({ service, onClose }) {
@@ -536,7 +539,7 @@ export default function ServicesTab() {
 									</button>
 								</td>
 								<td className="px-4 py-4">
-                                    <button type="button" onClick={() => setBookingModal(s)} className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg">Запись</button>
+                                    <button type="button" disabled={!bookingEnabled} title={bookingEnabled ? "Настройки записи" : "Запись пока недоступна"} onClick={() => setBookingModal(s)} className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed">Запись</button>
 									<div className="flex gap-1 justify-end">
 										<button
 											onClick={() => startEdit(s)}
@@ -558,7 +561,7 @@ export default function ServicesTab() {
 				</table>
 			</div>
 
-			{bookingModal && <BookingSettings service={bookingModal} onClose={() => setBookingModal(null)} />}
+			{bookingEnabled && bookingModal && <BookingSettings service={bookingModal} onClose={() => setBookingModal(null)} />}
 			{fieldsModal && (
 				<ServiceFieldsModal
 					service={fieldsModal}
