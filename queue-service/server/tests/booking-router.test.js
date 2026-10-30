@@ -19,7 +19,14 @@ async function withServer(run, overrides = {}) {
 		"/api/booking",
 		createBookingRouter({
 			repository: repo,
-			approvedConsent: { version: "v1", text: "Согласие", policyUrl: "/privacy", consentUrl: "/consent" },
+			approvedConsent: {
+				version: "v1",
+				text: "Согласие",
+				agreementUrl: "/agreement",
+				agreementTitle: "Пользовательское соглашение",
+				policyUrl: "/privacy",
+				consentUrl: "/consent",
+			},
 			requireAuth: (_req, res) =>
 				res.status(401).json({ error: "Не авторизован" }),
 			requireAdmin: (_req, _res, next) => next(),
@@ -51,7 +58,19 @@ test("публичная форма получает серверную верс
         assert.equal(consent.version, "v1");
         assert.equal(consent.policyUrl, "/privacy");
         assert.equal(consent.consentUrl, "/consent");
+        assert.equal(consent.agreementUrl, "/agreement");
+        assert.equal(consent.agreementTitle, "Пользовательское соглашение");
 	}));
+test("утверждённое согласие сервиса записи содержит ссылку на соглашение и реквизиты", () => {
+	const { bookingConsent } = require("../services/bookingConsent");
+	assert.ok(bookingConsent.version, "должна быть версия согласия");
+	assert.match(bookingConsent.text, /Пользовательск/);
+	assert.match(bookingConsent.text, /150304643015/);
+	assert.equal(bookingConsent.agreementUrl, "/agreement");
+	assert.equal(bookingConsent.policyUrl, "/privacy");
+	assert.equal(bookingConsent.consentUrl, "/consent");
+	assert.doesNotMatch(bookingConsent.text, /Технический текст/);
+});
 test("чужая или устаревшая версия согласия отклоняется", () =>
 	withServer(async (base) => {
 		const r = await fetch(`${base}/public/${publicId}`, {

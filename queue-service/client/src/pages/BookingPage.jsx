@@ -530,8 +530,7 @@ export default function BookingPage() {
 																	rel="noreferrer"
 																	className="text-blue-700 underline"
 																>
-																	{consent.agreementTitle ||
-																		"пользовательского соглашения"}
+																	пользовательского соглашения
 																</a>
 																.
 															</span>
