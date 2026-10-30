@@ -122,6 +122,12 @@ await act(async () => {
 await flush(800);
 
 const text = document.body.textContent || "";
+const logo = document.querySelector('img[alt="Максима"]');
+console.log("логотип в виджете:", logo ? logo.getAttribute("src") : "нет");
+if (!logo || !/logo\.png$/.test(logo.getAttribute("src") || "")) {
+	console.error("В виджете нет логотипа Максима");
+	process.exit(1);
+}
 const checkbox = document.querySelector("input[type=checkbox]");
 const button = [...document.querySelectorAll("button")].find(
 	(b) => b.textContent.trim() === "Записаться",
