@@ -39,15 +39,13 @@ CREATE TABLE IF NOT EXISTS services (
 );`;
 
 function readServices(db) {
-	try {
-		return db
-			.prepare(
-				"SELECT id, name, description, active, enabled FROM services WHERE active = 1 ORDER BY id",
-			)
-			.all();
-	} catch {
-		return [];
-	}
+	// Ошибка чтения не является пустым справочником: нельзя деактивировать
+	// все услуги в базе записи из-за временного сбоя очереди.
+	return db
+		.prepare(
+			"SELECT id, name, description, active, enabled FROM services WHERE active = 1 ORDER BY id",
+		)
+		.all();
 }
 
 async function syncServices(pool, db) {

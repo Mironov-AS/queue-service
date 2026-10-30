@@ -8,6 +8,7 @@ const { Pool } = require("pg");
 const Database = require("better-sqlite3");
 const {
 	startBooking,
+	syncServices,
 	setBookingState,
 	getBookingState,
 	notifyServicesChanged,
@@ -27,6 +28,22 @@ function queueDb(rows) {
 	for (const r of rows) insert.run(...r);
 	return db;
 }
+
+test("ошибка чтения очереди не изменяет справочник записи", async () => {
+	let queries = 0;
+	const pool = {
+		query: async () => {
+			queries++;
+		},
+	};
+	const db = {
+		prepare: () => {
+			throw new Error("ошибка чтения");
+		},
+	};
+	await assert.rejects(syncServices(pool, db), /ошибка чтения/);
+	assert.equal(queries, 0);
+});
 
 test("запись выключена без явных настроек", async () => {
 	const db = queueDb([[1, "Ремонт ГБО", null, 1, 1]]);
