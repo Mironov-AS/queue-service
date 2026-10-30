@@ -172,6 +172,7 @@ async function withAdminServer(run, overrides = {}, role = "admin") {
 		getCalendar: async () => ({}),
 		cancel: async () => true,
 		getAvailability: async () => null,
+		getAdminBookings: async () => ({ month: "2026-11", bookings: [] }),
 		getAdminMonth: async () => ({
 			month: "2026-11",
 			timezone: "Europe/Moscow",
@@ -263,4 +264,58 @@ test("месячный обзор скрывает услугу без расп�
 			assert.equal(r.status, 404);
 		},
 		{ getAdminMonth: async () => null },
+	));
+
+test("список записей за месяц доступен только администратору", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services/1/bookings?month=2026-11`);
+			assert.equal(r.status, 401);
+		},
+		{},
+		null,
+	));
+
+test("список записей за месяц отклоняет некорректный месяц", () =>
+	withAdminServer(async (base) => {
+		const r = await fetch(`${base}/services/1/bookings?month=2026-13`);
+		assert.equal(r.status, 400);
+	}));
+
+test("список записей за месяц возвращает данные клиентов", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services/1/bookings?month=2026-11`);
+			assert.equal(r.status, 200);
+			const body = await r.json();
+			assert.equal(body.month, "2026-11");
+			assert.equal(body.bookings.length, 1);
+			assert.equal(body.bookings[0].date, "2026-11-03");
+			assert.equal(body.bookings[0].start, "09:00");
+			assert.equal(body.bookings[0].answers.car.value, "А123ВС77");
+		},
+		{
+			getAdminBookings: async (_id, month) => ({
+				month,
+				timezone: "Europe/Moscow",
+				bookings: [
+					{
+						id: 1,
+						date: "2026-11-03",
+						start: "09:00",
+						end: "09:30",
+						answers: { car: { label: "Номер авто", value: "А123ВС77" } },
+					},
+				],
+			}),
+		},
+	));
+
+test("список записей скрывает услугу без расписания", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services/1/bookings?month=2026-11`);
+			assert.equal(r.status, 404);
+		},
+		{ getAdminBookings: async () => null },
 	));

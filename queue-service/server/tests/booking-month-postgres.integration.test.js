@@ -98,6 +98,17 @@ test("PostgreSQL: календарь месяца отмечает закрыт�
 		assert.equal(adminByDate[freeDay].slots, 1);
 		// The overview carries counters, never client data.
 		assert.equal(JSON.stringify(adminMonth).includes("answers"), false);
+		// The administrator list of the month contains the client data.
+		const adminBookings = await repo.getAdminBookings(1, month);
+		assert.equal(adminBookings.month, month);
+		assert.equal(adminBookings.bookings.length, 1);
+		assert.equal(adminBookings.bookings[0].date, busyDay);
+		assert.equal(adminBookings.bookings[0].start, "09:00");
+		assert.equal(adminBookings.bookings[0].end, "10:00");
+		assert.ok(adminBookings.bookings[0].answers);
+		// Bookings of other months are not included.
+		const otherMonth = await repo.getAdminBookings(1, "2099-12");
+		assert.equal(otherMonth.bookings.length, 0);
 	} finally {
 		if (pool) await pool.end();
 		if (created) await admin.query(`DROP SCHEMA "${name}" CASCADE`);

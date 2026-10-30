@@ -205,6 +205,22 @@ function createBookingRouter({
 				: res.status(404).json({ error: "Расписание не настроено" });
 		}),
 	);
+	router.get(
+		"/services/:serviceId/bookings",
+		requireAuth,
+		requireAdmin,
+		handle(async (req, res) => {
+			const serviceId = id(req.params.serviceId);
+			if (!serviceId) return res.status(400).json({ error: "Некорректная услуга" });
+			const month = String(req.query.month || "");
+			if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+				return res.status(400).json({ error: "Некорректный месяц" });
+			const list = await repository.getAdminBookings(serviceId, month);
+			return list
+				? res.json(list)
+				: res.status(404).json({ error: "Расписание не настроено" });
+		}),
+	);
 	router.post(
 		"/services/:serviceId/bookings/:bookingId/cancel",
 		requireAuth,

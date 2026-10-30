@@ -214,6 +214,19 @@ function bookingRepository(pool) {
 				days,
 			};
 		},
+		// All bookings of a month with client data for the administrator.
+		// Only the administrator routes may use it; the public month overview
+		// deliberately returns counters without client data.
+		async getAdminBookings(serviceId, month) {
+			const config = await this.getConfig(serviceId);
+			if (!config) return null;
+			const target = monthRange(month);
+			const rows = await pool.query(
+				"SELECT id,to_char(booking_date,'YYYY-MM-DD') AS date,to_char(start_time,'HH24:MI') AS start,to_char(end_time,'HH24:MI') AS end,answers,consented_at FROM bookings WHERE service_id=$1 AND booking_date BETWEEN $2 AND $3 AND status='booked' ORDER BY booking_date,start_time,id",
+				[serviceId, target.first, target.last],
+			);
+			return { month, timezone: config.timezone, bookings: rows.rows };
+		},
 		async cancel(serviceId, bookingId) {
 			const result = await pool.query(
 				"UPDATE bookings SET status='cancelled' WHERE id=$1 AND service_id=$2 AND status='booked' RETURNING id",

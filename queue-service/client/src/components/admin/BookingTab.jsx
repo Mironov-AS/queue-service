@@ -52,6 +52,7 @@ export default function BookingTab() {
 	const [serviceId, setServiceId] = useState(null);
 	const [month, setMonth] = useState(currentMonth());
 	const [overview, setOverview] = useState(null);
+	const [monthBookings, setMonthBookings] = useState([]);
 	const [selectedDate, setSelectedDate] = useState(null);
 	const [day, setDay] = useState(null);
 	const [error, setError] = useState("");
@@ -84,9 +85,14 @@ export default function BookingTab() {
 		let active = true;
 		setError("");
 		setOverview(null);
-		request(`/api/booking/services/${serviceId}/month?month=${month}`)
-			.then((result) => {
-				if (active) setOverview(result);
+		Promise.all([
+			request(`/api/booking/services/${serviceId}/month?month=${month}`),
+			request(`/api/booking/services/${serviceId}/bookings?month=${month}`),
+		])
+			.then(([monthResult, bookingsResult]) => {
+				if (!active) return;
+				setOverview(monthResult);
+				setMonthBookings(bookingsResult.bookings || []);
 			})
 			.catch((e) => {
 				if (active) setError(e.message);
@@ -130,14 +136,18 @@ export default function BookingTab() {
 				{ method: "POST" },
 			);
 			setNotice("Запись отменена");
-			const [dayResult, monthResult] = await Promise.all([
-				request(
-					`/api/booking/services/${serviceId}/calendar?date=${encodeURIComponent(selectedDate)}`,
-				),
+			const [dayResult, monthResult, bookingsResult] = await Promise.all([
+				selectedDate
+					? request(
+							`/api/booking/services/${serviceId}/calendar?date=${encodeURIComponent(selectedDate)}`,
+						)
+					: null,
 				request(`/api/booking/services/${serviceId}/month?month=${month}`),
+				request(`/api/booking/services/${serviceId}/bookings?month=${month}`),
 			]);
-			setDay(dayResult);
+			if (dayResult) setDay(dayResult);
 			setOverview(monthResult);
+			setMonthBookings(bookingsResult.bookings || []);
 		} catch (e) {
 			setError(e.message);
 		}
@@ -299,6 +309,67 @@ export default function BookingTab() {
 						</>
 					)}
 				</section>
+
+			<section className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-2">
+				<h2 className="text-lg font-bold">Записи за месяц</h2>
+				<p className="mt-1 text-xs text-gray-500">
+					Все записи выбранного месяца: дата, время и данные клиента.
+				</p>
+				{monthBookings.length === 0 ? (
+					<p className="mt-3 text-sm text-gray-500">
+						В этом месяце записей нет.
+					</p>
+				) : (
+					<div className="mt-3 overflow-x-auto">
+						<table className="w-full text-left text-sm">
+							<thead>
+								<tr className="border-b border-gray-200 text-xs text-gray-500">
+									<th className="py-2 pr-3 font-semibold">Дата</th>
+									<th className="py-2 pr-3 font-semibold">Время</th>
+									<th className="py-2 pr-3 font-semibold">Клиент</th>
+									<th className="py-2 font-semibold">Действие</th>
+								</tr>
+							</thead>
+							<tbody>
+								{monthBookings.map((b) => (
+									<tr
+										key={b.id}
+										className="border-b border-gray-100 align-top"
+									>
+										<td className="py-2 pr-3 whitespace-nowrap">
+											{new Date(`${b.date}T00:00:00`).toLocaleDateString(
+												"ru-RU",
+												{
+													day: "numeric",
+													month: "2-digit",
+													year: "2-digit",
+												},
+											)}
+										</td>
+										<td className="py-2 pr-3 whitespace-nowrap">
+											{b.start}–{b.end}
+										</td>
+										<td className="py-2 pr-3">
+											{Object.values(b.answers || {})
+												.map((a) => `${a.label}: ${a.value}`)
+												.join(" · ") || "данные не указаны"}
+										</td>
+										<td className="py-2">
+											<button
+												type="button"
+												onClick={() => cancel(b.id)}
+												className="text-red-700 underline"
+											>
+												Отменить
+											</button>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
+			</section>
 
 				<section className="rounded-2xl bg-white p-4 shadow-sm">
 					<h2 className="text-lg font-bold">

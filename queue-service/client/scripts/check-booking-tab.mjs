@@ -139,6 +139,27 @@ await flush();
 const panel = document.body.textContent || "";
 const hasClientData = /Номер авто/.test(panel) && /Телефон/.test(panel);
 console.log("в панели дня есть поля клиента:", hasClientData);
+// The month list must show every booking of the month with client data.
+const table = document.querySelector("table");
+const rows = table ? [...table.querySelectorAll("tbody tr")] : [];
+console.log("строк в списке записей за месяц:", rows.length);
+const withClientData = rows.filter(
+	(r) => /Номер авто/.test(r.textContent) && /Телефон/.test(r.textContent),
+).length;
+const withTime = rows.every((r) => /\d{2}:\d{2}/.test(r.textContent));
+const monthListOk = rows.length > 0 && withClientData > 0 && withTime;
+console.log(
+	"строк с данными клиента:",
+	withClientData,
+	"из",
+	rows.length,
+	"| у всех есть время:",
+	withTime,
+);
+if (!monthListOk) {
+	console.error("Список записей за месяц не заполнен данными клиентов");
+	process.exit(1);
+}
 const start = panel.indexOf("занято");
 console.log(
 	"фрагмент панели:",

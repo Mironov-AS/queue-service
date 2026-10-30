@@ -152,7 +152,9 @@ const bookingTab = [...document.querySelectorAll("header button")].find(
 	(b) => b.textContent.trim() === "Запись",
 );
 await act(async () => {
-	bookingTab.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+	bookingTab.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
 });
 await flush(800);
 await Promise.allSettled(pending);
