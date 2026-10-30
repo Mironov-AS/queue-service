@@ -74,6 +74,12 @@ cp -a "$candidate" "$stage"
 phase=stopping
 "$root/control" stop
 phase=stopped
+# The service requires this path. Missing or unsafe trees must not be silently
+# treated as an empty tree, nor can a release be switched without preserving it.
+regular_upload_tree "$live/uploads" || {
+	echo 'missing or unsafe live uploads tree' >&2
+	false
+}
 # Capture any uploads made after staging, only once writers are stopped.
 if [ -d "$live/uploads" ]; then
 	regular_upload_tree "$live/uploads" || {

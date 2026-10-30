@@ -38,6 +38,12 @@ fi
 if [ "$action" = stop ] && [ "$failure" = rollback-stop ]; then
  [ "$(cat "$root/server/version")" = new ] && exit 1
 fi
+if [ "$action" = stop ] && [ "$failure" = missing-uploads ] && [ ! -e "$root/stop-attempt" ]; then
+ touch "$root/stop-attempt"; mv "$root/server/uploads" "$root/saved-uploads"; echo stopped > "$root/state"; exit 0
+fi
+if [ "$action" = start ] && [ "$failure" = missing-uploads ] && [ -d "$root/saved-uploads" ]; then
+ mv "$root/saved-uploads" "$root/server/uploads"
+fi
 if [ "$action" = check-new ] && [ "$failure" = rollback-stop ]; then exit 1; fi
 if [ "$action" = check-new ] && [ "$failure" = rollback-upload ]; then
  echo created-after-switch > "$root/server/uploads/new"
@@ -69,6 +75,7 @@ run_case validate old
 run_case snapshot old
 run_case stop old
 run_case stop-partial old
+run_case missing-uploads old
 run_case check-new old
 run_case rollback-upload old
 test "$(cat "$root/server/uploads/new")" = created-after-switch
