@@ -398,11 +398,6 @@ export default function BookingPage() {
 										"ru-RU",
 										{ day: "numeric", month: "long", year: "numeric" },
 									)}
-									{timezone && (
-										<span className="ml-2 text-sm font-normal text-slate-500">
-											({timezone})
-										</span>
-									)}
 								</h2>
 
 								{loading && (
