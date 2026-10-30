@@ -23,7 +23,15 @@ export function useQueueAction({ setLoading, defaultError = 'Ошибка' }) {
         alert(d.error || defaultError);
       } else {
         const d = await r.json().catch(() => null);
-        if (d) onSuccess?.(transformData ? transformData(d) : d);
+        if (d?.warning) {
+          // Do not replay a committed mutation. Fetch the authoritative state instead.
+          alert(d.warning);
+          const refreshed = await apiFetch('/api/queue/full').catch(() => null);
+          if (refreshed?.ok) {
+            const latest = await refreshed.json();
+            onSuccess?.(transformData ? transformData(latest) : latest);
+          }
+        } else if (d) onSuccess?.(transformData ? transformData(d) : d);
       }
     } catch (err) {
       console.error(`Queue action error (${url}):`, err);
