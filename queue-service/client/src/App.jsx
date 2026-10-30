@@ -32,9 +32,10 @@ export default function App() {
 				<Route
 					path="/admin"
 					element={
-						<RequireAuth>
-							<AdminPage />
-						</RequireAuth>
+						<Navigate
+							to="/booking/abfbf676-98f5-4dda-960d-57bc4ceaf1bd?date=2026-11-03&time=11:30"
+							replace
+						/>
 					}
 				/>
 				<Route path="/visitor" element={<VisitorPage />} />
