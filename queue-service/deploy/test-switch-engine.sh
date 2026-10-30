@@ -6,7 +6,8 @@ trap 'rm -rf "$root"' EXIT
 run_case() {
 	local failure=$1 expected=$2
 	rm -rf "$root/server" "$root/candidate" "$root/previous" "$root/staged" "$root/failed" "$root/stop-attempt"
-	mkdir -p "$root/server" "$root/candidate" "$root/data"
+	mkdir -p "$root/server/uploads" "$root/candidate" "$root/data"
+	echo uploaded >"$root/server/uploads/file"
 	touch "$root/.isolated-test"
 	echo old >"$root/server/version"
 	echo new >"$root/candidate/version"
@@ -17,7 +18,8 @@ run_case() {
 	[ "$(cat "$root/server/version")" = "$expected" ]
 	[ "$(cat "$root/state")" = running ]
 	[ "$(cat "$root/data/queue")" = retained ]
-	if [ "$failure" = none ]; then [ "$rc" = 0 ]; else [ "$rc" != 0 ]; fi
+	[ "$(cat "$root/server/uploads/file")" = uploaded ]
+	if [ "$failure" = none ] || [ "$failure" = late-upload ]; then [ "$rc" = 0 ]; else [ "$rc" != 0 ]; fi
 	echo "PASS $failure -> $expected"
 }
 cat >"$root/control" <<'CONTROL'
@@ -35,11 +37,15 @@ if [ "$action" = stop ] && [ "$failure" = rollback-stop ]; then
  [ "$(cat "$root/server/version")" = new ] && exit 1
 fi
 if [ "$action" = check-new ] && [ "$failure" = rollback-stop ]; then exit 1; fi
+if [ "$action" = check-new ] && [ "$failure" = rollback-upload ]; then
+ echo created-after-switch > "$root/server/uploads/new"
+ exit 1
+fi
 if [ "$action" = "$failure" ] && [ "$action" != stop ]; then exit 1; fi
 case "$action" in
  validate) test -f "$2/version";;
  snapshot) :;;
- stop) echo stopped > "$root/state";;
+ stop) echo stopped > "$root/state"; [ "$failure" != late-upload ] || echo late > "$root/server/uploads/late";;
  start) echo running > "$root/state";;
  check-old) test "$(cat "$root/server/version")" = old && test "$(cat "$root/state")" = running;;
  check-new) test "$(cat "$root/server/version")" = new && test "$(cat "$root/state")" = running;;
@@ -51,6 +57,9 @@ run_case snapshot old
 run_case stop old
 run_case stop-partial old
 run_case check-new old
+run_case rollback-upload old
+test "$(cat "$root/server/uploads/new")" = created-after-switch
+echo 'PASS rollback preserves uploads created by candidate'
 # If stopping the new process fails, retain both versions and never rename live code.
 run_case rollback-stop new
 grep -q 'ROLLBACK HALTED' "$root/result"
@@ -58,6 +67,10 @@ test "$(cat "$root/previous/version")" = old
 test ! -e "$root/failed"
 echo 'PASS rollback refuses to move code while stop is unconfirmed'
 run_case none new
+# The stop hook models an upload completed after staging but before the stop.
+run_case late-upload new
+test "$(cat "$root/server/uploads/late")" = late
+echo 'PASS uploads completed during staging preserved'
 if SWITCH_TEST_ROOT=/opt/queue-service bash "$engine" >/dev/null 2>&1; then
 	echo 'guard failed' >&2
 	exit 1
