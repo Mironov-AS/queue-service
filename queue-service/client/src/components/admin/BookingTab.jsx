@@ -310,66 +310,66 @@ export default function BookingTab() {
 					)}
 				</section>
 
-			<section className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-2">
-				<h2 className="text-lg font-bold">Записи за месяц</h2>
-				<p className="mt-1 text-xs text-gray-500">
-					Все записи выбранного месяца: дата, время и данные клиента.
-				</p>
-				{monthBookings.length === 0 ? (
-					<p className="mt-3 text-sm text-gray-500">
-						В этом месяце записей нет.
+				<section className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-2">
+					<h2 className="text-lg font-bold">Записи за месяц</h2>
+					<p className="mt-1 text-xs text-gray-500">
+						Все записи выбранного месяца: дата, время и данные клиента.
 					</p>
-				) : (
-					<div className="mt-3 overflow-x-auto">
-						<table className="w-full text-left text-sm">
-							<thead>
-								<tr className="border-b border-gray-200 text-xs text-gray-500">
-									<th className="py-2 pr-3 font-semibold">Дата</th>
-									<th className="py-2 pr-3 font-semibold">Время</th>
-									<th className="py-2 pr-3 font-semibold">Клиент</th>
-									<th className="py-2 font-semibold">Действие</th>
-								</tr>
-							</thead>
-							<tbody>
-								{monthBookings.map((b) => (
-									<tr
-										key={b.id}
-										className="border-b border-gray-100 align-top"
-									>
-										<td className="py-2 pr-3 whitespace-nowrap">
-											{new Date(`${b.date}T00:00:00`).toLocaleDateString(
-												"ru-RU",
-												{
-													day: "numeric",
-													month: "2-digit",
-													year: "2-digit",
-												},
-											)}
-										</td>
-										<td className="py-2 pr-3 whitespace-nowrap">
-											{b.start}–{b.end}
-										</td>
-										<td className="py-2 pr-3">
-											{Object.values(b.answers || {})
-												.map((a) => `${a.label}: ${a.value}`)
-												.join(" · ") || "данные не указаны"}
-										</td>
-										<td className="py-2">
-											<button
-												type="button"
-												onClick={() => cancel(b.id)}
-												className="text-red-700 underline"
-											>
-												Отменить
-											</button>
-										</td>
+					{monthBookings.length === 0 ? (
+						<p className="mt-3 text-sm text-gray-500">
+							В этом месяце записей нет.
+						</p>
+					) : (
+						<div className="mt-3 overflow-x-auto">
+							<table className="w-full text-left text-sm">
+								<thead>
+									<tr className="border-b border-gray-200 text-xs text-gray-500">
+										<th className="py-2 pr-3 font-semibold">Дата</th>
+										<th className="py-2 pr-3 font-semibold">Время</th>
+										<th className="py-2 pr-3 font-semibold">Клиент</th>
+										<th className="py-2 font-semibold">Действие</th>
 									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				)}
-			</section>
+								</thead>
+								<tbody>
+									{monthBookings.map((b) => (
+										<tr
+											key={b.id}
+											className="border-b border-gray-100 align-top"
+										>
+											<td className="py-2 pr-3 whitespace-nowrap">
+												{new Date(`${b.date}T00:00:00`).toLocaleDateString(
+													"ru-RU",
+													{
+														day: "numeric",
+														month: "2-digit",
+														year: "2-digit",
+													},
+												)}
+											</td>
+											<td className="py-2 pr-3 whitespace-nowrap">
+												{b.start}–{b.end}
+											</td>
+											<td className="py-2 pr-3">
+												{Object.values(b.answers || {})
+													.map((a) => `${a.label}: ${a.value}`)
+													.join(" · ") || "данные не указаны"}
+											</td>
+											<td className="py-2">
+												<button
+													type="button"
+													onClick={() => cancel(b.id)}
+													className="text-red-700 underline"
+												>
+													Отменить
+												</button>
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					)}
+				</section>
 
 				<section className="rounded-2xl bg-white p-4 shadow-sm">
 					<h2 className="text-lg font-bold">
