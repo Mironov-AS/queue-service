@@ -13,7 +13,7 @@ runuser -u postgres -- psql -Atqc "SELECT 1 FROM pg_database WHERE datname='queu
 }
 [ ! -e "$root" ] && [ ! -e /etc/systemd/system/$unit ] || exit 2
 ! ss -ltn | grep -q ':13085 ' || exit 2
-mkdir -m 700 "$root"
+mkdir -m 755 "$root"
 cleanup() {
 	systemctl stop "$unit" 2>/dev/null || true
 	rm -f /etc/systemd/system/$unit
@@ -28,17 +28,30 @@ set -a
 set +a
 BOOKING_DATABASE_URL="${BOOKING_DATABASE_URL%/*}/queue_switch_test_only"
 printf 'BOOKING_ENABLED=true\nBOOKING_DATABASE_URL=%s\n' "$BOOKING_DATABASE_URL" >"$root/booking.env"
-chmod 600 "$root/booking.env"
+chown root:queueapp "$root/booking.env"
+chmod 640 "$root/booking.env"
 cp "$(dirname "$0")/switch-engine.sh" "$root/engine"
 cp -a "$old" "$root/server"
 cp -a "$new" "$root/candidate"
+# Preserve the legacy upload tree required by the production sandbox settings.
+test ! -e "$root/candidate/uploads"
+cp -a "$root/server/uploads" "$root/candidate/uploads"
+diff -qr "$root/server/uploads" "$root/candidate/uploads"
 mkdir "$root/data"
 cp "$snapshot" "$root/data/queue.db"
+chown -R queueapp:queueapp "$root/data"
 touch "$root/.isolated-test"
 cat >/etc/systemd/system/$unit <<UNIT
 [Unit]
 Description=Isolated real queue release rehearsal
 [Service]
+User=queueapp
+Group=queueapp
+NoNewPrivileges=true
+# Test root lives in /tmp; PrivateTmp would hide it from the service.
+PrivateTmp=false
+ProtectSystem=full
+ReadWritePaths=$root/data $root/server/uploads
 WorkingDirectory=$root/server
 Environment=NODE_ENV=production
 Environment=DATA_DIR=$root/data
