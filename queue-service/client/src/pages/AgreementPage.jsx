@@ -108,7 +108,7 @@ export default function AgreementPage() {
 
 			<Section n="2" title="Термины">
 				<P>
-					2.1. Оператор — {o.name}, ИНН {o.inn}, {o.ogrn}, адрес:{" "}
+					2.1. Оператор — {o.name}, ИНН {o.inn}, {o.ogrn},{" "}
 					{o.address}, телефон: {o.phone}, e-mail: {o.email}.
 				</P>
 				<P>
@@ -354,7 +354,7 @@ export default function AgreementPage() {
 
 			<Section n="11" title="Контакты Оператора">
 				<P>
-					{o.name}. Адрес: {o.address}. ИНН {o.inn}. {o.ogrn}. Телефон:{" "}
+					{o.name}. {o.address}. ИНН {o.inn}. {o.ogrn}. Телефон:{" "}
 					{o.phone}. E-mail: {o.email}. Ответственный за обработку персональных
 					данных: {o.responsible}.
 				</P>
