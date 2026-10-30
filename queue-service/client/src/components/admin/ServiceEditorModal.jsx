@@ -415,7 +415,8 @@ export default function ServiceEditorModal({
 										className={input}
 									/>
 									<p className="mt-1 text-xs text-gray-400">
-										Чем выше, тем выше в списке услуг
+										Порядок услуги в списке для посетителя: больше — выше.
+										На порядок вызова в очереди не влияет
 									</p>
 								</div>
 								<div>

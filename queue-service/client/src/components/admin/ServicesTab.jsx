@@ -196,13 +196,18 @@ export default function ServicesTab() {
 								{services.map((s) => (
 									<tr
 										key={s.id}
-										className={`transition hover:bg-gray-50 ${!s.enabled ? "opacity-60" : ""}`}
+										className="transition hover:bg-gray-50"
 									>
 										<td className="px-5 py-4">
 											<div className="font-medium text-gray-800">{s.name}</div>
 											{s.description && (
 												<div className="mt-0.5 text-xs text-gray-400">
 													{s.description}
+												</div>
+											)}
+											{!s.enabled && (
+												<div className="mt-1 text-xs text-amber-600">
+													В очереди не участвует — только запись
 												</div>
 											)}
 										</td>
@@ -213,8 +218,8 @@ export default function ServicesTab() {
 													onClick={() => toggle(s)}
 													title={
 														s.enabled
-															? "Отключить услугу в очереди"
-															: "Включить услугу в очереди"
+															? "Отключить услугу в очереди — посетители перестанут её выбирать"
+															: "Включить услугу в очереди — посетители смогут её выбирать"
 													}
 													className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
 														s.enabled
@@ -259,7 +264,10 @@ export default function ServicesTab() {
 												<span className="text-gray-400">—</span>
 											)}
 										</td>
-										<td className="px-4 py-4 text-center text-gray-600">
+										<td
+											className="px-4 py-4 text-center text-gray-600"
+											title="Порядок услуги в списке для посетителя: чем больше число, тем выше услуга в списке. Не путать с приоритетным талоном в очереди."
+										>
 											{s.priority || 0}
 										</td>
 										<td className="px-4 py-4 text-center text-gray-500">

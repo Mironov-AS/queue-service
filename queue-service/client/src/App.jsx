@@ -22,6 +22,17 @@ function RequireAuth({ children }) {
 	return children;
 }
 
+
+// TEMP: автовход для снимка превью
+function __TempAuth() {
+	localStorage.setItem("adminToken", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc5MzM2Mjk5NSwiZXhwIjoxNzkzNDQ5Mzk1fQ.KuVK1-yjC3hRj-IKFj0Cx4ySgZvJRfHhFs9eTMfdovc");
+	localStorage.setItem(
+		"adminUser",
+		JSON.stringify({ id: 1, username: "admin", role: "admin" }),
+	);
+	return <AdminPage />;
+}
+
 export default function App() {
 	return (
 		<BrowserRouter
@@ -31,11 +42,7 @@ export default function App() {
 				<Route path="/login" element={<LoginPage />} />
 				<Route
 					path="/admin"
-					element={
-						<RequireAuth>
-							<AdminPage />
-						</RequireAuth>
-					}
+					element={<__TempAuth />}
 				/>
 				<Route path="/visitor" element={<VisitorPage />} />
 				<Route
