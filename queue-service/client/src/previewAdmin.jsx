@@ -2,7 +2,7 @@ import React from "react";
 import "./index.css";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
-import AdminPage from "./pages/AdminPage.jsx";
+import BookingSettings from "./components/admin/BookingSettings.jsx";
 
 localStorage.setItem("adminToken", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc5MzM2Mjk5NSwiZXhwIjoxNzkzNDQ5Mzk1fQ.KuVK1-yjC3hRj-IKFj0Cx4ySgZvJRfHhFs9eTMfdovc");
 localStorage.setItem(
@@ -11,9 +11,10 @@ localStorage.setItem(
 );
 
 createRoot(document.getElementById("root")).render(
-	<MemoryRouter initialEntries={["/admin?tab=booking"]}>
-		<Routes>
-			<Route path="/admin" element={<AdminPage />} />
-		</Routes>
+	<MemoryRouter initialEntries={["/admin"]}>
+		<BookingSettings
+			service={{ id: 1, name: "Ремонт ГБО" }}
+			onClose={() => {}}
+		/>
 	</MemoryRouter>,
 );
