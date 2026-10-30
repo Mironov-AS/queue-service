@@ -133,14 +133,14 @@ export default function BookingPage() {
 		const query = requested.month
 			? `?month=${encodeURIComponent(requested.month)}`
 			: "";
-		fetch(
-			`/api/booking/public/${encodeURIComponent(publicId)}/month${query}`,
-		)
+		fetch(`/api/booking/public/${encodeURIComponent(publicId)}/month${query}`)
 			.then(async (response) => {
 				if (!response.ok) {
 					if (response.status === 404)
 						throw new Error("Запись на эту услугу временно недоступна.");
-					throw new Error("Не удалось загрузить календарь. Попробуйте ещё раз.");
+					throw new Error(
+						"Не удалось загрузить календарь. Попробуйте ещё раз.",
+					);
 				}
 				return response.json();
 			})
@@ -155,7 +155,9 @@ export default function BookingPage() {
 					description: result.description || "",
 				});
 				if (requested.date) {
-					const day = (result.days || []).find((d) => d.date === requested.date);
+					const day = (result.days || []).find(
+						(d) => d.date === requested.date,
+					);
 					if (day && day.available) chooseDate(requested.date);
 				}
 			})
@@ -425,7 +427,10 @@ export default function BookingPage() {
 										{slot && (
 											<form onSubmit={submit} className="mt-6 space-y-5">
 												{fields.map((field) => (
-													<label key={field.id} className="block text-sm font-semibold">
+													<label
+														key={field.id}
+														className="block text-sm font-semibold"
+													>
 														{field.label}
 														{field.required && " *"}
 														{field.type === "textarea" ? (
@@ -435,18 +440,26 @@ export default function BookingPage() {
 																maxLength={1000}
 																value={answers[field.id] || ""}
 																onChange={(e) =>
-																	setAnswers({ ...answers, [field.id]: e.target.value })
+																	setAnswers({
+																		...answers,
+																		[field.id]: e.target.value,
+																	})
 																}
 															/>
 														) : (
 															<input
 																className="mt-2 block w-full rounded-xl border border-slate-300 p-3 font-normal"
-																type={field.type === "phone" ? "tel" : field.type}
+																type={
+																	field.type === "phone" ? "tel" : field.type
+																}
 																required={!!field.required}
 																maxLength={1000}
 																value={answers[field.id] || ""}
 																onChange={(e) =>
-																	setAnswers({ ...answers, [field.id]: e.target.value })
+																	setAnswers({
+																		...answers,
+																		[field.id]: e.target.value,
+																	})
 																}
 															/>
 														)}
@@ -482,8 +495,8 @@ export default function BookingPage() {
 													</div>
 												) : (
 													<p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-														Запись временно недоступна: документы о персональных данных
-														не настроены.
+														Запись временно недоступна: документы о персональных
+														данных не настроены.
 													</p>
 												)}
 												<button

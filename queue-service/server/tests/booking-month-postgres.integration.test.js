@@ -12,7 +12,10 @@ test("PostgreSQL: календарь месяца отмечает закрыт�
 	skip: !connectionString,
 	timeout: 30000,
 }, async () => {
-	validateTestDatabaseUrl(connectionString, process.env.BOOKING_TEST_ISOLATION_CONFIRMED);
+	validateTestDatabaseUrl(
+		connectionString,
+		process.env.BOOKING_TEST_ISOLATION_CONFIRMED,
+	);
 	const name = `booking_month_${crypto.randomBytes(12).toString("hex")}`;
 	const admin = new Pool({
 		connectionString,

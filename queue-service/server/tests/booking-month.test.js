@@ -15,7 +15,11 @@ async function withServer(run, overrides = {}) {
 		saveConfig: async () => ({}),
 		getCalendar: async () => ({}),
 		cancel: async () => true,
-		getAvailability: async () => ({ month: "2026-11", timezone: "Europe/Moscow", days: [] }),
+		getAvailability: async () => ({
+			month: "2026-11",
+			timezone: "Europe/Moscow",
+			days: [],
+		}),
 		...overrides,
 	};
 	const app = express();
@@ -30,7 +34,8 @@ async function withServer(run, overrides = {}) {
 				policyUrl: "/privacy",
 				consentUrl: "/consent",
 			},
-			requireAuth: (_req, res) => res.status(401).json({ error: "Не авторизован" }),
+			requireAuth: (_req, res) =>
+				res.status(401).json({ error: "Не авторизован" }),
 			requireAdmin: (_req, _res, next) => next(),
 		}),
 	);
@@ -61,7 +66,9 @@ test("месяц запрашивается без параметра и воз�
 test("некорректный месяц отклоняется", () =>
 	withServer(async (base) => {
 		for (const month of ["2026-13", "2026-1", "ноябрь", "2026-11-01"]) {
-			const r = await fetch(`${base}/public/${publicId}/month?month=${encodeURIComponent(month)}`);
+			const r = await fetch(
+				`${base}/public/${publicId}/month?month=${encodeURIComponent(month)}`,
+			);
 			assert.equal(r.status, 400, month);
 		}
 	}));

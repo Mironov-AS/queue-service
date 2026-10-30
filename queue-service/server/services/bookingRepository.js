@@ -132,7 +132,8 @@ function bookingRepository(pool) {
 			for (const date of config.exceptions)
 				calculateSlots({ date, weekdays: [], durationMinutes: 1, capacity: 1 });
 			try {
-                if (typeof config.timezone !== "string" || !config.timezone.trim()) throw new Error("timezone required");
+				if (typeof config.timezone !== "string" || !config.timezone.trim())
+					throw new Error("timezone required");
 				new Intl.DateTimeFormat("en", { timeZone: config.timezone }).format();
 			} catch {
 				throw new Error("Некорректный часовой пояс");
@@ -155,18 +156,27 @@ function bookingRepository(pool) {
 			return result.rows[0];
 		},
 		async getConfig(serviceId) {
-			const r = await pool.query("SELECT * FROM booking_config WHERE service_id=$1", [serviceId]);
+			const r = await pool.query(
+				"SELECT * FROM booking_config WHERE service_id=$1",
+				[serviceId],
+			);
 			return r.rows[0] || null;
 		},
 		async getCalendar(serviceId, date) {
 			const config = await this.getConfig(serviceId);
 			if (!config) return null;
-			const rows = await pool.query(`SELECT id,to_char(start_time,'HH24:MI') AS start,to_char(end_time,'HH24:MI') AS end,answers,status FROM bookings WHERE service_id=$1 AND booking_date=$2 AND status='booked' ORDER BY start_time,id`, [serviceId,date]);
-			const slots = configSlots(config,date,rows.rows);
+			const rows = await pool.query(
+				`SELECT id,to_char(start_time,'HH24:MI') AS start,to_char(end_time,'HH24:MI') AS end,answers,status FROM bookings WHERE service_id=$1 AND booking_date=$2 AND status='booked' ORDER BY start_time,id`,
+				[serviceId, date],
+			);
+			const slots = configSlots(config, date, rows.rows);
 			return { slots, bookings: rows.rows };
 		},
 		async cancel(serviceId, bookingId) {
-			const result = await pool.query("UPDATE bookings SET status='cancelled' WHERE id=$1 AND service_id=$2 AND status='booked' RETURNING id", [bookingId,serviceId]);
+			const result = await pool.query(
+				"UPDATE bookings SET status='cancelled' WHERE id=$1 AND service_id=$2 AND status='booked' RETURNING id",
+				[bookingId, serviceId],
+			);
 			return result.rowCount > 0;
 		},
 		// Availability of every day of a month for the public calendar.

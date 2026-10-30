@@ -5,9 +5,14 @@ const { calculateSlots } = require("../services/bookingSlots");
 // The caller must provide a server-controlled, legally reviewed consent document.
 // This router is intentionally not mounted in the legacy SQLite server.
 function validDocumentUrl(value) {
-  if (typeof value !== "string" || !value.trim()) return false;
-  if (value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) return true;
-  try { return new URL(value).protocol === "https:"; } catch { return false; }
+	if (typeof value !== "string" || !value.trim()) return false;
+	if (value.startsWith("/") && !value.startsWith("//") && !value.includes("\\"))
+		return true;
+	try {
+		return new URL(value).protocol === "https:";
+	} catch {
+		return false;
+	}
 }
 function createBookingRouter({
 	repository,
@@ -24,8 +29,8 @@ function createBookingRouter({
 		typeof approvedConsent.text !== "string" ||
 		!approvedConsent.version.trim() ||
 		!approvedConsent.text.trim() ||
-        !validDocumentUrl(approvedConsent.policyUrl) ||
-        !validDocumentUrl(approvedConsent.consentUrl)
+		!validDocumentUrl(approvedConsent.policyUrl) ||
+		!validDocumentUrl(approvedConsent.consentUrl)
 	)
 		throw new Error("Необходимо настроить утверждённое согласие");
 	const router = express.Router();
@@ -62,14 +67,18 @@ function createBookingRouter({
 		try {
 			await fn(req, res);
 		} catch (e) {
-            // Only known validation messages may cross the API boundary.
-            // Database drivers also emit connection and operational errors without SQLSTATE.
-            const validation = /^(Некорректн|Слишком много полей формы|Слишком длинное значение поля|Неизвестное поле формы|Заполните поле: |Необходимо утверждённое согласие|Запись временно недоступна|Нельзя записаться в прошедшее время|Время недоступно)/;
-            if (e instanceof Error && !e.code && validation.test(e.message)) {
-                return res.status(400).json({ error: e.message });
-            }
-            console.error("booking operation error:", e?.code || e?.name || "unknown");
-            return res.status(500).json({ error: "Ошибка сервера" });
+			// Only known validation messages may cross the API boundary.
+			// Database drivers also emit connection and operational errors without SQLSTATE.
+			const validation =
+				/^(Некорректн|Слишком много полей формы|Слишком длинное значение поля|Неизвестное поле формы|Заполните поле: |Необходимо утверждённое согласие|Запись временно недоступна|Нельзя записаться в прошедшее время|Время недоступно)/;
+			if (e instanceof Error && !e.code && validation.test(e.message)) {
+				return res.status(400).json({ error: e.message });
+			}
+			console.error(
+				"booking operation error:",
+				e?.code || e?.name || "unknown",
+			);
+			return res.status(500).json({ error: "Ошибка сервера" });
 		}
 	};
 	router.get(
@@ -91,8 +100,8 @@ function createBookingRouter({
 				consent: {
 					version: approvedConsent.version,
 					text: approvedConsent.text,
-                    policyUrl: approvedConsent.policyUrl,
-                    consentUrl: approvedConsent.consentUrl,
+					policyUrl: approvedConsent.policyUrl,
+					consentUrl: approvedConsent.consentUrl,
 				},
 			});
 		}),
@@ -101,11 +110,15 @@ function createBookingRouter({
 		"/public/:publicId/month",
 		publicLimit,
 		handle(async (req, res) => {
-			if (!uuid.test(req.params.publicId)) return res.status(400).json({ error: "Некорректные параметры" });
+			if (!uuid.test(req.params.publicId))
+				return res.status(400).json({ error: "Некорректные параметры" });
 			const requested = month(req.query.month);
 			if (req.query.month !== undefined && !requested)
 				return res.status(400).json({ error: "Некорректные параметры" });
-			const data = await repository.getAvailability(req.params.publicId, requested);
+			const data = await repository.getAvailability(
+				req.params.publicId,
+				requested,
+			);
 			if (!data)
 				return res
 					.status(404)
