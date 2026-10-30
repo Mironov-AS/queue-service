@@ -11,6 +11,12 @@ cat >"$root/bin/systemctl" <<'SH'
 case "$1" in stop) exit "${MOCK_STOP_RC:-0}";; show) case "$4" in ActiveState) echo "${MOCK_STATE:-inactive}";; MainPID) echo "${MOCK_PID:-0}";; esac;; is-active|start) exit 0;; *) exit 1;; esac
 SH
 chmod +x "$root/bin/systemctl"
+cat >"$root/bin/curl" <<'SH'
+#!/bin/bash
+case " $* " in *"/api/booking/services"*) printf '%s' "${MOCK_BOOKING_CODE:-401}";; *) exit 0;; esac
+SH
+printf '#!/bin/sh\nexit 0\n' >"$root/bin/sleep"
+chmod +x "$root/bin/curl" "$root/bin/sleep"
 export PATH="$root/bin:$PATH" SWITCH_TEST_ROOT="$root" SWITCH_TEST_UNIT=queue-switch-test-control.service SWITCH_TEST_PORT=13085
 bash "$adapter" validate "$root/staged"
 bash "$adapter" stop
@@ -38,4 +44,10 @@ if SWITCH_TEST_PORT=3001 bash "$adapter" check-new; then
 	echo 'production port accepted' >&2
 	exit 1
 fi
-echo 'PASS isolated adapter guards, validation and stop confirmation'
+MOCK_BOOKING_CODE=401 bash "$adapter" check-new
+if MOCK_BOOKING_CODE=503 bash "$adapter" check-new; then
+	echo 'disabled booking incorrectly accepted as ready' >&2
+	exit 1
+fi
+MOCK_BOOKING_CODE=503 bash "$adapter" check-old
+echo 'PASS isolated adapter guards, stop confirmation and booking fail-closed readiness'
