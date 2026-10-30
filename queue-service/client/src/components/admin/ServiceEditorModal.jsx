@@ -62,7 +62,9 @@ export default function ServiceEditorModal({
 		!!(service && channels?.[service.id]?.booking_enabled),
 	);
 	const [config, setConfig] = useState(null);
-	const [tab, setTab] = useState("main");
+	const [tab, setTab] = useState(
+		() => new URLSearchParams(window.location.search).get("editorTab") || "main",
+	);
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
 	const [saving, setSaving] = useState(false);
