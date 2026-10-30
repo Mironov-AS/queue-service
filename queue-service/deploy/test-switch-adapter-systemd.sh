@@ -106,7 +106,11 @@ for injected in fail-write fail-reload fail-new; do
 		exit 1
 	fi
 	"$root/control" check-old
-	echo "verified rollback after $injected"
+	[ "$(stat -c '%a:%u:%g' "$root/snapshot.db")" = 600:0:0 ] || {
+		echo 'snapshot permissions are not root:root 600' >&2
+		exit 1
+	}
+	echo "verified rollback and private snapshot after $injected"
 	rm -f "$root/$injected"
 	if [ "$injected" != fail-new ]; then
 		rm -rf "$root/staged" "$root/failed"
