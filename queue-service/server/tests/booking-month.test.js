@@ -30,7 +30,7 @@ async function withServer(run, overrides = {}) {
 			repository: repo,
 			approvedConsent: {
 				version: "v1",
-				text: "Согласие",
+				text: "Согласие", agreementText: "Соглашение",
 				policyUrl: "/privacy",
 				consentUrl: "/consent",
 			},
@@ -189,7 +189,7 @@ async function withAdminServer(run, overrides = {}, role = "admin") {
 			repository: repo,
 			approvedConsent: {
 				version: "v1",
-				text: "Согласие",
+				text: "Согласие", agreementText: "Соглашение",
 				policyUrl: "/privacy",
 				consentUrl: "/consent",
 			},

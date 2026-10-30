@@ -52,12 +52,12 @@ test("PostgreSQL: конкурентная запись, отключение, �
 			timezone: "Europe/Moscow",
 		};
 		const initial = await repo.saveConfig(1, config);
-		const consent = { version: "test-v1", text: "Тестовое согласие" };
+		const consent = { version: "test-v1", text: "Тестовое согласие", agreementText: "Тестовое соглашение" };
 		const request = {
 			date: day,
 			start: "09:00",
 			answers: { phone: "тест" },
-			consent: true,
+			consent: true, agreement: true,
 		};
 		const attempts = await Promise.allSettled(
 			Array.from({ length: 8 }, () =>
@@ -73,12 +73,14 @@ test("PostgreSQL: конкурентная запись, отключение, �
 			7,
 		);
 		const rows = await pool.query(
-			"SELECT consent_version,consent_text,consented_at,answers FROM bookings",
+			"SELECT consent_version,consent_text,consented_at,agreement_text,agreement_accepted_at,answers FROM bookings",
 		);
 		assert.equal(rows.rowCount, 1);
 		assert.equal(rows.rows[0].consent_version, "test-v1");
 		assert.equal(rows.rows[0].consent_text, consent.text);
 		assert.ok(rows.rows[0].consented_at);
+		assert.equal(rows.rows[0].agreement_text, consent.agreementText);
+		assert.ok(rows.rows[0].agreement_accepted_at);
 		assert.equal(rows.rows[0].answers.phone.value, "тест");
 		const disabled = await repo.saveConfig(1, { ...config, enabled: false });
 		assert.equal(disabled.public_id, initial.public_id);

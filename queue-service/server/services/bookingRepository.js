@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS bookings (
  consented_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS agreement_text TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS agreement_accepted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS bookings_service_day ON bookings(service_id,booking_date) WHERE status='booked';`;
 
 function validateFields(fields, answers, schemaOnly = false) {
@@ -327,9 +329,12 @@ function bookingRepository(pool) {
 				timezone: c.timezone,
 			};
 		},
-		async create(publicId, { date, start, answers, consent }, approvedConsent) {
+		async create(publicId, { date, start, answers, consent, agreement }, approvedConsent) {
 			if (
 				consent !== true ||
+				agreement !== true ||
+				typeof approvedConsent?.agreementText !== "string" ||
+				!approvedConsent.agreementText.trim() ||
 				!approvedConsent ||
 				typeof approvedConsent.version !== "string" ||
 				!approvedConsent.version.trim() ||
@@ -361,7 +366,7 @@ function bookingRepository(pool) {
 				if (!slot || slot.available < 1) throw new Error("Время недоступно");
 				const checked = validateFields(c.fields, answers);
 				const out = await client.query(
-					"INSERT INTO bookings(service_id,booking_date,start_time,end_time,answers,consent_version,consent_text) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+					"INSERT INTO bookings(service_id,booking_date,start_time,end_time,answers,consent_version,consent_text,agreement_text,agreement_accepted_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING id",
 					[
 						c.service_id,
 						date,
@@ -370,6 +375,7 @@ function bookingRepository(pool) {
 						JSON.stringify(checked),
 						approvedConsent.version,
 						approvedConsent.text,
+						approvedConsent.agreementText,
 					],
 				);
 				await client.query("COMMIT");

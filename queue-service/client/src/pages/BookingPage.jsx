@@ -81,6 +81,7 @@ export default function BookingPage() {
 	const [timezone, setTimezone] = useState("");
 	const [consent, setConsent] = useState(null);
 	const [consentChecked, setConsentChecked] = useState(false);
+	const [agreementChecked, setAgreementChecked] = useState(false);
 	const [fields, setFields] = useState([]);
 	const [service, setService] = useState({ name: "", description: "" });
 	const [selectedDate, setSelectedDate] = useState(null);
@@ -207,6 +208,7 @@ export default function BookingPage() {
 	// A new version of the agreement requires a fresh confirmation.
 	useEffect(() => {
 		setConsentChecked(false);
+		setAgreementChecked(false);
 	}, [consent?.version, publicId]);
 
 	// Сообщаем встраивающему сайту высоту виджета, чтобы iframe с
@@ -233,7 +235,8 @@ export default function BookingPage() {
 			!slot ||
 			!consent?.version ||
 			!selectedDate ||
-			!consentChecked
+			!consentChecked || !agreementChecked || !consent?.agreementText ||
+			!agreementChecked
 		)
 			return;
 		setSending(true);
@@ -249,6 +252,7 @@ export default function BookingPage() {
 						start: slot,
 						answers,
 						consent: true,
+						agreement: true,
 						consentVersion: consent.version,
 					}),
 				},
@@ -497,78 +501,19 @@ export default function BookingPage() {
 														)}
 													</label>
 												))}
-												{consent?.text &&
-												consent?.policyUrl &&
-												consent?.consentUrl ? (
-													<div className="rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
-														<p>{consent.text}</p>
-														<p className="mt-2">
-															Подробнее —{" "}
-															<a
-																href={consent.agreementUrl || "/agreement"}
-																target="_blank"
-																rel="noreferrer"
-																className="text-blue-700 underline"
-															>
-																{consent.agreementTitle ||
-																	"пользовательское соглашение"}
-															</a>
-															,{" "}
-															<a
-																href={consent.policyUrl}
-																target="_blank"
-																rel="noreferrer"
-																className="text-blue-700 underline"
-															>
-																политика обработки персональных данных
-															</a>{" "}
-															и{" "}
-															<a
-																href={consent.consentUrl}
-																target="_blank"
-																rel="noreferrer"
-																className="text-blue-700 underline"
-															>
-																согласие на обработку персональных данных
-															</a>
-															.
-														</p>
-														<label className="mt-3 flex items-start gap-2 text-xs text-slate-700">
-															<input
-																type="checkbox"
-																checked={consentChecked}
-																onChange={(e) =>
-																	setConsentChecked(e.target.checked)
-																}
-																className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400"
-															/>
-															<span>
-																Нажимая кнопку «Записаться», Вы соглашаетесь с
-																условиями{" "}
-																<a
-																	href={consent.agreementUrl || "/agreement"}
-																	target="_blank"
-																	rel="noreferrer"
-																	className="text-blue-700 underline"
-																>
-																	пользовательского соглашения
-																</a>
-																.
-															</span>
-														</label>
-													</div>
-												) : (
-													<p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-														Запись временно недоступна: документы о персональных
-														данных не настроены.
-													</p>
-												)}
-												<button
+												{consent?.text && consent?.agreementText && consent?.policyUrl && consent?.consentUrl ? (
+ <div className="rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
+  <label className="flex items-start gap-2"><input type="checkbox" checked={agreementChecked} onChange={e => setAgreementChecked(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0"/><span>{consent.agreementText} <a href={consent.agreementUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">Соглашение</a></span></label>
+  <label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={consentChecked} onChange={e => setConsentChecked(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0"/><span>{consent.text}</span></label>
+  <p className="mt-3"><a href={consent.policyUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">Политика обработки ПДн</a> · <a href={consent.consentUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">Согласие на обработку ПДн</a></p>
+ </div>
+) : <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Запись временно недоступна: документы не настроены.</p>}
+                                                <button
 													type="submit"
 													disabled={
 														!slot ||
 														sending ||
-														!consentChecked ||
+														!consentChecked || !agreementChecked || !consent?.agreementText ||
 														!consent?.policyUrl ||
 														!consent?.consentUrl
 													}

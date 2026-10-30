@@ -27,6 +27,8 @@ function createBookingRouter({
 		!approvedConsent ||
 		typeof approvedConsent.version !== "string" ||
 		typeof approvedConsent.text !== "string" ||
+		typeof approvedConsent.agreementText !== "string" ||
+		!approvedConsent.agreementText.trim() ||
 		!approvedConsent.version.trim() ||
 		!approvedConsent.text.trim() ||
 		!validDocumentUrl(approvedConsent.policyUrl) ||
@@ -100,6 +102,7 @@ function createBookingRouter({
 				consent: {
 					version: approvedConsent.version,
 					text: approvedConsent.text,
+					agreementText: approvedConsent.agreementText,
 					agreementUrl: approvedConsent.agreementUrl,
 					agreementTitle: approvedConsent.agreementTitle,
 					policyUrl: approvedConsent.policyUrl,
@@ -130,6 +133,7 @@ function createBookingRouter({
 				consent: {
 					version: approvedConsent.version,
 					text: approvedConsent.text,
+					agreementText: approvedConsent.agreementText,
 					agreementUrl: approvedConsent.agreementUrl,
 					agreementTitle: approvedConsent.agreementTitle,
 					policyUrl: approvedConsent.policyUrl,
@@ -148,6 +152,8 @@ function createBookingRouter({
 				return res
 					.status(409)
 					.json({ error: "Текст согласия изменился, обновите форму" });
+			if (req.body.agreement !== true || req.body.consent !== true)
+				return res.status(400).json({ error: "Необходимо принять соглашение и дать согласие на обработку данных" });
 			const booking = await repository.create(
 				req.params.publicId,
 				req.body,
