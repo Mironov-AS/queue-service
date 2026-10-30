@@ -330,8 +330,8 @@ export default function BookingPage() {
 												onClick={() => chooseDate(day.date)}
 												className={`rounded-xl border p-2 text-sm font-semibold transition ${
 													day.available
-														? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-500 hover:bg-emerald-100"
-														: "cursor-not-allowed border-red-100 bg-red-50 text-red-300"
+														? "border-emerald-400 bg-emerald-100 text-emerald-900 hover:bg-emerald-200"
+														: "cursor-not-allowed border-rose-300 bg-rose-100 text-rose-400"
 												}`}
 											>
 												{Number(day.date.slice(-2))}
@@ -341,11 +341,11 @@ export default function BookingPage() {
 								</div>
 								<div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
 									<span className="flex items-center gap-1.5">
-										<span className="inline-block h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-300" />
+										<span className="inline-block h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-400" />
 										есть свободные места
 									</span>
 									<span className="flex items-center gap-1.5">
-										<span className="inline-block h-3 w-3 rounded bg-red-100 ring-1 ring-red-200" />
+										<span className="inline-block h-3 w-3 rounded bg-rose-100 ring-1 ring-rose-300" />
 										запись недоступна
 									</span>
 								</div>
@@ -402,7 +402,7 @@ export default function BookingPage() {
 														disabled={s.available < 1}
 														onClick={() => setSlot(s.start)}
 														aria-pressed={slot === s.start}
-														className={`rounded-xl border p-3 text-left text-sm ${s.available < 1 ? "cursor-not-allowed border-red-100 bg-red-50 text-red-400" : slot === s.start ? "border-blue-600 bg-blue-50 text-blue-800" : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-500"}`}
+														className={`rounded-xl border p-3 text-left text-sm ${s.available < 1 ? "cursor-not-allowed border-rose-300 bg-rose-100 text-rose-500" : slot === s.start ? "border-blue-600 bg-blue-100 text-blue-900" : "border-emerald-400 bg-emerald-100 text-emerald-900 hover:bg-emerald-200"}`}
 													>
 														<strong>{s.start}</strong>
 														<span className="mt-1 block text-xs">
