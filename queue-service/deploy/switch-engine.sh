@@ -40,6 +40,14 @@ rollback() {
 					echo 'ROLLBACK HALTED: uploads paths unsafe' >&2
 					exit 3
 				}
+				# Process substitution hides find's exit status; build and verify a
+				# complete manifest before inspecting or copying any upload.
+				manifest=$(mktemp "$root/.uploads-manifest.XXXXXX") || exit 3
+				if ! find "$live/uploads" -mindepth 1 -print0 >"$manifest"; then
+					rm -f "$manifest"
+					echo 'ROLLBACK HALTED: upload traversal failed' >&2
+					exit 3
+				fi
 				while IFS= read -r -d '' entry; do
 					rel=${entry#"$live/uploads/"}
 					target="$old/uploads/$rel"
@@ -49,15 +57,17 @@ rollback() {
 							exit 3
 						fi
 					fi
-				done < <(find "$live/uploads" -mindepth 1 -print0)
+				done <"$manifest"
 				cp -an "$live/uploads/." "$old/uploads/" || exit 3
 				while IFS= read -r -d '' file; do
+					[ -f "$file" ] || continue
 					rel=${file#"$live/uploads/"}
 					cmp -s "$file" "$old/uploads/$rel" || {
 						echo 'ROLLBACK HALTED: upload verification failed' >&2
 						exit 3
 					}
-				done < <(find "$live/uploads" -type f -print0)
+				done <"$manifest"
+				rm -f "$manifest"
 			fi
 			if [ -e "$live" ]; then mv "$live" "$root/failed" || exit 3; fi
 			mv "$old" "$live" || exit 3
