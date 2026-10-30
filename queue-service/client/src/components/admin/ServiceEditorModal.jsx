@@ -753,31 +753,32 @@ export default function ServiceEditorModal({
 												<p className="text-xs font-medium text-gray-500">
 													Код для вставки на сайт:
 												</p>
-									<textarea
-									readOnly
-									aria-label="Код встраивания"
-									rows={3}
-									className={`${input} bg-white font-mono text-xs`}
-									value={`<iframe src="${widgetUrl}" title="Предварительная запись" style="width:100%;border:0;min-height:100vh" loading="lazy" scrolling="no"></iframe>`}
-									/>
-									<p className="text-xs font-medium text-gray-500">
-										Код для вставки через IP ВМ ({PROD_VM_IP}):
-									</p>
-									<textarea
-									readOnly
-									aria-label="Код встраивания через IP"
-									rows={6}
-									className={`${input} bg-white font-mono text-xs`}
-									value={ipEmbedCode}
-									/>
-									{widgetHost !== PROD_VM_IP && (
-										<p className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
-											Вы открыли панель не через IP. Код выше использует адрес
-											IP ВМ, но браузер откроет виджет по http:// и встроит его
-											только на сайт тоже по http://. На сайт с https:// такой
-											фрейм браузер заблокирует (смешанное содержимое).
-										</p>
-									)}
+												<textarea
+													readOnly
+													aria-label="Код встраивания"
+													rows={3}
+													className={`${input} bg-white font-mono text-xs`}
+													value={`<iframe src="${widgetUrl}" title="Предварительная запись" style="width:100%;border:0;min-height:100vh" loading="lazy" scrolling="no"></iframe>`}
+												/>
+												<p className="text-xs font-medium text-gray-500">
+													Код для вставки через IP ВМ ({PROD_VM_IP}):
+												</p>
+												<textarea
+													readOnly
+													aria-label="Код встраивания через IP"
+													rows={6}
+													className={`${input} bg-white font-mono text-xs`}
+													value={ipEmbedCode}
+												/>
+												{widgetHost !== PROD_VM_IP && (
+													<p className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+														Вы открыли панель не через IP. Код выше использует
+														адрес IP ВМ, но браузер откроет виджет по http:// и
+														встроит его только на сайт тоже по http://. На сайт
+														с https:// такой фрейм браузер заблокирует
+														(смешанное содержимое).
+													</p>
+												)}
 											</>
 										) : (
 											<p className="text-sm text-gray-500">
