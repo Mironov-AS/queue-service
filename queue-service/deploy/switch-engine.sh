@@ -35,6 +35,12 @@ rollback() {
 				echo 'ROLLBACK HALTED: failed directory already exists' >&2
 				exit 3
 			}
+			# A present candidate without its upload tree is not evidence that
+			# there were no new uploads; do not silently roll back over it.
+			if [ -e "$live" ] && ! regular_upload_tree "$live/uploads"; then
+				echo 'ROLLBACK HALTED: candidate uploads missing or unsafe' >&2
+				exit 3
+			fi
 			if [ -d "$live/uploads" ]; then
 				regular_upload_tree "$live/uploads" && regular_upload_tree "$old/uploads" || {
 					echo 'ROLLBACK HALTED: uploads paths unsafe' >&2

@@ -45,6 +45,10 @@ if [ "$action" = start ] && [ "$failure" = missing-uploads ] && [ -d "$root/save
  mv "$root/saved-uploads" "$root/server/uploads"
 fi
 if [ "$action" = check-new ] && [ "$failure" = rollback-stop ]; then exit 1; fi
+if [ "$action" = check-new ] && [ "$failure" = rollback-missing-uploads ]; then
+ mv "$root/server/uploads" "$root/hidden-candidate-uploads"
+ exit 1
+fi
 if [ "$action" = check-new ] && [ "$failure" = rollback-upload ]; then
  echo created-after-switch > "$root/server/uploads/new"
  exit 1
@@ -109,6 +113,20 @@ test "$(cat "$root/server/version")" = new
 test "$(cat "$root/previous/version")" = old
 test "$(cat "$root/state")" = stopped
 echo 'PASS rollback manifest traversal failure preserves both versions'
+# A candidate missing uploads must halt, not silently abandon possible data.
+rm -rf "$root/server" "$root/candidate" "$root/previous" "$root/staged" "$root/failed" "$root/hidden-candidate-uploads"
+mkdir -p "$root/server/uploads" "$root/candidate"
+echo old >"$root/server/version"
+echo new >"$root/candidate/version"
+echo uploaded >"$root/server/uploads/file"
+echo running >"$root/state"
+echo rollback-missing-uploads >"$root/failure"
+if SWITCH_TEST_ROOT="$root" bash "$engine" >"$root/result" 2>&1; then exit 1; fi
+grep -q 'ROLLBACK HALTED: candidate uploads missing or unsafe' "$root/result"
+test "$(cat "$root/server/version")" = new
+test "$(cat "$root/previous/version")" = old
+test "$(cat "$root/state")" = stopped
+echo 'PASS missing candidate uploads halt rollback'
 run_case rollback-upload old
 test "$(cat "$root/server/uploads/new")" = created-after-switch
 echo 'PASS rollback preserves uploads created by candidate'
