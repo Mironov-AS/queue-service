@@ -127,3 +127,7 @@ queue-service/client/.admin-tabs-check/
 queue-service/client/.services-check/
 queue-service/client/.widget-check/
 queue-service/client/.agreement-text/
+
+# Сборки релизов и локальные снимки
+release-*/
+queue-service-release-*.tar.gz
