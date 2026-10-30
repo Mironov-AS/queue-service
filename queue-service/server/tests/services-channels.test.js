@@ -15,7 +15,10 @@ const jwt = require("jsonwebtoken");
 const servicesRouter = require("../routes/services");
 
 function token() {
-	return jwt.sign({ id: 1, username: "admin", role: "admin" }, "test-secret-for-services-channel");
+	return jwt.sign(
+		{ id: 1, username: "admin", role: "admin" },
+		"test-secret-for-services-channel",
+	);
 }
 
 async function withServer(run) {

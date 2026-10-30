@@ -367,7 +367,8 @@ export default function ServicesTab() {
 	// widget link of the service.
 	const setBookingChannel = async (serviceId, enabled) => {
 		const base = `/api/booking/services/${serviceId}`;
-		const config = (await bookingRequest(`${base}/config`)) || defaultBookingConfig();
+		const config =
+			(await bookingRequest(`${base}/config`)) || defaultBookingConfig();
 		return bookingRequest(`${base}/config`, {
 			method: "PUT",
 			body: JSON.stringify({ ...config, enabled }),
@@ -377,13 +378,19 @@ export default function ServicesTab() {
 	const toggleBookingChannel = async (s) => {
 		setChannelError("");
 		const current = channels[s.id]?.booking_enabled === true;
-		if (!current && !window.confirm(
-			`Включить запись для услуги «${s.name}»? Расписание и ссылку на виджет можно будет настроить в параметрах записи.`,
-		))
+		if (
+			!current &&
+			!window.confirm(
+				`Включить запись для услуги «${s.name}»? Расписание и ссылку на виджет можно будет настроить в параметрах записи.`,
+			)
+		)
 			return;
-		if (current && !window.confirm(
-			`Отключить запись для услуги «${s.name}»? Ссылка на виджет сохранится, новые записи приниматься не будут.`,
-		))
+		if (
+			current &&
+			!window.confirm(
+				`Отключить запись для услуги «${s.name}»? Ссылка на виджет сохранится, новые записи приниматься не будут.`,
+			)
+		)
 			return;
 		try {
 			await setBookingChannel(s.id, !current);
@@ -508,9 +515,7 @@ export default function ServicesTab() {
 						/>
 					</div>
 					<div className="sm:col-span-2">
-						<label className="text-xs text-gray-500 mb-1 block">
-							Каналы
-						</label>
+						<label className="text-xs text-gray-500 mb-1 block">Каналы</label>
 						<div className="flex flex-wrap gap-5">
 							<label className="flex items-center gap-2 text-sm text-gray-700">
 								<input
@@ -699,7 +704,19 @@ export default function ServicesTab() {
 									)}
 								</td>
 								<td className="px-4 py-4">
-                                    <button type="button" disabled={!bookingEnabled} title={bookingEnabled ? "Расписание, ссылка и поля записи" : "Запись пока недоступна"} onClick={() => setBookingModal(s)} className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed">Параметры</button>
+									<button
+										type="button"
+										disabled={!bookingEnabled}
+										title={
+											bookingEnabled
+												? "Расписание, ссылка и поля записи"
+												: "Запись пока недоступна"
+										}
+										onClick={() => setBookingModal(s)}
+										className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+									>
+										Параметры
+									</button>
 									<div className="flex gap-1 justify-end">
 										<button
 											onClick={() => startEdit(s)}
@@ -721,7 +738,12 @@ export default function ServicesTab() {
 				</table>
 			</div>
 
-			{bookingEnabled && bookingModal && <BookingSettings service={bookingModal} onClose={() => setBookingModal(null)} />}
+			{bookingEnabled && bookingModal && (
+				<BookingSettings
+					service={bookingModal}
+					onClose={() => setBookingModal(null)}
+				/>
+			)}
 			{fieldsModal && (
 				<ServiceFieldsModal
 					service={fieldsModal}

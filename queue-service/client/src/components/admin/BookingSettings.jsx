@@ -381,10 +381,84 @@ export default function BookingSettings({ service, onClose }) {
 								/>
 							</section>
 						)}
-<section>
-<h3 className="font-semibold">Календарь</h3><div className="mt-2 flex flex-wrap gap-2"><input type="date" className={control} value={date} onChange={e=>{setDate(e.target.value);setCalendar(null)}}/><button type="button" className="rounded-lg bg-gray-100 px-4 py-2 text-sm" onClick={loadCalendar}>Показать</button></div>
-{calendar && <div className="mt-3 space-y-2">{calendar.slots.length===0&&<p className="text-sm text-gray-500">Интервалов по текущему расписанию нет.</p>}{calendar.slots.map(slot=><div key={slot.start} className={`rounded-lg p-3 text-sm ${slot.available?'bg-green-50':'bg-red-50'}`}><strong>{slot.start}–{slot.end}</strong> · занято {slot.booked} из {slot.capacity}</div>)}<h4 className="pt-3 font-semibold">Записи на выбранную дату</h4>{calendar.bookings.length===0&&<p className="text-sm text-gray-500">Записей нет.</p>}{calendar.bookings.map(b=><div key={b.id} className="rounded-lg bg-red-50 p-3 text-sm"><strong>{b.start}–{b.end}</strong>{!calendar.slots.some(s=>b.start<s.end&&b.end>s.start)&&<span className="ml-2 text-amber-700">Вне текущего расписания</span>}<div className="mt-2">{Object.values(b.answers).map((a,i)=><span key={i} className="mr-3">{a.label}: {a.value}</span>)}<button type="button" onClick={()=>cancel(b.id)} className="text-red-700 underline">Отменить запись</button></div></div>)}</div>}
-</section>
+						<section>
+							<h3 className="font-semibold">Календарь</h3>
+							<div className="mt-2 flex flex-wrap gap-2">
+								<input
+									type="date"
+									className={control}
+									value={date}
+									onChange={(e) => {
+										setDate(e.target.value);
+										setCalendar(null);
+									}}
+								/>
+								<button
+									type="button"
+									className="rounded-lg bg-gray-100 px-4 py-2 text-sm"
+									onClick={loadCalendar}
+								>
+									Показать
+								</button>
+							</div>
+							{calendar && (
+								<div className="mt-3 space-y-2">
+									{calendar.slots.length === 0 && (
+										<p className="text-sm text-gray-500">
+											Интервалов по текущему расписанию нет.
+										</p>
+									)}
+									{calendar.slots.map((slot) => (
+										<div
+											key={slot.start}
+											className={`rounded-lg p-3 text-sm ${slot.available ? "bg-green-50" : "bg-red-50"}`}
+										>
+											<strong>
+												{slot.start}–{slot.end}
+											</strong>{" "}
+											· занято {slot.booked} из {slot.capacity}
+										</div>
+									))}
+									<h4 className="pt-3 font-semibold">
+										Записи на выбранную дату
+									</h4>
+									{calendar.bookings.length === 0 && (
+										<p className="text-sm text-gray-500">Записей нет.</p>
+									)}
+									{calendar.bookings.map((b) => (
+										<div
+											key={b.id}
+											className="rounded-lg bg-red-50 p-3 text-sm"
+										>
+											<strong>
+												{b.start}–{b.end}
+											</strong>
+											{!calendar.slots.some(
+												(s) => b.start < s.end && b.end > s.start,
+											) && (
+												<span className="ml-2 text-amber-700">
+													Вне текущего расписания
+												</span>
+											)}
+											<div className="mt-2">
+												{Object.values(b.answers).map((a, i) => (
+													<span key={i} className="mr-3">
+														{a.label}: {a.value}
+													</span>
+												))}
+												<button
+													type="button"
+													onClick={() => cancel(b.id)}
+													className="text-red-700 underline"
+												>
+													Отменить запись
+												</button>
+											</div>
+										</div>
+									))}
+								</div>
+							)}
+						</section>
 					</div>
 				)}
 			</div>

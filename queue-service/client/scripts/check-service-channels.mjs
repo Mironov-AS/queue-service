@@ -46,7 +46,11 @@ global.fetch = async (input, init = {}) => {
 		: `http://127.0.0.1:6620${url}`;
 	const headers = new Headers(init.headers || {});
 	headers.set("authorization", `Bearer ${token}`);
-	calls.push({ url, method: (init.method || "GET").toUpperCase(), body: init.body });
+	calls.push({
+		url,
+		method: (init.method || "GET").toUpperCase(),
+		body: init.body,
+	});
 	const request = nativeFetch(target, { ...init, headers });
 	pending.push(request.catch(() => {}));
 	return request;
@@ -105,7 +109,13 @@ if (rows.length === 0) {
 function channelBadges(row) {
 	return [...row.querySelectorAll("button")]
 		.map((b) => b.textContent.trim())
-		.filter((t) => t === "Активна" || t === "Отключена" || t === "Включена" || t === "Выключена");
+		.filter(
+			(t) =>
+				t === "Активна" ||
+				t === "Отключена" ||
+				t === "Включена" ||
+				t === "Выключена",
+		);
 }
 
 const perRow = rows.map((row) => ({
@@ -116,7 +126,10 @@ console.log("состояние каналов по услугам:", JSON.strin
 
 for (const item of perRow) {
 	if (item.badges.length !== 2) {
-		console.error(`У услуги «${item.name}» нет двух независимых каналов:`, item.badges);
+		console.error(
+			`У услуги «${item.name}» нет двух независимых каналов:`,
+			item.badges,
+		);
 		process.exit(1);
 	}
 }
@@ -132,7 +145,9 @@ const bookingBadge = [...bookingRow.querySelectorAll("button")].find((b) =>
 const wasEnabled = bookingBadge.textContent.trim() === "Включена";
 global.window.confirm = () => true;
 await act(async () => {
-	bookingBadge.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+	bookingBadge.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
 });
 await flush(1500);
 await Promise.allSettled(pending);
