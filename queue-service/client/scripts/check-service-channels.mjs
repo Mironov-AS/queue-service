@@ -186,5 +186,61 @@ if (!labels.includes("Запись")) {
 	process.exit(1);
 }
 
+// The channel state is restored after the check.
+await act(async () => {
+	bookingBadge.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
+});
+await flush(1500);
+await Promise.allSettled(pending);
+await flush(800);
+const restored = calls.filter(
+	(c) => c.url.includes("/config") && c.method === "PUT",
+);
+const restoredSent = JSON.parse(restored[restored.length - 1].body);
+console.log(
+	"состояние канала восстановлено:",
+	restoredSent.enabled === wasEnabled ? "да" : "нет",
+);
+if (restoredSent.enabled !== wasEnabled) {
+	console.error("Состояние канала «Запись» не восстановлено");
+	process.exit(1);
+}
+
+// The settings of the service must contain the permanent widget and the link
+// to open it: the booking tab must not carry them.
+const paramsButton = [...document.querySelectorAll("button")].find(
+	(b) => b.textContent.trim() === "Параметры",
+);
+if (!paramsButton) {
+	console.error("Кнопка «Параметры» услуги не найдена");
+	process.exit(1);
+}
+await act(async () => {
+	paramsButton.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
+});
+await flush(1500);
+await Promise.allSettled(pending);
+await flush(800);
+const modal = document.querySelector("[role=dialog]");
+const modalText = (modal?.textContent || "").replace(/\s+/g, " ");
+console.log("окно настроек услуги открыто:", !!modal);
+console.log("в настройках есть «Открыть виджет»:", /Открыть виджет/.test(modalText));
+if (!modal || !/Открыть виджет/.test(modalText)) {
+	console.error("В настройках услуги нет кнопки «Открыть виджет»");
+	process.exit(1);
+}
+const widgetLink = [...modal.querySelectorAll("input")].find(
+	(i) => i.getAttribute("aria-label") === "Ссылка на виджет",
+);
+console.log("постоянная ссылка на виджет:", widgetLink?.value || "нет");
+if (!widgetLink?.value) {
+	console.error("В настройках услуги нет постоянной ссылки на виджет");
+	process.exit(1);
+}
+
 console.log("OK");
 process.exit(0);
