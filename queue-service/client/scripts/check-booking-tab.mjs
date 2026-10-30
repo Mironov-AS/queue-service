@@ -292,7 +292,8 @@ const restore = await nativeFetch(
 			start: "09:00",
 			answers: { car: "А777ВС77", phone: "+79991111111" },
 			consent: true,
-			consentVersion: "agreement-2026-10-30-v1",
+			agreement: true,
+			consentVersion: "agreement-2026-10-30-v2",
 		}),
 	},
 );
