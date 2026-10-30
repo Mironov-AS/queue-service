@@ -56,6 +56,21 @@ function currentMonth(timezone) {
 	}
 }
 
+// A widget link may carry ?date=YYYY-MM-DD or ?month=YYYY-MM so an embedder
+// can open the calendar on a specific day or month. Invalid values are ignored.
+function linkParams() {
+	const params = new URLSearchParams(window.location.search);
+	const date = /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") || "")
+		? params.get("date")
+		: null;
+	const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get("month") || "")
+		? params.get("month")
+		: date
+			? date.slice(0, 7)
+			: null;
+	return { date, month };
+}
+
 export default function BookingPage() {
 	const { publicId } = useParams();
 	const [month, setMonth] = useState(null);
@@ -110,9 +125,13 @@ export default function BookingPage() {
 
 	useEffect(() => {
 		let active = true;
+		const requested = linkParams();
 		setLoading(true);
+		const query = requested.month
+			? `?month=${encodeURIComponent(requested.month)}`
+			: "";
 		fetch(
-			`/api/booking/public/${encodeURIComponent(publicId)}/month`,
+			`/api/booking/public/${encodeURIComponent(publicId)}/month${query}`,
 		)
 			.then(async (response) => {
 				if (!response.ok) {
@@ -132,6 +151,10 @@ export default function BookingPage() {
 					name: result.name || "",
 					description: result.description || "",
 				});
+				if (requested.date) {
+					const day = (result.days || []).find((d) => d.date === requested.date);
+					if (day && day.available) chooseDate(requested.date);
+				}
 			})
 			.catch((err) => {
 				if (active) setError(err.message);
