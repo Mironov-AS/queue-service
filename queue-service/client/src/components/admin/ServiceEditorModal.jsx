@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../../api";
 import { defaultBookingConfig } from "./bookingDefaults";
 import QueueFieldsEditor from "./QueueFieldsEditor";
@@ -61,6 +61,10 @@ export default function ServiceEditorModal({
 	const [bookingOn, setBookingOn] = useState(
 		!!(service && channels?.[service.id]?.booking_enabled),
 	);
+	// Состояние каналов справочника может прийти позже окна, поэтому при
+	// загрузке настроек записи ориентируемся на серверную конфигурацию услуги.
+	const channelsRef = useRef(channels);
+	channelsRef.current = channels;
 	const [config, setConfig] = useState(null);
 	const [tab, setTab] = useState(
 		() => "booking",
@@ -87,6 +91,11 @@ export default function ServiceEditorModal({
 				const row = await res.json();
 				if (!active) return;
 				setConfig(row ? { ...defaultBookingConfig(), ...row } : null);
+				setBookingOn(
+					row
+						? row.enabled === true
+						: !!channelsRef.current?.[service.id]?.booking_enabled,
+				);
 			} catch (e) {
 				if (active) setError(e.message);
 			} finally {
