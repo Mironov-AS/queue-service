@@ -6,11 +6,13 @@ const crypto = require("node:crypto");
 const { Pool } = require("pg");
 const { bookingRepository, schema } = require("../services/bookingRepository");
 const connectionString = process.env.BOOKING_TEST_DATABASE_URL;
+const { validateTestDatabaseUrl } = require("./test-database-guard");
 
 test("PostgreSQL: конкурентная запись, отключение, повторное включение и отмена", {
 	skip: !connectionString,
 	timeout: 30000,
 }, async () => {
+	validateTestDatabaseUrl(connectionString, process.env.BOOKING_TEST_ISOLATION_CONFIRMED);
 	const name = `booking_test_${crypto.randomBytes(12).toString("hex")}`;
 	const admin = new Pool({
 		connectionString,

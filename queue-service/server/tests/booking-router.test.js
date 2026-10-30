@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const express = require("express");
 const { createBookingRouter } = require("../routes/booking");
 const publicId = "01234567-89ab-4cde-8123-0123456789ab";
-async function withServer(run) {
+async function withServer(run, overrides = {}) {
 	const repo = {
 		getPublic: async () => ({ slots: [], fields: [] }),
 		create: async () => ({ id: 1 }),
@@ -12,6 +12,7 @@ async function withServer(run) {
 		getCalendar: async () => ({}),
 		cancel: async () => true,
 	};
+	Object.assign(repo, overrides);
 	const app = express();
 	app.use(express.json());
 	app.use(
@@ -75,3 +76,13 @@ test("нельзя включить запись без ссылок на док
  assert.throws(() => createBookingRouter({...guards,approvedConsent:{version:'v1',text:'Текст'}}),/согласие/);
  assert.throws(() => createBookingRouter({...guards,approvedConsent:{version:'v1',text:'Текст',policyUrl:'javascript:alert(1)',consentUrl:'/consent'}}),/согласие/);
 });
+
+test("ошибка соединения с БД не раскрывает внутренние данные", () => withServer(async base => {
+ const r = await fetch(`${base}/public/${publicId}?date=2026-11-02`);
+ assert.equal(r.status,500);
+ assert.deepEqual(await r.json(),{error:"Ошибка сервера"});
+}, {getPublic:async()=>{let e=new Error("secret database host and credential");e.code="ECONNREFUSED";throw e;}}));
+test("ошибка валидации формы передаётся клиенту", () => withServer(async base => {
+ const r = await fetch(`${base}/public/${publicId}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({date:"2026-11-02",consent:true,consentVersion:"v1"})});
+ assert.equal(r.status,400); assert.equal((await r.json()).error,"Заполните поле: Телефон");
+}, {create:async()=>{throw new Error("Заполните поле: Телефон");}}));

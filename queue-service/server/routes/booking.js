@@ -58,13 +58,14 @@ function createBookingRouter({
 		try {
 			await fn(req, res);
 		} catch (e) {
-			if (e.code && /^\d{5}$/.test(e.code)) {
-				console.error("booking db error:", e.code);
-				return res.status(500).json({ error: "Ошибка сервера" });
-			}
-			return res
-				.status(400)
-				.json({ error: e.message || "Некорректный запрос" });
+            // Only known validation messages may cross the API boundary.
+            // Database drivers also emit connection and operational errors without SQLSTATE.
+            const validation = /^(Некорректн|Слишком много полей формы|Слишком длинное значение поля|Неизвестное поле формы|Заполните поле: |Необходимо утверждённое согласие|Запись временно недоступна|Нельзя записаться в прошедшее время|Время недоступно)/;
+            if (e instanceof Error && !e.code && validation.test(e.message)) {
+                return res.status(400).json({ error: e.message });
+            }
+            console.error("booking operation error:", e?.code || e?.name || "unknown");
+            return res.status(500).json({ error: "Ошибка сервера" });
 		}
 	};
 	router.get(
