@@ -21,7 +21,8 @@ async function withServer(run, overrides = {}) {
 			repository: repo,
 			approvedConsent: {
 				version: "v1",
-				text: "Согласие", agreementText: "Соглашение",
+				text: "Согласие",
+				agreementText: "Соглашение",
 				agreementUrl: "/agreement",
 				agreementTitle: "Пользовательское соглашение",
 				policyUrl: "/privacy",
@@ -55,11 +56,11 @@ test("публичная форма получает серверную верс
 		const r = await fetch(`${base}/public/${publicId}?date=2026-11-02`);
 		assert.equal(r.status, 200);
 		const consent = (await r.json()).consent;
-        assert.equal(consent.version, "v1");
-        assert.equal(consent.policyUrl, "/privacy");
-        assert.equal(consent.consentUrl, "/consent");
-        assert.equal(consent.agreementUrl, "/agreement");
-        assert.equal(consent.agreementTitle, "Пользовательское соглашение");
+		assert.equal(consent.version, "v1");
+		assert.equal(consent.policyUrl, "/privacy");
+		assert.equal(consent.consentUrl, "/consent");
+		assert.equal(consent.agreementUrl, "/agreement");
+		assert.equal(consent.agreementTitle, "Пользовательское соглашение");
 	}));
 test("утверждённое согласие сервиса записи содержит ссылку на соглашение и реквизиты", () => {
 	const { bookingConsent } = require("../services/bookingConsent");
@@ -91,23 +92,88 @@ test("административные данные не раскрываютс�
 	}));
 
 test("нельзя включить запись без ссылок на документы или с небезопасным адресом", () => {
- const guards = {repository:{},requireAuth:()=>{},requireAdmin:()=>{}};
- assert.throws(() => createBookingRouter({...guards,approvedConsent:{version:'v1',text:'Текст'}}),/согласие/);
- assert.throws(() => createBookingRouter({...guards,approvedConsent:{version:'v1',text:'Текст',policyUrl:'javascript:alert(1)',consentUrl:'/consent'}}),/согласие/);
+	const guards = {
+		repository: {},
+		requireAuth: () => {},
+		requireAdmin: () => {},
+	};
+	assert.throws(
+		() =>
+			createBookingRouter({
+				...guards,
+				approvedConsent: { version: "v1", text: "Текст" },
+			}),
+		/согласие/,
+	);
+	assert.throws(
+		() =>
+			createBookingRouter({
+				...guards,
+				approvedConsent: {
+					version: "v1",
+					text: "Текст",
+					policyUrl: "javascript:alert(1)",
+					consentUrl: "/consent",
+				},
+			}),
+		/согласие/,
+	);
 });
 
-test("ошибка соединения с БД не раскрывает внутренние данные", () => withServer(async base => {
- const r = await fetch(`${base}/public/${publicId}?date=2026-11-02`);
- assert.equal(r.status,500);
- assert.deepEqual(await r.json(),{error:"Ошибка сервера"});
-}, {getPublic:async()=>{const e=new Error("secret database host and credential");e.code="ECONNREFUSED";throw e;}}));
-test("ошибка валидации формы передаётся клиенту", () => withServer(async base => {
- const r = await fetch(`${base}/public/${publicId}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({date:"2026-11-02",consent:true,agreement:true,consentVersion:"v1"})});
- assert.equal(r.status,400); assert.equal((await r.json()).error,"Заполните поле: Телефон");
-}, {create:async()=>{throw new Error("Заполните поле: Телефон");}}));
-test('каждая из двух отметок обязательна на сервере', () => withServer(async base => {
- for (const [agreement,consent] of [[false,true],[true,false],[false,false]]) {
-  const r = await fetch(`${base}/public/${publicId}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({date:'2026-11-02',agreement,consent,consentVersion:'v1'})});
-  assert.equal(r.status,400);
- }
-}));
+test("ошибка соединения с БД не раскрывает внутренние данные", () =>
+	withServer(
+		async (base) => {
+			const r = await fetch(`${base}/public/${publicId}?date=2026-11-02`);
+			assert.equal(r.status, 500);
+			assert.deepEqual(await r.json(), { error: "Ошибка сервера" });
+		},
+		{
+			getPublic: async () => {
+				const e = new Error("secret database host and credential");
+				e.code = "ECONNREFUSED";
+				throw e;
+			},
+		},
+	));
+test("ошибка валидации формы передаётся клиенту", () =>
+	withServer(
+		async (base) => {
+			const r = await fetch(`${base}/public/${publicId}`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					date: "2026-11-02",
+					consent: true,
+					agreement: true,
+					consentVersion: "v1",
+				}),
+			});
+			assert.equal(r.status, 400);
+			assert.equal((await r.json()).error, "Заполните поле: Телефон");
+		},
+		{
+			create: async () => {
+				throw new Error("Заполните поле: Телефон");
+			},
+		},
+	));
+test("каждая из двух отметок обязательна на сервере", () =>
+	withServer(async (base) => {
+		for (const [agreement, consent] of [
+			[false, true],
+			[true, false],
+			[false, false],
+		]) {
+			const r = await fetch(`${base}/public/${publicId}`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					date: "2026-11-02",
+					agreement,
+					consent,
+					consentVersion: "v1",
+				}),
+			});
+			assert.equal(r.status, 400);
+		}
+	}));

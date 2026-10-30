@@ -235,7 +235,9 @@ export default function BookingPage() {
 			!slot ||
 			!consent?.version ||
 			!selectedDate ||
-			!consentChecked || !agreementChecked || !consent?.agreementText ||
+			!consentChecked ||
+			!agreementChecked ||
+			!consent?.agreementText ||
 			!agreementChecked
 		)
 			return;
@@ -501,19 +503,76 @@ export default function BookingPage() {
 														)}
 													</label>
 												))}
-												{consent?.text && consent?.agreementText && consent?.policyUrl && consent?.consentUrl ? (
- <div className="rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
-  <label className="flex items-start gap-2"><input type="checkbox" checked={agreementChecked} onChange={e => setAgreementChecked(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0"/><span>{consent.agreementText} <a href={consent.agreementUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">Соглашение</a></span></label>
-  <label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={consentChecked} onChange={e => setConsentChecked(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0"/><span>{consent.text}</span></label>
-  <p className="mt-3"><a href={consent.policyUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">Политика обработки ПДн</a> · <a href={consent.consentUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">Согласие на обработку ПДн</a></p>
- </div>
-) : <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Запись временно недоступна: документы не настроены.</p>}
-                                                <button
+												{consent?.text &&
+												consent?.agreementText &&
+												consent?.policyUrl &&
+												consent?.consentUrl ? (
+													<div className="rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
+														<label className="flex items-start gap-2">
+															<input
+																type="checkbox"
+																checked={agreementChecked}
+																onChange={(e) =>
+																	setAgreementChecked(e.target.checked)
+																}
+																className="mt-0.5 h-4 w-4 shrink-0"
+															/>
+															<span>
+																{consent.agreementText}{" "}
+																<a
+																	href={consent.agreementUrl}
+																	target="_blank"
+																	rel="noreferrer"
+																	className="text-blue-700 underline"
+																>
+																	Соглашение
+																</a>
+															</span>
+														</label>
+														<label className="mt-3 flex items-start gap-2">
+															<input
+																type="checkbox"
+																checked={consentChecked}
+																onChange={(e) =>
+																	setConsentChecked(e.target.checked)
+																}
+																className="mt-0.5 h-4 w-4 shrink-0"
+															/>
+															<span>{consent.text}</span>
+														</label>
+														<p className="mt-3">
+															<a
+																href={consent.policyUrl}
+																target="_blank"
+																rel="noreferrer"
+																className="text-blue-700 underline"
+															>
+																Политика обработки ПДн
+															</a>{" "}
+															·{" "}
+															<a
+																href={consent.consentUrl}
+																target="_blank"
+																rel="noreferrer"
+																className="text-blue-700 underline"
+															>
+																Согласие на обработку ПДн
+															</a>
+														</p>
+													</div>
+												) : (
+													<p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+														Запись временно недоступна: документы не настроены.
+													</p>
+												)}
+												<button
 													type="submit"
 													disabled={
 														!slot ||
 														sending ||
-														!consentChecked || !agreementChecked || !consent?.agreementText ||
+														!consentChecked ||
+														!agreementChecked ||
+														!consent?.agreementText ||
 														!consent?.policyUrl ||
 														!consent?.consentUrl
 													}
