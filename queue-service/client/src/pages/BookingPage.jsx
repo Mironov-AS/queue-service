@@ -262,6 +262,11 @@ export default function BookingPage() {
 	return (
 		<main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-800">
 			<div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 shadow-lg sm:p-8">
+				<img
+					src="/logo.png"
+					alt="Максима"
+					className="mb-4 h-11 w-auto object-contain sm:h-12"
+				/>
 				<p className="text-sm font-bold uppercase tracking-wider text-blue-600">
 					Предварительная запись
 				</p>
