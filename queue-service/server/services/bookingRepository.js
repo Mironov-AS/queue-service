@@ -37,6 +37,7 @@ function validateFields(fields, answers, schemaOnly = false) {
 		Array.isArray(answers)
 	)
 		throw new Error("Некорректные данные формы");
+	if (fields.length > 100) throw new Error("Слишком много полей формы");
 	const allowed = new Set();
 	const result = {};
 	for (const f of fields) {
@@ -113,10 +114,11 @@ function bookingRepository(pool) {
 			)
 				throw new Error("Некорректное расписание");
 			for (let day = 0; day < 7; day++)
-				configSlots(config, `2026-11-0${day + 1}`, []);
+				configSlots({ ...config, exceptions: [] }, `2026-11-0${day + 1}`, []);
 			for (const date of config.exceptions)
 				calculateSlots({ date, weekdays: [], durationMinutes: 1, capacity: 1 });
 			try {
+                if (typeof config.timezone !== "string" || !config.timezone.trim()) throw new Error("timezone required");
 				new Intl.DateTimeFormat("en", { timeZone: config.timezone }).format();
 			} catch {
 				throw new Error("Некорректный часовой пояс");
