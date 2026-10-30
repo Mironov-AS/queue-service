@@ -117,7 +117,6 @@ export default function ServiceEditorModal({
 		if (!tabs.some((t) => t.id === tab)) setTab("main");
 	}, [tabs, tab]);
 
-
 	const widgetUrl = config?.public_id
 		? `${window.location.origin}/booking/${config.public_id}`
 		: "";
@@ -128,10 +127,7 @@ export default function ServiceEditorModal({
 	const setDay = (day, enabled) => {
 		setConfigValue({
 			schedule: enabled
-				? [
-						...(config?.schedule || []),
-						{ day, start: "09:00", end: "18:00" },
-					]
+				? [...(config?.schedule || []), { day, start: "09:00", end: "18:00" }]
 				: (config?.schedule || []).filter((p) => p.day !== day),
 		});
 	};
@@ -454,8 +450,7 @@ export default function ServiceEditorModal({
 									<QueueFieldsEditor serviceId={savedId} />
 								) : (
 									<p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-500">
-										Сохраните услугу — и здесь можно будет добавить поля
-										анкеты.
+										Сохраните услугу — и здесь можно будет добавить поля анкеты.
 									</p>
 								)}
 							</section>
@@ -550,9 +545,7 @@ export default function ServiceEditorModal({
 															<input
 																type="checkbox"
 																checked={!!period}
-																onChange={(e) =>
-																	setDay(day, e.target.checked)
-																}
+																onChange={(e) => setDay(day, e.target.checked)}
 																className="h-4 w-4 rounded border-gray-300"
 															/>
 															{label}
@@ -673,11 +666,10 @@ export default function ServiceEditorModal({
 															checked={!!field.required}
 															onChange={(e) =>
 																setConfigValue({
-																	fields: config.fields.map(
-																		(f, i) =>
-																			i === index
-																				? { ...f, required: e.target.checked }
-																				: f,
+																	fields: config.fields.map((f, i) =>
+																		i === index
+																			? { ...f, required: e.target.checked }
+																			: f,
 																	),
 																})
 															}
@@ -797,11 +789,7 @@ export default function ServiceEditorModal({
 								className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
 							>
 								<Icon d={P.check} cls="w-4 h-4" />
-								{saving
-									? "Сохраняем…"
-									: isNew
-										? "Создать услугу"
-										: "Сохранить"}
+								{saving ? "Сохраняем…" : isNew ? "Создать услугу" : "Сохранить"}
 							</button>
 						</div>
 					</div>

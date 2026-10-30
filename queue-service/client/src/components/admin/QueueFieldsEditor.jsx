@@ -134,8 +134,8 @@ export default function QueueFieldsEditor({ serviceId, onChanged }) {
 								</div>
 								<div className="text-xs text-gray-400 flex items-center gap-2 mt-0.5 flex-wrap">
 									<span>
-										{FIELD_TYPES.find((t) => t.value === f.field_type)
-											?.label || f.field_type}
+										{FIELD_TYPES.find((t) => t.value === f.field_type)?.label ||
+											f.field_type}
 									</span>
 									{f.required ? (
 										<span className="text-red-500 font-semibold">

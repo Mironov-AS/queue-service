@@ -50,7 +50,6 @@ export default function ServicesTab() {
 		load();
 	}, []);
 
-
 	// Switching the booking channel keeps the schedule and the permanent
 	// widget link of the service.
 	const setBookingChannel = async (serviceId, enabled) => {
@@ -124,8 +123,8 @@ export default function ServicesTab() {
 				<div>
 					<h2 className="text-lg font-bold text-gray-900">Услуги</h2>
 					<p className="mt-0.5 text-sm text-gray-500">
-						Очередь и запись — независимые каналы. Настройте любой из них
-						или оба сразу.
+						Очередь и запись — независимые каналы. Настройте любой из них или
+						оба сразу.
 					</p>
 				</div>
 				<button
@@ -151,12 +150,10 @@ export default function ServicesTab() {
 			<div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
 				{services.length === 0 ? (
 					<div className="px-6 py-14 text-center">
-						<p className="text-sm font-medium text-gray-600">
-							Услуг пока нет
-						</p>
+						<p className="text-sm font-medium text-gray-600">Услуг пока нет</p>
 						<p className="mt-1 text-xs text-gray-400">
-							Добавьте первую услугу — можно сразу для очереди, для записи
-							или для обоих каналов.
+							Добавьте первую услугу — можно сразу для очереди, для записи или
+							для обоих каналов.
 						</p>
 						<button
 							type="button"
@@ -202,9 +199,7 @@ export default function ServicesTab() {
 										className={`transition hover:bg-gray-50 ${!s.enabled ? "opacity-60" : ""}`}
 									>
 										<td className="px-5 py-4">
-											<div className="font-medium text-gray-800">
-												{s.name}
-											</div>
+											<div className="font-medium text-gray-800">{s.name}</div>
 											{s.description && (
 												<div className="mt-0.5 text-xs text-gray-400">
 													{s.description}
@@ -245,9 +240,7 @@ export default function ServicesTab() {
 														}`}
 													>
 														Запись:{" "}
-														{channels[s.id]?.booking_enabled
-															? "вкл"
-															: "выкл"}
+														{channels[s.id]?.booking_enabled ? "вкл" : "выкл"}
 													</button>
 												) : (
 													<span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-400">
@@ -277,9 +270,7 @@ export default function ServicesTab() {
 												type="button"
 												onClick={() => setDefault(s)}
 												title={
-													s.is_default
-														? "Снять метку"
-														: "Сделать по умолчанию"
+													s.is_default ? "Снять метку" : "Сделать по умолчанию"
 												}
 												className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition ${
 													s.is_default

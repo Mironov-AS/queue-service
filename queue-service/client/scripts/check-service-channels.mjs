@@ -233,7 +233,10 @@ if (!modal) {
 }
 
 const modalText = (modal.textContent || "").replace(/\s+/g, " ");
-console.log("в окне есть вкладки:", ["Основное", "Очередь", "Запись"].filter((t) => modalText.includes(t)));
+console.log(
+	"в окне есть вкладки:",
+	["Основное", "Очередь", "Запись"].filter((t) => modalText.includes(t)),
+);
 
 const channelCheckboxes = [...modal.querySelectorAll("input[type=checkbox]")]
 	.map((c) => c.closest("label")?.textContent.replace(/\s+/g, " ").trim())
@@ -266,8 +269,14 @@ await Promise.allSettled(pending);
 await flush(400);
 
 const bookingText = (modal.textContent || "").replace(/\s+/g, " ");
-console.log("во вкладке «Запись» есть расписание:", /Рабочие дни/.test(bookingText));
-console.log("во вкладке «Запись» есть «Открыть виджет»:", /Открыть виджет/.test(bookingText));
+console.log(
+	"во вкладке «Запись» есть расписание:",
+	/Рабочие дни/.test(bookingText),
+);
+console.log(
+	"во вкладке «Запись» есть «Открыть виджет»:",
+	/Открыть виджет/.test(bookingText),
+);
 if (!/Открыть виджет/.test(bookingText)) {
 	console.error("В настройках услуги нет кнопки «Открыть виджет»");
 	process.exit(1);
@@ -286,13 +295,14 @@ const queueTab = [...modal.querySelectorAll("button")].find(
 	(b) => b.textContent.trim() === "Очередь",
 );
 await act(async () => {
-	queueTab.dispatchEvent(
-		new dom.window.MouseEvent("click", { bubbles: true }),
-	);
+	queueTab.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
 });
 await flush(600);
 const queueText = (modal.textContent || "").replace(/\s+/g, " ");
-console.log("во вкладке «Очередь» есть лимит и приоритет:", /Лимит талонов в день/.test(queueText) && /Приоритет/.test(queueText));
+console.log(
+	"во вкладке «Очередь» есть лимит и приоритет:",
+	/Лимит талонов в день/.test(queueText) && /Приоритет/.test(queueText),
+);
 if (!/Лимит талонов в день/.test(queueText)) {
 	console.error("В настройках услуги нет настроек очереди");
 	process.exit(1);
