@@ -103,6 +103,46 @@ console.log("--- body ---");
 console.log(
 	(document.body.textContent || "").replace(/\s+/g, " ").slice(0, 600),
 );
+// The directory may contain services without bookings, so the check works with
+// the service that actually has bookings in the preview month.
+const serviceSelect = document.querySelector("select");
+const serviceOptions = [...serviceSelect.options].map((o) => ({
+	value: o.value,
+	label: o.textContent.trim(),
+}));
+let chosen = serviceOptions[0];
+for (const option of serviceOptions) {
+	const res = await nativeFetch(
+		`http://127.0.0.1:6621/api/booking/services/${option.value}/bookings?month=2026-11`,
+		{ headers: { authorization: `Bearer ${token}` } },
+	);
+	const body = await res.json();
+	if (body.bookings && body.bookings.length) {
+		chosen = option;
+		break;
+	}
+}
+console.log(
+	"услуги в справочнике:",
+	serviceOptions.map((o) => o.label).join(", "),
+	"| проверяем:",
+	chosen.label,
+);
+if (chosen.value !== serviceSelect.value) {
+	const setter = Object.getOwnPropertyDescriptor(
+		dom.window.HTMLSelectElement.prototype,
+		"value",
+	).set;
+	await act(async () => {
+		setter.call(serviceSelect, chosen.value);
+		serviceSelect.dispatchEvent(
+			new dom.window.Event("change", { bubbles: true }),
+		);
+	});
+	await flush(1500);
+	await Promise.allSettled(pending);
+	await flush();
+}
 console.log("select value:", document.querySelector("select")?.value);
 console.log("--- / ---");
 // Move to the next month: the preview data lives in November 2026.
