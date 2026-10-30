@@ -128,6 +128,7 @@ function nextWeekday() {
 			start: slot.start,
 			answers: { phone: "+7 900 000-00-00" },
 			consent: true,
+			agreement: true,
 			consentVersion: pub.json.consent.version,
 		}),
 	});
@@ -158,6 +159,7 @@ function nextWeekday() {
 			start: slot.start,
 			answers: { phone: "+7 900 000-00-01" },
 			consent: true,
+			agreement: true,
 			consentVersion: pub.json.consent.version,
 		}),
 	});
@@ -170,6 +172,7 @@ function nextWeekday() {
 			start: slot.start,
 			answers: { phone: "+7 900 000-00-02" },
 			consent: true,
+			agreement: true,
 			consentVersion: pub.json.consent.version,
 		}),
 	});

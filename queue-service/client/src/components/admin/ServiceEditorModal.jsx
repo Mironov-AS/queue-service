@@ -8,10 +8,7 @@ import { Icon, P } from "./shared";
 // внутри услуги не показывается.
 const bookingEnabled = import.meta.env.VITE_BOOKING_ENABLED === "true";
 
-// IP промышленной ВМ: виджет через IP работает только по http:// и
-// встраивается только на сайты тоже по http:// (на https-сайтах браузер
-// такой фрейм заблокирует как смешанное содержимое).
-const PROD_VM_IP = "109.73.193.156";
+const WIDGET_ORIGIN = "https://app-341b7baafda02d517aa619d3f4d77626.promto.site";
 
 const WEEKDAYS = [
 	{ day: 0, label: "Воскресенье" },
@@ -122,25 +119,8 @@ export default function ServiceEditorModal({
 		if (!tabs.some((t) => t.id === tab)) setTab("main");
 	}, [tabs, tab]);
 
-	const widgetUrl = config?.public_id
-		? `${window.location.origin}/booking/${config.public_id}`
-		: "";
-	const widgetHost = useMemo(() => {
-		try {
-			return new URL(window.location.href).host;
-		} catch {
-			return window.location.host;
-		}
-	}, []);
-	// Виджет через IP ВМ работает только по http:// и встраивается только
-	// на сайты тоже по http:// — на https-сайтах браузер такой фрейм
-	// заблокирует как смешанное содержимое.
-	const ipWidgetUrl = config?.public_id
-		? `http://${PROD_VM_IP}/booking/${config.public_id}`
-		: "";
-	const ipEmbedCode = config?.public_id
-		? `<iframe src="${ipWidgetUrl}" title="Предварительная запись" style="width:100%;border:0;min-height:100vh" loading="lazy" scrolling="no" id="booking-widget-${config.public_id}"></iframe>\n<script>\n(function(){var frame=document.getElementById("booking-widget-${config.public_id}");\nwindow.addEventListener("message",function(e){if(!e||!e.data||e.data.type!=="booking-widget-height")return;\nif(e.data.publicId!=="${config.public_id}")return;\nif(frame&&e.data.height>200&&e.data.height<4000)frame.style.height=e.data.height+"px";});})();\n</script>`
-		: "";
+	const widgetUrl = config?.public_id ? `${WIDGET_ORIGIN}/booking/${config.public_id}` : "";
+	const embedCode = config?.public_id ? `<iframe src="${widgetUrl}" title="Предварительная запись" style="width:100%;border:0;min-height:600px" loading="lazy" id="booking-widget-${config.public_id}"></iframe>\n<script>\n(function(){var frame=document.getElementById("booking-widget-${config.public_id}");window.addEventListener("message",function(e){if(e.origin!=="${WIDGET_ORIGIN}"||e.source!==frame.contentWindow||!e.data||e.data.type!=="booking-widget-height"||e.data.publicId!=="${config.public_id}")return;var h=Number(e.data.height);if(Number.isFinite(h)&&h>=200&&h<=20000)frame.style.height=h+"px";});})();\n</script>` : "";
 
 	const setConfigValue = (patch) =>
 		setConfig((c) => ({ ...(c || defaultBookingConfig()), ...patch }));
@@ -758,27 +738,8 @@ export default function ServiceEditorModal({
 													aria-label="Код встраивания"
 													rows={3}
 													className={`${input} bg-white font-mono text-xs`}
-													value={`<iframe src="${widgetUrl}" title="Предварительная запись" style="width:100%;border:0;min-height:100vh" loading="lazy" scrolling="no"></iframe>`}
+													value={embedCode}
 												/>
-												<p className="text-xs font-medium text-gray-500">
-													Код для вставки через IP ВМ ({PROD_VM_IP}):
-												</p>
-												<textarea
-													readOnly
-													aria-label="Код встраивания через IP"
-													rows={6}
-													className={`${input} bg-white font-mono text-xs`}
-													value={ipEmbedCode}
-												/>
-												{widgetHost !== PROD_VM_IP && (
-													<p className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
-														Вы открыли панель не через IP. Код выше использует
-														адрес IP ВМ, но браузер откроет виджет по http:// и
-														встроит его только на сайт тоже по http://. На сайт
-														с https:// такой фрейм браузер заблокирует
-														(смешанное содержимое).
-													</p>
-												)}
 											</>
 										) : (
 											<p className="text-sm text-gray-500">
