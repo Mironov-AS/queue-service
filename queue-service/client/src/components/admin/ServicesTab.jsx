@@ -50,10 +50,6 @@ export default function ServicesTab() {
 		load();
 	}, []);
 
-	// TEMP: автооткрытие редактора для снимка превью
-	useEffect(() => {
-		if (services.length) setEditing(services.find((x) => x.id === 1) || services[0]);
-	}, [services]);
 
 	// Switching the booking channel keeps the schedule and the permanent
 	// widget link of the service.

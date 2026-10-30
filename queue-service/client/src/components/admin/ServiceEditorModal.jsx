@@ -66,9 +66,7 @@ export default function ServiceEditorModal({
 	const channelsRef = useRef(channels);
 	channelsRef.current = channels;
 	const [config, setConfig] = useState(null);
-	const [tab, setTab] = useState(
-		() => "booking",
-	);
+	const [tab, setTab] = useState("main");
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
 	const [saving, setSaving] = useState(false);
@@ -119,10 +117,6 @@ export default function ServiceEditorModal({
 		if (!tabs.some((t) => t.id === tab)) setTab("main");
 	}, [tabs, tab]);
 
-	// TEMP: снимок вкладки «Запись»
-	useEffect(() => {
-		if (tabs.some((t) => t.id === "booking")) setTab("booking");
-	}, [tabs]);
 
 	const widgetUrl = config?.public_id
 		? `${window.location.origin}/booking/${config.public_id}`
