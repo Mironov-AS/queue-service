@@ -11,12 +11,13 @@ runuser -u postgres -- psql -Atqc "SELECT 1 FROM pg_database WHERE datname='queu
 	echo 'test db exists'
 	exit 2
 }
-[ ! -e "$root" ] && [ ! -e /etc/systemd/system/$unit ] || exit 2
+[ ! -e "$root" ] && [ ! -e /etc/systemd/system/$unit ] && [ ! -e "/etc/systemd/system/$unit.d" ] || exit 2
 ! ss -ltn | grep -q ':13085 ' || exit 2
 mkdir -m 755 "$root"
 cleanup() {
 	systemctl stop "$unit" 2>/dev/null || true
 	rm -f /etc/systemd/system/$unit
+	rm -rf -- "/etc/systemd/system/$unit.d"
 	systemctl daemon-reload
 	runuser -u postgres -- dropdb --if-exists queue_switch_test_only
 	rm -rf -- "$root"
@@ -60,7 +61,6 @@ WorkingDirectory=$root/server
 Environment=NODE_ENV=production
 Environment=DATA_DIR=$root/data
 Environment=PORT=13085
-EnvironmentFile=$root/booking.env
 ExecStart=/usr/bin/node $root/server/index.js
 Restart=no
 UNIT
@@ -71,7 +71,27 @@ cat >"$root/control" <<'CONTROL'
 #!/bin/bash
 set -euo pipefail
 root=/opt/queue-switch-test-booking
+unit=queue-switch-test-booking.service
+dropin=/etc/systemd/system/$unit.d
+if [ "$1" = start ]; then
+  if [ -d "$root/previous" ]; then
+    install -d -m 755 "$dropin"
+    printf '[Service]\nEnvironmentFile=%s/booking.env\n' "$root" > "$dropin/booking.conf"
+  else
+    rm -f -- "$dropin/booking.conf"
+    rmdir --ignore-fail-on-non-empty "$dropin" 2>/dev/null || true
+  fi
+  systemctl daemon-reload
+fi
 if [ "$1" = check-new ] && [ -f "$root/fail-new" ]; then exit 1; fi
+if [ "$1" = check-old ]; then
+  [ ! -e "$dropin/booking.conf" ] || exit 1
+  ! systemctl show "$unit" -p EnvironmentFiles --value | grep -Fq "$root/booking.env" || exit 1
+fi
+if [ "$1" = check-new ]; then
+  [ -f "$dropin/booking.conf" ] || exit 1
+  systemctl show "$unit" -p EnvironmentFiles --value | grep -Fq "$root/booking.env" || exit 1
+fi
 exec bash "$root/adapter" "$@"
 CONTROL
 chmod 700 "$root/control"
