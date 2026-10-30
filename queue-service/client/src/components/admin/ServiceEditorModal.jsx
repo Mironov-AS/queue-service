@@ -119,6 +119,11 @@ export default function ServiceEditorModal({
 		if (!tabs.some((t) => t.id === tab)) setTab("main");
 	}, [tabs, tab]);
 
+	// TEMP: снимок вкладки «Запись»
+	useEffect(() => {
+		if (tabs.some((t) => t.id === "booking")) setTab("booking");
+	}, [tabs]);
+
 	const widgetUrl = config?.public_id
 		? `${window.location.origin}/booking/${config.public_id}`
 		: "";
