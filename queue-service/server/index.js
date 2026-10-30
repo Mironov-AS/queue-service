@@ -67,6 +67,13 @@ app.use("/api/users", usersRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/qrcode", qrRouter);
 app.use("/api/logs", logsRouter);
+// This legacy SQLite server cannot safely enable booking: PostgreSQL and the
+// legal documents must be integrated first. Unknown API calls must not fall
+// through to the SPA and appear to have succeeded.
+app.use(
+	"/api/booking",
+	require("./routes/bookingAvailability").createBookingAvailability(),
+);
 
 // ─── Socket.io ────────────────────────────────────────────────────────────────
 const { getQueueState, getPublicQueueState } = require("./services/queueState");
