@@ -329,7 +329,7 @@ export default function AdminPage() {
 			</header>
 
 			<main className="max-w-6xl mx-auto px-4 py-6">
-				{tab === "queue" && <QueueTab />}
+				{tab === "queue" && <ServicesTab />}
 				{tab === "booking" && <BookingTab />}
 				{tab === "settings" && (
 					<div className="space-y-4">
