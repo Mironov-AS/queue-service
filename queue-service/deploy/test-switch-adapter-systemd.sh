@@ -76,11 +76,13 @@ dropin=/etc/systemd/system/$unit.d
 if [ "$1" = start ]; then
   if [ -d "$root/previous" ]; then
     install -d -m 755 "$dropin"
+    if [ -f "$root/fail-write" ]; then rm "$root/fail-write"; echo 'injected drop-in write failure' >&2; exit 1; fi
     printf '[Service]\nEnvironmentFile=%s/booking.env\n' "$root" > "$dropin/booking.conf"
   else
     rm -f -- "$dropin/booking.conf"
     rmdir --ignore-fail-on-non-empty "$dropin" 2>/dev/null || true
   fi
+  if [ -f "$root/fail-reload" ]; then rm "$root/fail-reload"; echo 'injected daemon-reload failure' >&2; exit 1; fi
   systemctl daemon-reload
 fi
 if [ "$1" = check-new ] && [ -f "$root/fail-new" ]; then exit 1; fi
@@ -97,17 +99,25 @@ CONTROL
 chmod 700 "$root/control"
 systemctl start "$unit"
 "$root/control" check-old
-touch "$root/fail-new"
-if SWITCH_TEST_ROOT="$root" bash "$root/engine"; then
-	echo 'expected failure missing'
-	exit 1
-fi
-"$root/control" check-old
+for injected in fail-write fail-reload fail-new; do
+	touch "$root/$injected"
+	if SWITCH_TEST_ROOT="$root" bash "$root/engine"; then
+		echo "expected failure missing: $injected" >&2
+		exit 1
+	fi
+	"$root/control" check-old
+	echo "verified rollback after $injected"
+	rm -f "$root/$injected"
+	if [ "$injected" != fail-new ]; then
+		rm -rf "$root/staged" "$root/failed"
+		rm "$root/snapshot.db"
+	fi
+done
 node - "$root" <<'NODE'
 const r=process.argv[2],D=require(r+'/server/node_modules/better-sqlite3');const a=new D(r+'/data/queue.db',{readonly:true}),b=new D(r+'/snapshot.db',{readonly:true});let x=a.prepare('select count(*) n from tickets').get().n,y=b.prepare('select count(*) n from tickets').get().n;if(x!==y)process.exit(1); console.log('rollback ticket count',x);a.close();b.close();
 NODE
 rm -rf "$root/staged" "$root/failed"
-rm "$root/fail-new"
+rm -f "$root/fail-new"
 rm "$root/snapshot.db"
 SWITCH_TEST_ROOT="$root" bash "$root/engine"
 "$root/control" check-new
