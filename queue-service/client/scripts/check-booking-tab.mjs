@@ -19,10 +19,13 @@ if (!tokenFile) {
 const token = readFileSync(tokenFile, "utf8").trim();
 
 const nativeFetch = globalThis.fetch;
-const dom = new JSDOM("<!doctype html><html><body><div id='root'></div></body></html>", {
-	url: "http://127.0.0.1:5175/admin",
-	pretendToBeVisual: true,
-});
+const dom = new JSDOM(
+	"<!doctype html><html><body><div id='root'></div></body></html>",
+	{
+		url: "http://127.0.0.1:5175/admin",
+		pretendToBeVisual: true,
+	},
+);
 global.window = dom.window;
 global.document = dom.window.document;
 Object.defineProperty(global, "navigator", {
@@ -97,7 +100,9 @@ await Promise.allSettled(pending);
 await flush();
 
 console.log("--- body ---");
-console.log((document.body.textContent || "").replace(/\s+/g, " ").slice(0, 600));
+console.log(
+	(document.body.textContent || "").replace(/\s+/g, " ").slice(0, 600),
+);
 console.log("select value:", document.querySelector("select")?.value);
 console.log("--- / ---");
 // Move to the next month: the preview data lives in November 2026.
@@ -116,21 +121,29 @@ const dayCells = [...document.querySelectorAll("button")].filter((b) =>
 );
 const bookedDay = dayCells.find((b) => /записей:/.test(b.textContent));
 console.log("дней в календаре:", dayCells.length);
-console.log("пример дня с записями:", bookedDay ? bookedDay.textContent.trim() : "нет");
+console.log(
+	"пример дня с записями:",
+	bookedDay ? bookedDay.textContent.trim() : "нет",
+);
 
 if (!bookedDay) {
 	console.error("День с записями не найден");
 	process.exit(1);
 }
 await act(async () => {
-	bookedDay.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+	bookedDay.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
 });
 await flush();
 const panel = document.body.textContent || "";
 const hasClientData = /Номер авто/.test(panel) && /Телефон/.test(panel);
 console.log("в панели дня есть поля клиента:", hasClientData);
 const start = panel.indexOf("занято");
-console.log("фрагмент панели:", panel.replace(/\s+/g, " ").slice(start, start + 260));
+console.log(
+	"фрагмент панели:",
+	panel.replace(/\s+/g, " ").slice(start, start + 260),
+);
 if (!hasClientData) {
 	console.error("Данные клиентов в панели дня не показаны");
 	process.exit(1);
@@ -146,7 +159,9 @@ if (!cancelButton) {
 }
 const before = (document.body.textContent.match(/Номер авто/g) || []).length;
 await act(async () => {
-	cancelButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+	cancelButton.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
 });
 await flush();
 await Promise.allSettled(pending);

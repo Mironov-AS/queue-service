@@ -190,11 +190,18 @@ export default function BookingTab() {
 			</div>
 
 			{error && (
-				<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+				<p
+					role="alert"
+					className="rounded-xl bg-red-50 p-3 text-sm text-red-700"
+				>
 					{error}
 				</p>
 			)}
-			{notice && <p role="status" className="text-sm text-green-700">{notice}</p>}
+			{notice && (
+				<p role="status" className="text-sm text-green-700">
+					{notice}
+				</p>
+			)}
 
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 				<section className="rounded-2xl bg-white p-4 shadow-sm">
@@ -210,7 +217,9 @@ export default function BookingTab() {
 						>
 							←
 						</button>
-						<h2 className="text-lg font-bold capitalize">{monthTitle(month)}</h2>
+						<h2 className="text-lg font-bold capitalize">
+							{monthTitle(month)}
+						</h2>
 						<button
 							type="button"
 							className="rounded-lg px-2 py-1 text-lg"
@@ -294,11 +303,14 @@ export default function BookingTab() {
 				<section className="rounded-2xl bg-white p-4 shadow-sm">
 					<h2 className="text-lg font-bold">
 						{selectedDate
-							? new Date(`${selectedDate}T00:00:00`).toLocaleDateString("ru-RU", {
-									day: "numeric",
-									month: "long",
-									year: "numeric",
-								})
+							? new Date(`${selectedDate}T00:00:00`).toLocaleDateString(
+									"ru-RU",
+									{
+										day: "numeric",
+										month: "long",
+										year: "numeric",
+									},
+								)
 							: "Выберите дату"}
 					</h2>
 					{!selectedDate && (
@@ -339,9 +351,7 @@ export default function BookingTab() {
 											</span>
 										</div>
 										{inSlot.length === 0 && (
-											<p className="mt-1 text-xs text-gray-500">
-												Записей нет
-											</p>
+											<p className="mt-1 text-xs text-gray-500">Записей нет</p>
 										)}
 										{inSlot.map((b) => (
 											<div
@@ -369,9 +379,7 @@ export default function BookingTab() {
 							})}
 							{day.bookings.filter(
 								(b) =>
-									!day.slots.some(
-										(s) => b.start < s.end && b.end > s.start,
-									),
+									!day.slots.some((s) => b.start < s.end && b.end > s.start),
 							).length > 0 && (
 								<p className="text-xs text-amber-700">
 									Есть записи вне текущего расписания — они показаны в списке

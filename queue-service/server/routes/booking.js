@@ -194,7 +194,8 @@ function createBookingRouter({
 		requireAdmin,
 		handle(async (req, res) => {
 			const serviceId = id(req.params.serviceId);
-			if (!serviceId) return res.status(400).json({ error: "Некорректная услуга" });
+			if (!serviceId)
+				return res.status(400).json({ error: "Некорректная услуга" });
 			const month = String(req.query.month || "");
 			if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
 				return res.status(400).json({ error: "Некорректный месяц" });
