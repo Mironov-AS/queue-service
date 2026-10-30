@@ -6,7 +6,6 @@ import {
 	useLocation,
 } from "react-router-dom";
 import AdminPage from "./pages/AdminPage";
-import { Navigate } from "react-router-dom";
 import BookingPage from "./pages/BookingPage";
 import VisitorPage from "./pages/VisitorPage";
 import TerminalPage from "./pages/TerminalPage";
