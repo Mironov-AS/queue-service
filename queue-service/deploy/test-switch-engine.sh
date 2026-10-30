@@ -45,6 +45,13 @@ if [ "$action" = check-new ] && [ "$failure" = rollback-conflict ]; then
  echo changed-after-switch > "$root/server/uploads/file"
  exit 1
 fi
+if [ "$action" = check-new ] && [ "$failure" = rollback-type-conflict ]; then
+ rm "$root/server/uploads/file"; mkdir "$root/server/uploads/file"
+ echo new > "$root/server/uploads/file/child"; exit 1
+fi
+if [ "$action" = check-new ] && [ "$failure" = rollback-symlink ]; then
+ ln -s /tmp "$root/server/uploads/link"; exit 1
+fi
 if [ "$action" = "$failure" ] && [ "$action" != stop ]; then exit 1; fi
 case "$action" in
  validate) test -f "$2/version";;
@@ -78,6 +85,21 @@ test "$(cat "$root/server/uploads/file")" = changed-after-switch
 test "$(cat "$root/previous/uploads/file")" = uploaded
 test "$(cat "$root/state")" = stopped
 echo 'PASS conflicting uploads retain both versions without overwriting'
+for failure in rollback-type-conflict rollback-symlink; do
+	rm -rf "$root/server" "$root/candidate" "$root/previous" "$root/staged" "$root/failed"
+	mkdir -p "$root/server/uploads" "$root/candidate"
+	echo old >"$root/server/version"
+	echo new >"$root/candidate/version"
+	echo uploaded >"$root/server/uploads/file"
+	echo running >"$root/state"
+	echo "$failure" >"$root/failure"
+	if SWITCH_TEST_ROOT="$root" bash "$engine" >"$root/result" 2>&1; then exit 1; fi
+	grep -q 'ROLLBACK HALTED:' "$root/result"
+	test "$(cat "$root/previous/uploads/file")" = uploaded
+	test "$(cat "$root/server/version")" = new
+	test "$(cat "$root/state")" = stopped
+	echo "PASS $failure retains both versions"
+done
 # If stopping the new process fails, retain both versions and never rename live code.
 run_case rollback-stop new
 grep -q 'ROLLBACK HALTED' "$root/result"

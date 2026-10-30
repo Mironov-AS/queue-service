@@ -15,6 +15,10 @@ old="$root/previous"
 stage="$root/staged"
 [ -d "$live" ] && [ -d "$candidate" ] && [ ! -e "$old" ] && [ ! -e "$stage" ] || exit 2
 phase=preflight
+regular_upload_tree() {
+	[ -d "$1" ] && [ ! -L "$1" ] || return 1
+	[ -z "$(find "$1" ! -type d ! -type f -print -quit)" ]
+}
 rollback() {
 	status=$?
 	trap - ERR
@@ -29,19 +33,28 @@ rollback() {
 				exit 3
 			}
 			if [ -d "$live/uploads" ]; then
-				[ ! -L "$live/uploads" ] && [ -d "$old/uploads" ] && [ ! -L "$old/uploads" ] || {
+				regular_upload_tree "$live/uploads" && regular_upload_tree "$old/uploads" || {
 					echo 'ROLLBACK HALTED: uploads paths unsafe' >&2
 					exit 3
 				}
-				# Preserve files accepted by the candidate. Refuse differing same-name files.
+				while IFS= read -r -d '' entry; do
+					rel=${entry#"$live/uploads/"}
+					target="$old/uploads/$rel"
+					if [ -e "$target" ]; then
+						if { [ -d "$entry" ] && [ ! -d "$target" ]; } || { [ -f "$entry" ] && { [ ! -f "$target" ] || ! cmp -s "$entry" "$target"; }; }; then
+							echo 'ROLLBACK HALTED: conflicting upload' >&2
+							exit 3
+						fi
+					fi
+				done < <(find "$live/uploads" -mindepth 1 -print0)
+				cp -an "$live/uploads/." "$old/uploads/" || exit 3
 				while IFS= read -r -d '' file; do
 					rel=${file#"$live/uploads/"}
-					if [ -e "$old/uploads/$rel" ] && ! cmp -s "$file" "$old/uploads/$rel"; then
-						echo 'ROLLBACK HALTED: conflicting upload' >&2
+					cmp -s "$file" "$old/uploads/$rel" || {
+						echo 'ROLLBACK HALTED: upload verification failed' >&2
 						exit 3
-					fi
+					}
 				done < <(find "$live/uploads" -type f -print0)
-				cp -an "$live/uploads/." "$old/uploads/" || exit 3
 			fi
 			if [ -e "$live" ]; then mv "$live" "$root/failed" || exit 3; fi
 			mv "$old" "$live" || exit 3
@@ -63,10 +76,16 @@ phase=stopping
 phase=stopped
 # Capture any uploads made after staging, only once writers are stopped.
 if [ -d "$live/uploads" ]; then
-	[ ! -L "$live/uploads" ] && [ ! -L "$stage/uploads" ] || {
-		echo 'unsafe uploads symlink' >&2
+	regular_upload_tree "$live/uploads" || {
+		echo 'unsafe uploads tree' >&2
 		false
 	}
+	if [ -e "$stage/uploads" ] || [ -L "$stage/uploads" ]; then
+		regular_upload_tree "$stage/uploads" || {
+			echo 'unsafe staged uploads tree' >&2
+			false
+		}
+	fi
 	mkdir -p "$stage/uploads"
 	cp -a "$live/uploads/." "$stage/uploads/"
 	diff -qr "$live/uploads" "$stage/uploads"
