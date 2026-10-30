@@ -56,6 +56,24 @@ async function rehearsalImport(source, client) {
 			);
 			if (result.rows[0].n !== count)
 				throw new Error(`Несовпадение количества: ${table}`);
+			// Compare every field using the source primary key, without logging data.
+			const key =
+				table === "settings"
+					? "key"
+					: table === "schema_migrations"
+						? "version"
+						: "id";
+			const compare = `SELECT ${columns.map(quote).join(",")} FROM ${quote(table)} WHERE ${quote(key)} = $1`;
+			for (const row of source
+				.prepare(`SELECT ${columns.map(quote).join(",")} FROM ${quote(table)}`)
+				.iterate()) {
+				const target = await client.query(compare, [row[key]]);
+				if (
+					target.rowCount !== 1 ||
+					columns.some((c) => row[c] !== target.rows[0][c])
+				)
+					throw new Error(`Несовпадение содержимого: ${table}`);
+			}
 			counts[table] = count;
 		}
 		for (const table of identityTables) {

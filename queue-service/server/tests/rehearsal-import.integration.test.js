@@ -56,6 +56,23 @@ test("PostgreSQL: пробный перенос синтетических да�
 			[schema],
 		);
 		assert.equal(after.rows[0].n, 0);
+		// A trigger simulates silent corruption: equal row counts must not pass.
+		const query = client.query.bind(client);
+		client.query = async (...args) => {
+			const result = await query(...args);
+			if (
+				typeof args[0] === "string" &&
+				args[0].startsWith('SELECT "id","name"') &&
+				result.rows.length
+			)
+				result.rows[0].name = "altered";
+			return result;
+		};
+		await assert.rejects(
+			rehearsalImport(syntheticSource(), client),
+			/Несовпадение содержимого/,
+		);
+		client.query = query;
 		const counts = await rehearsalImport(syntheticSource(), client);
 		assert.equal(counts.services, 1);
 		assert.equal(counts.tickets, 1);
