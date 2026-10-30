@@ -19,8 +19,15 @@ rollback() {
 	status=$?
 	trap - ERR
 	if [ "$phase" = stopping ] || [ "$phase" = stopped ] || [ "$phase" = switched ]; then
-		"$root/control" stop || true
+		if ! "$root/control" stop; then
+			echo 'ROLLBACK HALTED: service stop not confirmed; directories untouched' >&2
+			exit 3
+		fi
 		if [ -d "$old" ]; then
+			[ ! -e "$root/failed" ] || {
+				echo 'ROLLBACK HALTED: failed directory already exists' >&2
+				exit 3
+			}
 			if [ -e "$live" ]; then mv "$live" "$root/failed" || exit 3; fi
 			mv "$old" "$live" || exit 3
 		fi

@@ -5,7 +5,7 @@ root=$(mktemp -d /tmp/queue-switch-test-XXXXXX)
 trap 'rm -rf "$root"' EXIT
 run_case() {
 	local failure=$1 expected=$2
-	rm -rf "$root/server" "$root/candidate" "$root/previous" "$root/staged" "$root/failed"
+	rm -rf "$root/server" "$root/candidate" "$root/previous" "$root/staged" "$root/failed" "$root/stop-attempt"
 	mkdir -p "$root/server" "$root/candidate" "$root/data"
 	touch "$root/.isolated-test"
 	echo old >"$root/server/version"
@@ -25,12 +25,17 @@ cat >"$root/control" <<'CONTROL'
 set -eu
 root=$(dirname "$0"); action=$1
 failure=$(cat "$root/failure")
-# Simulate systemctl stopping the process but reporting failure.
-if [ "$action" = stop ] && [ "$failure" = stop-partial ]; then
- echo stopped > "$root/state"
+# One transient failure, including one that already stopped the service.
+if [ "$action" = stop ] && { [ "$failure" = stop ] || [ "$failure" = stop-partial ]; } && [ ! -e "$root/stop-attempt" ]; then
+ touch "$root/stop-attempt"
+ [ "$failure" != stop-partial ] || echo stopped > "$root/state"
  exit 1
 fi
-if [ "$action" = "$failure" ]; then exit 1; fi
+if [ "$action" = stop ] && [ "$failure" = rollback-stop ]; then
+ [ "$(cat "$root/server/version")" = new ] && exit 1
+fi
+if [ "$action" = check-new ] && [ "$failure" = rollback-stop ]; then exit 1; fi
+if [ "$action" = "$failure" ] && [ "$action" != stop ]; then exit 1; fi
 case "$action" in
  validate) test -f "$2/version";;
  snapshot) :;;
@@ -46,6 +51,12 @@ run_case snapshot old
 run_case stop old
 run_case stop-partial old
 run_case check-new old
+# If stopping the new process fails, retain both versions and never rename live code.
+run_case rollback-stop new
+grep -q 'ROLLBACK HALTED' "$root/result"
+test "$(cat "$root/previous/version")" = old
+test ! -e "$root/failed"
+echo 'PASS rollback refuses to move code while stop is unconfirmed'
 run_case none new
 if SWITCH_TEST_ROOT=/opt/queue-service bash "$engine" >/dev/null 2>&1; then
 	echo 'guard failed' >&2
