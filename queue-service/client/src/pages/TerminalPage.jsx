@@ -367,16 +367,21 @@ function ServiceForm({ service, onBack, onTicket }) {
 					</button>
 
 					<p className="text-center text-sm text-gray-500 leading-relaxed">
-						Нажимая «Получить талон», вы подтверждаете ознакомление с
-						Политикой обработки персональных данных и даёте согласие ИП
-						Ильинову С.А. на обработку данных для выдачи и обслуживания талона.
-						Имя и телефон — только если вы сами указали их для связи.
-						Подробнее:{" "}
-						<Link to="/consent" className="underline text-blue-600 hover:text-blue-800">
+						Нажимая «Получить талон», вы подтверждаете ознакомление с Политикой
+						обработки персональных данных и даёте согласие ИП Ильинову С.А. на
+						обработку данных для выдачи и обслуживания талона. Имя и телефон —
+						только если вы сами указали их для связи. Подробнее:{" "}
+						<Link
+							to="/consent"
+							className="underline text-blue-600 hover:text-blue-800"
+						>
 							Согласие
 						</Link>{" "}
 						и{" "}
-						<Link to="/privacy" className="underline text-blue-600 hover:text-blue-800">
+						<Link
+							to="/privacy"
+							className="underline text-blue-600 hover:text-blue-800"
+						>
 							Политика
 						</Link>
 						.
