@@ -16,8 +16,11 @@ stage="$root/staged"
 [ -d "$live" ] && [ -d "$candidate" ] && [ ! -e "$old" ] && [ ! -e "$stage" ] || exit 2
 phase=preflight
 regular_upload_tree() {
+	local unexpected
 	[ -d "$1" ] && [ ! -L "$1" ] || return 1
-	[ -z "$(find "$1" ! -type d ! -type f -print -quit)" ]
+	# A failed traversal must not be mistaken for an empty, safe tree.
+	unexpected=$(find "$1" ! -type d ! -type f -print -quit) || return 1
+	[ -z "$unexpected" ]
 }
 rollback() {
 	status=$?

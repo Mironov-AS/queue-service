@@ -76,6 +76,22 @@ run_case snapshot old
 run_case stop old
 run_case stop-partial old
 run_case missing-uploads old
+# A failed find must fail closed, even when it produced no output.
+mkdir -p "$root/fakebin"
+printf '#!/bin/sh\nexit 1\n' >"$root/fakebin/find"
+chmod +x "$root/fakebin/find"
+# Inspect the failure and unchanged live version.
+rm -rf "$root/server" "$root/candidate" "$root/previous" "$root/staged" "$root/failed"
+mkdir -p "$root/server/uploads" "$root/candidate"
+echo old >"$root/server/version"
+echo new >"$root/candidate/version"
+echo running >"$root/state"
+echo none >"$root/failure"
+if PATH="$root/fakebin:$PATH" SWITCH_TEST_ROOT="$root" bash "$engine" >"$root/result" 2>&1; then exit 1; fi
+grep -q 'missing or unsafe live uploads tree' "$root/result"
+test "$(cat "$root/server/version")" = old
+test "$(cat "$root/state")" = running
+echo 'PASS failed traversal rejected'
 run_case check-new old
 run_case rollback-upload old
 test "$(cat "$root/server/uploads/new")" = created-after-switch
