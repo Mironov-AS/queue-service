@@ -56,10 +56,20 @@ test("PostgreSQL: календарь месяца отмечает закрыт�
 			timezone: "Europe/Moscow",
 		};
 		const saved = await repo.saveConfig(1, config);
-		const consent = { version: "test-v1", text: "Тестовое согласие" };
+		const consent = {
+			version: "test-v1",
+			text: "Тестовое согласие",
+			agreementText: "Тестовое соглашение",
+		};
 		await repo.create(
 			saved.public_id,
-			{ date: busyDay, start: "09:00", answers: {}, consent: true },
+			{
+				date: busyDay,
+				start: "09:00",
+				answers: {},
+				consent: true,
+				agreement: true,
+			},
 			consent,
 		);
 		const month1 = await repo.getAvailability(saved.public_id, month);
