@@ -128,45 +128,16 @@ if (!logo || !/logo\.png$/.test(logo.getAttribute("src") || "")) {
 	console.error("В виджете нет логотипа Максима");
 	process.exit(1);
 }
-const checkbox = document.querySelector("input[type=checkbox]");
-const button = [...document.querySelectorAll("button")].find(
-	(b) => b.textContent.trim() === "Записаться",
-);
-console.log("чекбокс согласия найден:", !!checkbox);
-console.log(
-	"текст рядом с чекбоксом:",
-	checkbox?.closest("label")?.textContent.replace(/\s+/g, " ").trim(),
-);
-if (!checkbox) {
-	console.error("В виджете нет чекбокса согласия");
-	process.exit(1);
-}
-if (!/соглашаетесь/i.test(checkbox.closest("label").textContent)) {
-	console.error("Рядом с чекбоксом нет фразы о согласии");
-	process.exit(1);
-}
-if (!/Пользовательск/.test(text)) {
-	console.error("Нет ссылки на пользовательское соглашение");
-	process.exit(1);
-}
-console.log("кнопка «Записаться» заблокирована до отметки:", button?.disabled);
-if (!button?.disabled) {
-	console.error("Кнопка «Записаться» должна быть неактивна без согласия");
-	process.exit(1);
-}
-
-// The visitor confirms the agreement: the button becomes active.
-// A click toggles the checkbox and React picks the new state up.
-await act(async () => {
-	checkbox.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-});
-await flush(500);
-console.log("чекбокс отмечен:", checkbox.checked);
-console.log("кнопка «Записаться» активна после отметки:", !button?.disabled);
-if (button?.disabled) {
-	console.error("После отметки чекбокса кнопка должна стать активной");
-	process.exit(1);
-}
+const checkboxes = [...document.querySelectorAll("input[type=checkbox]")];
+const button = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Записаться");
+if (checkboxes.length !== 2 || !button?.disabled) throw new Error("Нужны две отметки, кнопка должна быть заблокирована");
+if (!/Пользовательск/.test(text)) throw new Error("Нет ссылки на соглашение");
+await act(async () => checkboxes[0].dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+await flush(300);
+if (!button.disabled) throw new Error("Одна отметка не должна разрешать запись");
+await act(async () => checkboxes[1].dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+await flush(300);
+if (button.disabled) throw new Error("Обе отметки должны разрешать запись");
 
 // Fill the required fields and send the booking.
 for (const input of document.querySelectorAll(
@@ -197,7 +168,7 @@ if (sent.length === 0) {
 }
 const body = sent[sent.length - 1].body;
 console.log("в запросе:", JSON.stringify(body));
-if (body.consent !== true) {
+if (body.consent !== true || body.agreement !== true) {
 	console.error("В запросе нет подтверждения согласия");
 	process.exit(1);
 }
