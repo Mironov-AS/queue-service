@@ -194,10 +194,7 @@ export default function ServicesTab() {
 							</thead>
 							<tbody className="divide-y divide-gray-50">
 								{services.map((s) => (
-									<tr
-										key={s.id}
-										className="transition hover:bg-gray-50"
-									>
+									<tr key={s.id} className="transition hover:bg-gray-50">
 										<td className="px-5 py-4">
 											<div className="font-medium text-gray-800">{s.name}</div>
 											{s.description && (
