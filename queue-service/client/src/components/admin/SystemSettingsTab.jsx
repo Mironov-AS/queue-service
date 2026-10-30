@@ -111,9 +111,15 @@ export default function SystemSettingsTab() {
 	const resetQueue = async () => {
 		if (!confirm("Сбросить всю очередь? Все ожидающие талоны будут отменены."))
 			return;
-		await apiFetch("/api/queue/reset", { method: "POST" });
-		setResetDone(true);
-		setTimeout(() => setResetDone(false), 3000);
+		try {
+			const r = await apiFetch("/api/queue/reset", { method: "POST" });
+			if (!r) return;
+			const data = await r.json().catch(() => ({}));
+			if (!r.ok) { alert(data.error || 'Не удалось сбросить очередь'); return; }
+			if (data.warning) alert(data.warning);
+			setResetDone(true);
+			setTimeout(() => setResetDone(false), 3000);
+		} catch { alert('Не удалось подтвердить результат сброса. Проверьте состояние очереди перед повтором.'); }
 	};
 
 	const changePassword = async () => {
