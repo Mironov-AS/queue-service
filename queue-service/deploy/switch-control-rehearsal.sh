@@ -36,7 +36,13 @@ start) systemctl start "$unit" ;;
 check-old | check-new)
 	for attempt in {1..60}; do
 		systemctl is-active --quiet "$unit" || exit 1
-		if curl --fail --silent --max-time 1 "http://127.0.0.1:$SWITCH_TEST_PORT/api/queue" >/dev/null; then exit 0; fi
+		if curl --fail --silent --max-time 1 "http://127.0.0.1:$SWITCH_TEST_PORT/api/queue" >/dev/null; then
+			if [ "$1" = check-old ]; then exit 0; fi
+			# A healthy queue alone is insufficient: booking can independently
+			# fail closed with 503. Require the protected route to reach auth.
+			code=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 1 "http://127.0.0.1:$SWITCH_TEST_PORT/api/booking/services") || code=000
+			[ "$code" != 401 ] || exit 0
+		fi
 		sleep .25
 	done
 	echo 'service did not become ready' >&2
