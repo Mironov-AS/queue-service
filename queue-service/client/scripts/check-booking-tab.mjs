@@ -141,10 +141,7 @@ const serviceOptions = [...serviceSelect.options].map((o) => ({
 	value: o.value,
 	label: o.textContent.trim(),
 }));
-console.log(
-	"услуги в списке:",
-	serviceOptions.map((o) => o.label).join(", "),
-);
+console.log("услуги в списке:", serviceOptions.map((o) => o.label).join(", "));
 
 // The preview data lives in one service, so the check works with the service
 // that actually has bookings.
@@ -168,7 +165,9 @@ if (chosen.value !== serviceSelect.value) {
 	).set;
 	await act(async () => {
 		setter.call(serviceSelect, chosen.value);
-		serviceSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+		serviceSelect.dispatchEvent(
+			new dom.window.Event("change", { bubbles: true }),
+		);
 	});
 	await flush(1500);
 }
@@ -185,7 +184,9 @@ if (slotsToday.length === 0) {
 
 // The calendar opens from the button next to the service list.
 const dateButton = [...document.querySelectorAll("button")].find(
-	(b) => b.parentElement?.tagName !== "SELECT" && /сегодня|выбрать дату/i.test(b.textContent),
+	(b) =>
+		b.parentElement?.tagName !== "SELECT" &&
+		/сегодня|выбрать дату/i.test(b.textContent),
 );
 if (!dateButton) {
 	console.error("Кнопка выбора даты рядом со списком услуг не найдена");
@@ -193,7 +194,9 @@ if (!dateButton) {
 }
 console.log("кнопка даты:", dateButton.textContent.trim());
 await act(async () => {
-	dateButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+	dateButton.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
 });
 await flush(1500);
 const dialog = document.querySelector("[role=dialog]");
@@ -234,7 +237,9 @@ if (!bookedDay) {
 	process.exit(1);
 }
 await act(async () => {
-	bookedDay.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+	bookedDay.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
 });
 await flush(1500);
 if (document.querySelector("[role=dialog]")) {
@@ -260,7 +265,9 @@ if (!cancelButton) {
 }
 const before = (body().match(/Номер авто/g) || []).length;
 await act(async () => {
-	cancelButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+	cancelButton.dispatchEvent(
+		new dom.window.MouseEvent("click", { bubbles: true }),
+	);
 });
 await flush(2000);
 const after = (body().match(/Номер авто/g) || []).length;

@@ -314,8 +314,7 @@ export default function BookingTab() {
 							);
 						})}
 						{day.bookings.filter(
-							(b) =>
-								!day.slots.some((s) => b.start < s.end && b.end > s.start),
+							(b) => !day.slots.some((s) => b.start < s.end && b.end > s.start),
 						).length > 0 && (
 							<p className="text-xs text-amber-700">
 								Есть записи вне текущего расписания — они показаны ниже.
