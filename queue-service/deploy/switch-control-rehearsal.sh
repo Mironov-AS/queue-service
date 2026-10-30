@@ -34,8 +34,13 @@ stop)
 	;;
 start) systemctl start "$unit" ;;
 check-old | check-new)
-	systemctl is-active --quiet "$unit"
-	curl --fail --silent --max-time 5 "http://127.0.0.1:$SWITCH_TEST_PORT/api/queue" >/dev/null
+	for attempt in {1..60}; do
+		systemctl is-active --quiet "$unit" || exit 1
+		if curl --fail --silent --max-time 1 "http://127.0.0.1:$SWITCH_TEST_PORT/api/queue" >/dev/null; then exit 0; fi
+		sleep .25
+	done
+	echo 'service did not become ready' >&2
+	exit 1
 	;;
 *)
 	echo 'unknown operation' >&2
