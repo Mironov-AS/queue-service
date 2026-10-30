@@ -28,8 +28,13 @@ set -a
 set +a
 BOOKING_DATABASE_URL="${BOOKING_DATABASE_URL%/*}/queue_switch_test_only"
 printf 'BOOKING_ENABLED=true\nBOOKING_DATABASE_URL=%s\n' "$BOOKING_DATABASE_URL" >"$root/booking.env"
-chown root:queueapp "$root/booking.env"
-chmod 640 "$root/booking.env"
+# Match the production secret permissions: systemd reads this before dropping privileges.
+chown root:root "$root/booking.env"
+chmod 600 "$root/booking.env"
+if runuser -u queueapp -- test -r "$root/booking.env"; then
+	echo 'test secret unexpectedly readable by service user' >&2
+	exit 1
+fi
 cp "$(dirname "$0")/switch-engine.sh" "$root/engine"
 cp -a "$old" "$root/server"
 cp -a "$new" "$root/candidate"
