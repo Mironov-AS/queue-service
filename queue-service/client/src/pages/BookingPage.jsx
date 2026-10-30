@@ -63,12 +63,15 @@ function linkParams() {
 	const date = /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") || "")
 		? params.get("date")
 		: null;
+	const time = /^\d{2}:\d{2}$/.test(params.get("time") || "")
+		? params.get("time")
+		: null;
 	const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get("month") || "")
 		? params.get("month")
 		: date
 			? date.slice(0, 7)
 			: null;
-	return { date, month };
+	return { date, time, month };
 }
 
 export default function BookingPage() {
@@ -187,6 +190,10 @@ export default function BookingPage() {
 			setSlots(result.slots || []);
 			setFields(result.fields || []);
 			setConsent(result.consent || consent);
+			const wanted = linkParams().time;
+			if (wanted && (result.slots || []).some((s) => s.start === wanted)) {
+				setSlot(wanted);
+			}
 		} catch (err) {
 			setError(err.message);
 		} finally {
