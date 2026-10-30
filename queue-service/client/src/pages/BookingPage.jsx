@@ -221,16 +221,34 @@ export default function BookingPage() {
 		const element = widgetRef.current;
 		const sendHeight = () => {
 			const height = Math.ceil(element.getBoundingClientRect().height);
-			if (height > 0) window.parent.postMessage(
-				{ type: "booking-widget-height", publicId, height }, "*",
-			);
+			if (height > 0)
+				window.parent.postMessage(
+					{ type: "booking-widget-height", publicId, height },
+					"*",
+				);
 		};
-		const observer = typeof ResizeObserver === "function" ? new ResizeObserver(sendHeight) : null;
+		const observer =
+			typeof ResizeObserver === "function"
+				? new ResizeObserver(sendHeight)
+				: null;
 		observer?.observe(element);
 		window.addEventListener("resize", sendHeight);
 		sendHeight();
-		return () => { observer?.disconnect(); window.removeEventListener("resize", sendHeight); };
-	}, [embedded, publicId, month, selectedDate, slots, slot, receipt, loading, error]);
+		return () => {
+			observer?.disconnect();
+			window.removeEventListener("resize", sendHeight);
+		};
+	}, [
+		embedded,
+		publicId,
+		month,
+		selectedDate,
+		slots,
+		slot,
+		receipt,
+		loading,
+		error,
+	]);
 
 	const submit = async (event) => {
 		event.preventDefault();
@@ -287,7 +305,10 @@ export default function BookingPage() {
 	const canGoBack = month && month > minMonth;
 
 	return (
-		<main ref={widgetRef} className={`${embedded ? "" : "min-h-screen "}bg-slate-50 px-4 py-8 text-slate-800`}>
+		<main
+			ref={widgetRef}
+			className={`${embedded ? "" : "min-h-screen "}bg-slate-50 px-4 py-8 text-slate-800`}
+		>
 			<div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 shadow-lg sm:p-8">
 				<div className="flex items-center justify-between gap-4">
 					<p className="text-sm font-bold uppercase tracking-wider text-blue-600">
