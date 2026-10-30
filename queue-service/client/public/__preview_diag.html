@@ -1,0 +1,13 @@
+<!doctype html><html><body><pre id="out">проверка…</pre>
+<script>
+const out = document.getElementById('out');
+const log = [];
+localStorage.setItem('adminToken', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc5MzM2Mjk5NSwiZXhwIjoxNzkzNDQ5Mzk1fQ.KuVK1-yjC3hRj-IKFj0Cx4ySgZvJRfHhFs9eTMfdovc');
+localStorage.setItem('adminUser', JSON.stringify({id:1,username:'admin',role:'admin'}));
+log.push('token in storage: ' + !!localStorage.getItem('adminToken'));
+fetch('/api/booking/services', {headers:{Authorization:'Bearer ' + localStorage.getItem('adminToken')}})
+  .then(r => r.text().then(t => 'status ' + r.status + ' body ' + t.slice(0,120)))
+  .then(s => { log.push('booking services: ' + s); out.textContent = log.join('\n'); })
+  .catch(e => { log.push('error ' + e.message); out.textContent = log.join('\n'); });
+</script>
+</body></html>
