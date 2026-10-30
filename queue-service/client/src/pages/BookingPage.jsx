@@ -209,6 +209,23 @@ export default function BookingPage() {
 		setConsentChecked(false);
 	}, [consent?.version, publicId]);
 
+	// Сообщаем встраивающему сайту высоту виджета, чтобы iframe с
+	// height:auto подстраивался под содержимое (мобильные и десктоп).
+	useEffect(() => {
+		try {
+			const height = document.documentElement.scrollHeight;
+			if (window.parent !== window) {
+				window.parent.postMessage(
+					{ type: "booking-widget-height", publicId, height },
+					"*",
+				);
+			}
+		} catch {
+			// postMessage недоступен — виджет продолжает работать, высота
+			// фрейма останется как задана в коде встраивания.
+		}
+	}, [publicId, month, selectedDate, slots, slot, receipt, loading, error]);
+
 	const submit = async (event) => {
 		event.preventDefault();
 		if (
