@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 : "${SWITCH_TEST_ROOT:?Требуется изолированный тестовый каталог}"
 root=$(realpath "$SWITCH_TEST_ROOT")
-case "$root" in /tmp/queue-switch-test-*) ;; *)
+case "$root" in /tmp/queue-switch-test-* | /opt/queue-switch-test-*) ;; *)
 	echo 'Отклонён небезопасный каталог' >&2
 	exit 2
 	;;

@@ -2,7 +2,7 @@
 # Rehearse real application with systemd on a copy of the queue snapshot.
 # Does not touch production service or production database.
 set -Eeuo pipefail
-root=/tmp/queue-switch-test-booking
+root=/opt/queue-switch-test-booking
 unit=queue-switch-booking.service
 old=/opt/queue-service/server
 new=/opt/queue-service/releases/booking-final-preflight-20261030/server
@@ -48,8 +48,7 @@ Description=Isolated real queue release rehearsal
 User=queueapp
 Group=queueapp
 NoNewPrivileges=true
-# Test root lives in /tmp; PrivateTmp would hide it from the service.
-PrivateTmp=false
+PrivateTmp=true
 ProtectSystem=full
 ReadWritePaths=$root/data $root/server/uploads
 WorkingDirectory=$root/server
@@ -64,7 +63,7 @@ systemctl daemon-reload
 cat >"$root/control" <<'CONTROL'
 #!/bin/bash
 set -euo pipefail
-root=/tmp/queue-switch-test-booking
+root=/opt/queue-switch-test-booking
 case "$1" in
 validate) test -s "$2/index.js" && test -d "$2/node_modules";;
 snapshot) node - "$root" <<'NODE'
