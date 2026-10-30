@@ -160,3 +160,107 @@ test("запрос месяца не раскрывает данные клие�
 			}),
 		},
 	));
+
+// ─── Administrative month overview ────────────────────────────────────────────
+
+async function withAdminServer(run, overrides = {}, role = "admin") {
+	const repo = {
+		getPublic: async () => ({ slots: [], fields: [] }),
+		create: async () => ({ id: 1 }),
+		getConfig: async () => ({}),
+		saveConfig: async () => ({}),
+		getCalendar: async () => ({}),
+		cancel: async () => true,
+		getAvailability: async () => null,
+		getAdminMonth: async () => ({
+			month: "2026-11",
+			timezone: "Europe/Moscow",
+			days: [],
+		}),
+		...overrides,
+	};
+	const app = express();
+	app.use(express.json());
+	app.use(
+		"/api/booking",
+		createBookingRouter({
+			repository: repo,
+			approvedConsent: {
+				version: "v1",
+				text: "Согласие",
+				policyUrl: "/privacy",
+				consentUrl: "/consent",
+			},
+			requireAuth: (req, res, next) =>
+				role
+					? ((req.user = { id: 1, role }), next())
+					: res.status(401).json({ error: "Не авторизован" }),
+			requireAdmin: (req, res, next) =>
+				req.user?.role === "admin"
+					? next()
+					: res.status(403).json({ error: "Доступ запрещён" }),
+		}),
+	);
+	const server = app.listen(0, "127.0.0.1");
+	await new Promise((r) => server.once("listening", r));
+	try {
+		await run(`http://127.0.0.1:${server.address().port}/api/booking`);
+	} finally {
+		await new Promise((r) => server.close(r));
+	}
+}
+
+test("месячный обзор администратора доступен только после входа", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services/1/month?month=2026-11`);
+			assert.equal(r.status, 401);
+		},
+		{},
+		null,
+	));
+
+test("месячный обзор недоступен без прав администратора", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services/1/month?month=2026-11`);
+			assert.equal(r.status, 403);
+		},
+		{},
+		"operator",
+	));
+
+test("месячный обзор отклоняет некорректный месяц", () =>
+	withAdminServer(async (base) => {
+		const r = await fetch(`${base}/services/1/month?month=2026-13`);
+		assert.equal(r.status, 400);
+	}));
+
+test("месячный обзор отдаёт счётчики по дням", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services/1/month?month=2026-11`);
+			assert.equal(r.status, 200);
+			const body = await r.json();
+			assert.equal(body.month, "2026-11");
+			assert.equal(body.days[0].date, "2026-11-01");
+			assert.equal(typeof body.days[0].booked, "number");
+			assert.equal(typeof body.days[0].free, "number");
+		},
+		{
+			getAdminMonth: async (_id, month) => ({
+				month,
+				timezone: "Europe/Moscow",
+				days: [{ date: `${month}-01`, slots: 6, capacity: 12, booked: 2, free: 10 }],
+			}),
+		},
+	));
+
+test("месячный обзор скрывает услугу без расписания", () =>
+	withAdminServer(
+		async (base) => {
+			const r = await fetch(`${base}/services/1/month?month=2026-11`);
+			assert.equal(r.status, 404);
+		},
+		{ getAdminMonth: async () => null },
+	));
