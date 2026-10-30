@@ -1,6 +1,7 @@
 // Component-level check of the admin booking tab against the running preview
-// API: the calendar must show days with bookings and the day panel must show
-// the client data entered by the customer.
+// API: the day panel must show the slots of the current day by default, the
+// calendar opens from the date button next to the service list, and the client
+// data of the bookings must be shown.
 //
 // Run: node client/scripts/check-booking-tab.mjs <adminToken>
 import { JSDOM } from "jsdom";
@@ -45,7 +46,6 @@ global.fetch = async (input, init = {}) => {
 	const target = url.startsWith("/api/booking")
 		? `http://127.0.0.1:6621${url}`
 		: `http://127.0.0.1:6620${url}`;
-	console.log("fetch ->", target);
 	const res = await nativeFetch(target, {
 		...init,
 		headers: { ...(init.headers || {}), authorization: `Bearer ${token}` },
@@ -53,6 +53,12 @@ global.fetch = async (input, init = {}) => {
 	console.log("fetch", target, res.status);
 	return res;
 };
+
+const probeRes = await nativeFetch(
+	"http://127.0.0.1:6621/api/booking/services/2/month?month=2026-10",
+	{ headers: { authorization: `Bearer ${token}` } },
+);
+console.log("probe", probeRes.status, (await probeRes.text()).length);
 
 const dir = join(process.cwd(), ".booking-tab-check");
 mkdirSync(dir, { recursive: true });
@@ -90,26 +96,58 @@ global.fetch = (...args) => {
 	return p;
 };
 
-async function flush() {
+async function flush(ms = 800) {
 	await act(async () => {
-		await new Promise((r) => setTimeout(r, 4000));
+		await new Promise((r) => setTimeout(r, ms));
 	});
+	await Promise.allSettled(pending);
+	// The response body arrives on the socket later, so the event loop must
+	// run outside act() before React applies the updates.
+	await new Promise((r) => setTimeout(r, 200));
+	await act(async () => {
+		await new Promise((r) => setTimeout(r, 200));
+	});
+	await Promise.allSettled(pending);
 }
-await flush();
-await Promise.allSettled(pending);
-await flush();
+await flush(2500);
 
-console.log("--- body ---");
-console.log(
-	(document.body.textContent || "").replace(/\s+/g, " ").slice(0, 600),
+const probe2 = await nativeFetch(
+	"http://127.0.0.1:6621/api/booking/services/2/month?month=2026-10",
+	{ headers: { authorization: `Bearer ${token}` } },
 );
-// The directory may contain services without bookings, so the check works with
-// the service that actually has bookings in the preview month.
+console.log("probe2 status", probe2.status);
+const probe2Text = await Promise.race([
+	probe2.text().then((t) => `len ${t.length}`),
+	new Promise((r) => setTimeout(() => r("TIMEOUT"), 5000)),
+]);
+console.log("probe2 body", probe2Text);
+
+const body = () => (document.body.textContent || "").replace(/\s+/g, " ");
+
+// The settings of the booking and the widget link must not live in the tab.
+console.log("--- вкладка записи ---");
+console.log(body().slice(0, 400));
+if (/Настройки записи/.test(body())) {
+	console.error("Кнопка «Настройки записи» осталась во вкладке «Запись»");
+	process.exit(1);
+}
+if (/Открыть виджет/.test(body())) {
+	console.error("Кнопка «Открыть виджет» осталась во вкладке «Запись»");
+	process.exit(1);
+}
+
 const serviceSelect = document.querySelector("select");
 const serviceOptions = [...serviceSelect.options].map((o) => ({
 	value: o.value,
 	label: o.textContent.trim(),
 }));
+console.log(
+	"услуги в списке:",
+	serviceOptions.map((o) => o.label).join(", "),
+);
+
+// The preview data lives in one service, so the check works with the service
+// that actually has bookings.
 let chosen = serviceOptions[0];
 for (const option of serviceOptions) {
 	const res = await nativeFetch(
@@ -122,12 +160,7 @@ for (const option of serviceOptions) {
 		break;
 	}
 }
-console.log(
-	"услуги в справочнике:",
-	serviceOptions.map((o) => o.label).join(", "),
-	"| проверяем:",
-	chosen.label,
-);
+console.log("проверяем услугу:", chosen.label);
 if (chosen.value !== serviceSelect.value) {
 	const setter = Object.getOwnPropertyDescriptor(
 		dom.window.HTMLSelectElement.prototype,
@@ -135,80 +168,87 @@ if (chosen.value !== serviceSelect.value) {
 	).set;
 	await act(async () => {
 		setter.call(serviceSelect, chosen.value);
-		serviceSelect.dispatchEvent(
-			new dom.window.Event("change", { bubbles: true }),
+		serviceSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+	});
+	await flush(1500);
+}
+
+// The slot of the current day must be open by default.
+const slotsToday = [...document.querySelectorAll("div")].filter((d) =>
+	/^\d{2}:\d{2}–\d{2}:\d{2}\s*занято \d+ из \d+/.test(d.textContent.trim()),
+);
+console.log("слотов текущего дня по умолчанию:", slotsToday.length);
+if (slotsToday.length === 0) {
+	console.error("Слоты текущего дня не показаны по умолчанию");
+	process.exit(1);
+}
+
+// The calendar opens from the button next to the service list.
+const dateButton = [...document.querySelectorAll("button")].find(
+	(b) => b.parentElement?.tagName !== "SELECT" && /сегодня|выбрать дату/i.test(b.textContent),
+);
+if (!dateButton) {
+	console.error("Кнопка выбора даты рядом со списком услуг не найдена");
+	process.exit(1);
+}
+console.log("кнопка даты:", dateButton.textContent.trim());
+await act(async () => {
+	dateButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+});
+await flush(1500);
+const dialog = document.querySelector("[role=dialog]");
+if (!dialog) {
+	console.error("Календарь не открылся");
+	process.exit(1);
+}
+console.log("календарь открыт:", dialog.textContent.trim().slice(0, 80));
+
+// The preview bookings live in another month, so the calendar is paged
+// forward until a day with bookings shows up.
+let dayCells = [];
+let bookedDay = null;
+for (let i = 0; i < 3 && !bookedDay; i++) {
+	dayCells = [...dialog.querySelectorAll("button")].filter((b) =>
+		/^\d+/.test(b.textContent.trim()),
+	);
+	bookedDay = dayCells.find((b) => /записей:/.test(b.textContent));
+	if (bookedDay) break;
+	const nextMonth = [...dialog.querySelectorAll("button")].find(
+		(b) => b.getAttribute("aria-label") === "Следующий месяц",
+	);
+	if (!nextMonth) break;
+	await act(async () => {
+		nextMonth.dispatchEvent(
+			new dom.window.MouseEvent("click", { bubbles: true }),
 		);
 	});
 	await flush(1500);
-	await Promise.allSettled(pending);
-	await flush();
 }
-console.log("select value:", document.querySelector("select")?.value);
-console.log("--- / ---");
-// Move to the next month: the preview data lives in November 2026.
-const next = [...document.querySelectorAll("button")].find(
-	(b) => b.getAttribute("aria-label") === "Следующий месяц",
-);
-await act(async () => {
-	next.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-});
-await flush();
-await Promise.allSettled(pending);
-await flush();
-
-const dayCells = [...document.querySelectorAll("button")].filter((b) =>
-	/^\d+/.test(b.textContent.trim()),
-);
-const bookedDay = dayCells.find((b) => /записей:/.test(b.textContent));
 console.log("дней в календаре:", dayCells.length);
 console.log(
 	"пример дня с записями:",
 	bookedDay ? bookedDay.textContent.trim() : "нет",
 );
-
 if (!bookedDay) {
-	console.error("День с записями не найден");
+	console.error("День с записями не найден в календаре");
 	process.exit(1);
 }
 await act(async () => {
-	bookedDay.dispatchEvent(
-		new dom.window.MouseEvent("click", { bubbles: true }),
-	);
+	bookedDay.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
 });
-await flush();
-const panel = document.body.textContent || "";
-const hasClientData = /Номер авто/.test(panel) && /Телефон/.test(panel);
-console.log("в панели дня есть поля клиента:", hasClientData);
-// The month list must show every booking of the month with client data.
-const table = document.querySelector("table");
-const rows = table ? [...table.querySelectorAll("tbody tr")] : [];
-console.log("строк в списке записей за месяц:", rows.length);
-const withClientData = rows.filter(
-	(r) => /Номер авто/.test(r.textContent) && /Телефон/.test(r.textContent),
-).length;
-const withTime = rows.every((r) => /\d{2}:\d{2}/.test(r.textContent));
-const monthListOk = rows.length > 0 && withClientData > 0 && withTime;
-console.log(
-	"строк с данными клиента:",
-	withClientData,
-	"из",
-	rows.length,
-	"| у всех есть время:",
-	withTime,
-);
-if (!monthListOk) {
-	console.error("Список записей за месяц не заполнен данными клиентов");
+await flush(1500);
+if (document.querySelector("[role=dialog]")) {
+	console.error("Календарь не закрылся после выбора даты");
 	process.exit(1);
 }
-const start = panel.indexOf("занято");
-console.log(
-	"фрагмент панели:",
-	panel.replace(/\s+/g, " ").slice(start, start + 260),
-);
+
+const hasClientData = /Номер авто/.test(body()) && /Телефон/.test(body());
+console.log("в панели дня есть поля клиента:", hasClientData);
 if (!hasClientData) {
 	console.error("Данные клиентов в панели дня не показаны");
 	process.exit(1);
 }
+
 // Cancellation from the day panel: the booking must disappear from the day.
 dom.window.confirm = () => true;
 const cancelButton = [...document.querySelectorAll("button")].find(
@@ -218,16 +258,12 @@ if (!cancelButton) {
 	console.error("Кнопка отмены не найдена");
 	process.exit(1);
 }
-const before = (document.body.textContent.match(/Номер авто/g) || []).length;
+const before = (body().match(/Номер авто/g) || []).length;
 await act(async () => {
-	cancelButton.dispatchEvent(
-		new dom.window.MouseEvent("click", { bubbles: true }),
-	);
+	cancelButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
 });
-await flush();
-await Promise.allSettled(pending);
-await flush();
-const after = (document.body.textContent.match(/Номер авто/g) || []).length;
+await flush(2000);
+const after = (body().match(/Номер авто/g) || []).length;
 console.log("записей с данными до отмены:", before, "после:", after);
 if (after >= before) {
 	console.error("Запись не исчезла после отмены");
@@ -249,7 +285,7 @@ const restore = await nativeFetch(
 			start: "09:00",
 			answers: { car: "А777ВС77", phone: "+79991111111" },
 			consent: true,
-			consentVersion: "preview-2026-10-30",
+			consentVersion: "agreement-2026-10-30-v1",
 		}),
 	},
 );

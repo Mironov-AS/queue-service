@@ -367,6 +367,26 @@ export default function BookingSettings({ service, onClose }) {
 								<p className="text-xs text-gray-500">
 									Ссылка сохранится при отключении записи.
 								</p>
+								<div className="flex flex-wrap gap-2">
+									<a
+										href={url}
+										target="_blank"
+										rel="noreferrer"
+										className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+									>
+										Открыть виджет
+									</a>
+									<button
+										type="button"
+										onClick={() => {
+											navigator.clipboard?.writeText(url);
+											setNotice("Ссылка на виджет скопирована");
+										}}
+										className="rounded-lg bg-white px-4 py-2 text-sm text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
+									>
+										Скопировать ссылку
+									</button>
+								</div>
 								<input
 									readOnly
 									aria-label="Ссылка на виджет"

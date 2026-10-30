@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../../api";
-import BookingSettings from "./BookingSettings";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS = [
@@ -35,6 +34,29 @@ function currentMonth() {
 	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// The service keeps its own time zone, so "today" is counted in it.
+function todayIn(timezone) {
+	if (!timezone) return new Date().toLocaleDateString("en-CA");
+	try {
+		return new Intl.DateTimeFormat("en-CA", {
+			timeZone: timezone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+		}).format(new Date());
+	} catch {
+		return new Date().toLocaleDateString("en-CA");
+	}
+}
+
+function formatDate(date) {
+	return new Date(`${date}T00:00:00`).toLocaleDateString("ru-RU", {
+		day: "numeric",
+		month: "long",
+		year: "numeric",
+	});
+}
+
 // Monday-first grid: the cells before the first day of the month are empty.
 function buildGrid(days) {
 	const cells = [];
@@ -52,12 +74,13 @@ export default function BookingTab() {
 	const [serviceId, setServiceId] = useState(null);
 	const [month, setMonth] = useState(currentMonth());
 	const [overview, setOverview] = useState(null);
-	const [monthBookings, setMonthBookings] = useState([]);
 	const [selectedDate, setSelectedDate] = useState(null);
 	const [day, setDay] = useState(null);
+	const [calendarOpen, setCalendarOpen] = useState(false);
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
-	const [settingsFor, setSettingsFor] = useState(null);
+	// The day is set to today once the time zone of the service is known.
+	const needsToday = useRef(true);
 
 	async function request(url, options) {
 		const res = await apiFetch(url, options);
@@ -71,28 +94,42 @@ export default function BookingTab() {
 	}
 
 	useEffect(() => {
-		apiFetch("/api/services?all=1")
-			.then((r) => r?.json())
+		apiFetch("/api/booking/services")
+			.then((r) => (r ? r.json() : null))
 			.then((d) => {
 				if (!d) return;
-				setServices(d);
-				setServiceId((current) => current ?? d[0]?.id ?? null);
-			});
+				// Only services with the booking channel prepared are listed.
+				const list = (d.services || []).filter(
+					(s) => s.booking_enabled || s.public_id,
+				);
+				setServices(list);
+				setServiceId((current) => current ?? list[0]?.id ?? null);
+			})
+			.catch(() => setError("Не удалось загрузить список услуг"));
 	}, []);
+
+	// A new service means a new day: the current day of its time zone.
+	useEffect(() => {
+		if (!serviceId) return;
+		setSelectedDate(null);
+		setMonth(currentMonth());
+		needsToday.current = true;
+	}, [serviceId]);
 
 	useEffect(() => {
 		if (!serviceId) return;
 		let active = true;
 		setError("");
 		setOverview(null);
-		Promise.all([
-			request(`/api/booking/services/${serviceId}/month?month=${month}`),
-			request(`/api/booking/services/${serviceId}/bookings?month=${month}`),
-		])
-			.then(([monthResult, bookingsResult]) => {
+		request(`/api/booking/services/${serviceId}/month?month=${month}`)
+			.then((result) => {
 				if (!active) return;
-				setOverview(monthResult);
-				setMonthBookings(bookingsResult.bookings || []);
+				setOverview(result);
+				if (!needsToday.current) return;
+				needsToday.current = false;
+				const today = todayIn(result.timezone);
+				setSelectedDate(today);
+				if (today.slice(0, 7) !== month) setMonth(today.slice(0, 7));
 			})
 			.catch((e) => {
 				if (active) setError(e.message);
@@ -136,28 +173,34 @@ export default function BookingTab() {
 				{ method: "POST" },
 			);
 			setNotice("Запись отменена");
-			const [dayResult, monthResult, bookingsResult] = await Promise.all([
+			const [dayResult, monthResult] = await Promise.all([
 				selectedDate
 					? request(
 							`/api/booking/services/${serviceId}/calendar?date=${encodeURIComponent(selectedDate)}`,
 						)
 					: null,
 				request(`/api/booking/services/${serviceId}/month?month=${month}`),
-				request(`/api/booking/services/${serviceId}/bookings?month=${month}`),
 			]);
 			if (dayResult) setDay(dayResult);
 			setOverview(monthResult);
-			setMonthBookings(bookingsResult.bookings || []);
 		} catch (e) {
 			setError(e.message);
 		}
 	}
 
+	function pickDate(date) {
+		setSelectedDate(date);
+		setMonth(date.slice(0, 7));
+		setCalendarOpen(false);
+	}
+
+	function goToToday() {
+		const today = todayIn(overview?.timezone);
+		pickDate(today);
+	}
+
 	const cells = useMemo(() => buildGrid(overview?.days || []), [overview]);
-	const service = services.find((s) => s.id === serviceId);
-	const widgetUrl = overview?.public_id
-		? `${window.location.origin}/booking/${overview.public_id}`
-		: "";
+	const today = todayIn(overview?.timezone);
 
 	return (
 		<div className="space-y-4">
@@ -167,10 +210,7 @@ export default function BookingTab() {
 					<select
 						className={control}
 						value={serviceId ?? ""}
-						onChange={(e) => {
-							setServiceId(Number(e.target.value));
-							setSelectedDate(null);
-						}}
+						onChange={(e) => setServiceId(Number(e.target.value))}
 					>
 						{services.length === 0 && <option value="">—</option>}
 						{services.map((s) => (
@@ -182,21 +222,14 @@ export default function BookingTab() {
 				</label>
 				<button
 					type="button"
-					className="rounded-lg bg-gray-100 px-4 py-2 text-sm"
-					onClick={() => service && setSettingsFor(service)}
+					className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50"
+					onClick={() => setCalendarOpen(true)}
 				>
-					Настройки записи
+					{selectedDate ? formatDate(selectedDate) : "Выбрать дату"}
+					{selectedDate === today && (
+						<span className="ml-2 text-xs text-gray-500">сегодня</span>
+					)}
 				</button>
-				{widgetUrl && (
-					<a
-						href={widgetUrl}
-						target="_blank"
-						rel="noreferrer"
-						className="rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-700"
-					>
-						Открыть виджет
-					</a>
-				)}
 			</div>
 
 			{error && (
@@ -213,148 +246,60 @@ export default function BookingTab() {
 				</p>
 			)}
 
-			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-				<section className="rounded-2xl bg-white p-4 shadow-sm">
-					<div className="flex items-center justify-between">
-						<button
-							type="button"
-							className="rounded-lg px-2 py-1 text-lg"
-							onClick={() => {
-								setMonth(shiftMonth(month, -1));
-								setSelectedDate(null);
-							}}
-							aria-label="Предыдущий месяц"
-						>
-							←
-						</button>
-						<h2 className="text-lg font-bold capitalize">
-							{monthTitle(month)}
-						</h2>
-						<button
-							type="button"
-							className="rounded-lg px-2 py-1 text-lg"
-							onClick={() => {
-								setMonth(shiftMonth(month, 1));
-								setSelectedDate(null);
-							}}
-							aria-label="Следующий месяц"
-						>
-							→
-						</button>
-					</div>
-
-					{!overview ? (
-						<p className="mt-4 text-sm text-gray-500">
-							{error ? "Календарь недоступен." : "Загрузка…"}
-						</p>
-					) : (
-						<>
-							<div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-400">
-								{WEEKDAYS.map((w) => (
-									<div key={w}>{w}</div>
-								))}
-							</div>
-							<div className="mt-1 grid grid-cols-7 gap-1">
-								{cells.map((day1, index) =>
-									day1 ? (
-										<button
-											key={day1.date}
-											type="button"
-											onClick={() => setSelectedDate(day1.date)}
-											className={`rounded-lg border p-1.5 text-left text-xs transition ${
-												selectedDate === day1.date
-													? "border-blue-600 bg-blue-50"
-													: day1.booked > 0
-														? "border-amber-300 bg-amber-50 hover:bg-amber-100"
-														: day1.slots > 0
-															? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100"
-															: "border-gray-200 bg-gray-50 text-gray-400"
-											}`}
-										>
-											<span className="block text-sm font-bold">
-												{Number(day1.date.slice(-2))}
-											</span>
-											<span className="block">
-												{day1.booked > 0
-													? `записей: ${day1.booked}`
-													: day1.slots > 0
-														? "свободно"
-														: "нет записи"}
-											</span>
-											{day1.slots > 0 && (
-												<span className="block text-gray-500">
-													мест: {day1.free}/{day1.capacity}
-												</span>
-											)}
-										</button>
-									) : (
-										<div key={`empty-${index}`} />
-									),
-								)}
-							</div>
-							<div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
-								<span className="flex items-center gap-1.5">
-									<span className="inline-block h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-300" />
-									есть свободные места
-								</span>
-								<span className="flex items-center gap-1.5">
-									<span className="inline-block h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" />
-									есть записи
-								</span>
-								<span className="flex items-center gap-1.5">
-									<span className="inline-block h-3 w-3 rounded bg-gray-100 ring-1 ring-gray-300" />
-									запись не ведётся
-								</span>
-							</div>
-						</>
-					)}
-				</section>
-
-				<section className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-2">
-					<h2 className="text-lg font-bold">Записи за месяц</h2>
-					<p className="mt-1 text-xs text-gray-500">
-						Все записи выбранного месяца: дата, время и данные клиента.
+			<section className="rounded-2xl bg-white p-4 shadow-sm">
+				<h2 className="text-lg font-bold">
+					{selectedDate ? formatDate(selectedDate) : "Выберите дату"}
+				</h2>
+				{!selectedDate && (
+					<p className="mt-2 text-sm text-gray-500">
+						Нажмите кнопку с датой рядом с выбором услуги — откроется календарь.
 					</p>
-					{monthBookings.length === 0 ? (
-						<p className="mt-3 text-sm text-gray-500">
-							В этом месяце записей нет.
-						</p>
-					) : (
-						<div className="mt-3 overflow-x-auto">
-							<table className="w-full text-left text-sm">
-								<thead>
-									<tr className="border-b border-gray-200 text-xs text-gray-500">
-										<th className="py-2 pr-3 font-semibold">Дата</th>
-										<th className="py-2 pr-3 font-semibold">Время</th>
-										<th className="py-2 pr-3 font-semibold">Клиент</th>
-										<th className="py-2 font-semibold">Действие</th>
-									</tr>
-								</thead>
-								<tbody>
-									{monthBookings.map((b) => (
-										<tr
+				)}
+				{selectedDate && !day && (
+					<p className="mt-2 text-sm text-gray-500">Загрузка…</p>
+				)}
+				{selectedDate && day && (
+					<div className="mt-3 space-y-3">
+						{day.slots.length === 0 && (
+							<p className="text-sm text-gray-500">
+								По расписанию на эту дату слотов нет.
+							</p>
+						)}
+						{day.slots.map((slot) => {
+							const inSlot = day.bookings.filter(
+								(b) => b.start < slot.end && b.end > slot.start,
+							);
+							return (
+								<div
+									key={slot.start}
+									className={`rounded-xl border p-3 text-sm ${
+										slot.available > 0
+											? "border-emerald-300 bg-emerald-50"
+											: "border-rose-300 bg-rose-50"
+									}`}
+								>
+									<div className="flex flex-wrap items-center justify-between gap-2">
+										<strong>
+											{slot.start}–{slot.end}
+										</strong>
+										<span className="text-xs text-gray-600">
+											занято {slot.booked} из {slot.capacity}
+										</span>
+									</div>
+									{inSlot.length === 0 && (
+										<p className="mt-1 text-xs text-gray-500">Записей нет</p>
+									)}
+									{inSlot.map((b) => (
+										<div
 											key={b.id}
-											className="border-b border-gray-100 align-top"
+											className="mt-2 rounded-lg bg-white p-2 text-xs shadow-sm"
 										>
-											<td className="py-2 pr-3 whitespace-nowrap">
-												{new Date(`${b.date}T00:00:00`).toLocaleDateString(
-													"ru-RU",
-													{
-														day: "numeric",
-														month: "2-digit",
-														year: "2-digit",
-													},
-												)}
-											</td>
-											<td className="py-2 pr-3 whitespace-nowrap">
-												{b.start}–{b.end}
-											</td>
-											<td className="py-2 pr-3">
-												{Object.values(b.answers || {})
-													.map((a) => `${a.label}: ${a.value}`)
-													.join(" · ") || "данные не указаны"}
-											</td>
-											<td className="py-2">
+											<div className="flex flex-wrap items-center justify-between gap-2">
+												<span>
+													{Object.values(b.answers || {})
+														.map((a) => `${a.label}: ${a.value}`)
+														.join(" · ") || "данные не указаны"}
+												</span>
 												<button
 													type="button"
 													onClick={() => cancel(b.id)}
@@ -362,142 +307,173 @@ export default function BookingTab() {
 												>
 													Отменить
 												</button>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					)}
-				</section>
-
-				<section className="rounded-2xl bg-white p-4 shadow-sm">
-					<h2 className="text-lg font-bold">
-						{selectedDate
-							? new Date(`${selectedDate}T00:00:00`).toLocaleDateString(
-									"ru-RU",
-									{
-										day: "numeric",
-										month: "long",
-										year: "numeric",
-									},
-								)
-							: "Выберите дату"}
-					</h2>
-					{!selectedDate && (
-						<p className="mt-2 text-sm text-gray-500">
-							Нажмите на день в календаре — здесь появятся слоты и данные
-							записанных клиентов.
-						</p>
-					)}
-					{selectedDate && !day && (
-						<p className="mt-2 text-sm text-gray-500">Загрузка…</p>
-					)}
-					{selectedDate && day && (
-						<div className="mt-3 space-y-3">
-							{day.slots.length === 0 && (
-								<p className="text-sm text-gray-500">
-									По расписанию на эту дату слотов нет.
-								</p>
-							)}
-							{day.slots.map((slot) => {
-								const inSlot = day.bookings.filter(
-									(b) => b.start < slot.end && b.end > slot.start,
-								);
-								return (
-									<div
-										key={slot.start}
-										className={`rounded-xl border p-3 text-sm ${
-											slot.available > 0
-												? "border-emerald-300 bg-emerald-50"
-												: "border-rose-300 bg-rose-50"
-										}`}
-									>
-										<div className="flex flex-wrap items-center justify-between gap-2">
-											<strong>
-												{slot.start}–{slot.end}
-											</strong>
-											<span className="text-xs text-gray-600">
-												занято {slot.booked} из {slot.capacity}
-											</span>
+											</div>
 										</div>
-										{inSlot.length === 0 && (
-											<p className="mt-1 text-xs text-gray-500">Записей нет</p>
-										)}
-										{inSlot.map((b) => (
-											<div
-												key={b.id}
-												className="mt-2 rounded-lg bg-white p-2 text-xs shadow-sm"
-											>
-												<div className="flex flex-wrap items-center justify-between gap-2">
-													<span>
-														{Object.values(b.answers || {})
-															.map((a) => `${a.label}: ${a.value}`)
-															.join(" · ") || "данные не указаны"}
-													</span>
-													<button
-														type="button"
-														onClick={() => cancel(b.id)}
-														className="text-red-700 underline"
-													>
-														Отменить
-													</button>
-												</div>
-											</div>
-										))}
-									</div>
-								);
-							})}
-							{day.bookings.filter(
-								(b) =>
-									!day.slots.some((s) => b.start < s.end && b.end > s.start),
-							).length > 0 && (
-								<p className="text-xs text-amber-700">
-									Есть записи вне текущего расписания — они показаны в списке
-									записей ниже.
-								</p>
-							)}
-							{day.bookings.length > 0 && (
-								<div>
-									<h3 className="pt-1 font-semibold">Все записи на дату</h3>
-									<div className="mt-2 space-y-2">
-										{day.bookings.map((b) => (
-											<div
-												key={b.id}
-												className="rounded-lg border border-gray-200 p-2 text-xs"
-											>
-												<div className="flex flex-wrap items-center justify-between gap-2">
-													<span>
-														<b>
-															{b.start}–{b.end}
-														</b>
-														{Object.values(b.answers || {})
-															.map((a) => `${a.label}: ${a.value}`)
-															.join(" · ") || "данные не указаны"}
-													</span>
-													<button
-														type="button"
-														onClick={() => cancel(b.id)}
-														className="text-red-700 underline"
-													>
-														Отменить
-													</button>
-												</div>
-											</div>
-										))}
-									</div>
+									))}
 								</div>
-							)}
-						</div>
-					)}
-				</section>
-			</div>
+							);
+						})}
+						{day.bookings.filter(
+							(b) =>
+								!day.slots.some((s) => b.start < s.end && b.end > s.start),
+						).length > 0 && (
+							<p className="text-xs text-amber-700">
+								Есть записи вне текущего расписания — они показаны ниже.
+							</p>
+						)}
+						{day.bookings.length > 0 && (
+							<div>
+								<h3 className="pt-1 font-semibold">Все записи на дату</h3>
+								<div className="mt-2 space-y-2">
+									{day.bookings.map((b) => (
+										<div
+											key={b.id}
+											className="rounded-lg border border-gray-200 p-2 text-xs"
+										>
+											<div className="flex flex-wrap items-center justify-between gap-2">
+												<span>
+													<b>
+														{b.start}–{b.end}
+													</b>{" "}
+													{Object.values(b.answers || {})
+														.map((a) => `${a.label}: ${a.value}`)
+														.join(" · ") || "данные не указаны"}
+												</span>
+												<button
+													type="button"
+													onClick={() => cancel(b.id)}
+													className="text-red-700 underline"
+												>
+													Отменить
+												</button>
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						)}
+					</div>
+				)}
+			</section>
 
-			{settingsFor && (
-				<BookingSettings
-					service={settingsFor}
-					onClose={() => setSettingsFor(null)}
-				/>
+			{calendarOpen && (
+				<div
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+					onClick={() => setCalendarOpen(false)}
+				>
+					<div
+						className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+						onClick={(e) => e.stopPropagation()}
+						role="dialog"
+						aria-modal="true"
+						aria-label="Выбор даты"
+					>
+						<div className="mb-4 flex items-center justify-between">
+							<button
+								type="button"
+								className="rounded-lg px-2 py-1 text-lg"
+								onClick={() => setMonth(shiftMonth(month, -1))}
+								aria-label="Предыдущий месяц"
+							>
+								←
+							</button>
+							<h3 className="text-lg font-bold capitalize">
+								{monthTitle(month)}
+							</h3>
+							<button
+								type="button"
+								className="rounded-lg px-2 py-1 text-lg"
+								onClick={() => setMonth(shiftMonth(month, 1))}
+								aria-label="Следующий месяц"
+							>
+								→
+							</button>
+						</div>
+
+						{!overview ? (
+							<p className="text-sm text-gray-500">
+								{error ? "Календарь недоступен." : "Загрузка…"}
+							</p>
+						) : (
+							<>
+								<div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-400">
+									{WEEKDAYS.map((w) => (
+										<div key={w}>{w}</div>
+									))}
+								</div>
+								<div className="mt-1 grid grid-cols-7 gap-1">
+									{cells.map((day1, index) =>
+										day1 ? (
+											<button
+												key={day1.date}
+												type="button"
+												onClick={() => pickDate(day1.date)}
+												className={`rounded-lg border p-1.5 text-left text-xs transition ${
+													selectedDate === day1.date
+														? "border-blue-600 bg-blue-50"
+														: day1.booked > 0
+															? "border-amber-300 bg-amber-50 hover:bg-amber-100"
+															: day1.slots > 0
+																? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100"
+																: "border-gray-200 bg-gray-50 text-gray-400"
+												}`}
+											>
+												<span className="block text-sm font-bold">
+													{Number(day1.date.slice(-2))}
+												</span>
+												<span className="block">
+													{day1.booked > 0
+														? `записей: ${day1.booked}`
+														: day1.slots > 0
+															? "свободно"
+															: "нет записи"}
+												</span>
+												{day1.slots > 0 && (
+													<span className="block text-gray-500">
+														мест: {day1.free}/{day1.capacity}
+													</span>
+												)}
+											</button>
+										) : (
+											<div key={`empty-${index}`} />
+										),
+									)}
+								</div>
+								<div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+									<span className="flex items-center gap-1.5">
+										<span className="inline-block h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-300" />
+										есть свободные места
+									</span>
+									<span className="flex items-center gap-1.5">
+										<span className="inline-block h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" />
+										есть записи
+									</span>
+									<span className="flex items-center gap-1.5">
+										<span className="inline-block h-3 w-3 rounded bg-gray-100 ring-1 ring-gray-300" />
+										запись не ведётся
+									</span>
+								</div>
+							</>
+						)}
+
+						<div className="mt-4 flex justify-between">
+							<button
+								type="button"
+								className="rounded-lg border border-gray-300 px-4 py-2 text-sm"
+								onClick={goToToday}
+							>
+								Сегодня
+							</button>
+							<button
+								type="button"
+								className="rounded-lg px-4 py-2 text-sm text-gray-500"
+								onClick={() => setCalendarOpen(false)}
+							>
+								Закрыть
+							</button>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	);
