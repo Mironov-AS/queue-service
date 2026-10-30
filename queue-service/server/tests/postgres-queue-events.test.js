@@ -20,7 +20,14 @@ test("уведомления очереди разделяют публичны�
 	};
 	const events = createPostgresQueueEvents({ io, pool, state });
 	await events.emitQueueUpdate();
-	await events.emitCalled({ id: 1 });
+	await events.emitCalled({
+		id: 1,
+		number: 12,
+		service_name: "Тест",
+		name: "Личное",
+		phone: "123",
+		field_values: "[секрет]",
+	});
 	await events.log(
 		{ user: { id: 2, username: "operator" } },
 		"ticket.called",
@@ -31,5 +38,13 @@ test("уведомления очереди разделяют публичны�
 	assert.equal(sent[1].room, "except:admins");
 	assert.equal(sent[1].data.current.name, undefined);
 	assert.equal(sent[2].name, "ticket:called");
+	assert.equal(sent[2].room, "admins");
+	assert.equal(sent[2].data.phone, "123");
+	assert.equal(sent[3].room, "except:admins");
+	assert.equal(sent[3].data.id, 1);
+	assert.equal(sent[3].data.number, 12);
+	assert.equal("name" in sent[3].data, false);
+	assert.equal("phone" in sent[3].data, false);
+	assert.equal("field_values" in sent[3].data, false);
 	assert.deepEqual(queries[0][1], [2, "operator", "ticket.called", "#1"]);
 });

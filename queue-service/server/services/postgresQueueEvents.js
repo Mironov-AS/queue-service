@@ -12,7 +12,17 @@ function createPostgresQueueEvents({ io, state, pool }) {
 			io.except("admins").emit("queue:updated", publicState);
 		},
 		async emitCalled(ticket) {
-			io.emit("ticket:called", ticket);
+			// Visitors need only the identifier; the public display uses number and service.
+			// Never broadcast names, phones, arbitrary form values or reasons.
+			const publicTicket = {
+				id: ticket.id,
+				number: ticket.number,
+				service_name: ticket.service_name,
+				status: ticket.status,
+				called_at: ticket.called_at,
+			};
+			io.to("admins").emit("ticket:called", ticket);
+			io.except("admins").emit("ticket:called", publicTicket);
 		},
 		async log(req, action, details = "") {
 			await pool.query(
