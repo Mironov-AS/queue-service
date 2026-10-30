@@ -26,9 +26,14 @@ function createPostgresQueueRouter({
 		const n = Number(value);
 		return Number.isSafeInteger(n) && n > 0 ? n : null;
 	};
-	const updated = async (res, extra = {}) => {
-		await emitQueueUpdate();
-		res.json({ ...extra, ...(await state.getQueueState()) });
+	// Side effects happen after the database transaction commits. Report their
+	// failure separately: returning 500 would invite replay of a completed action.
+	const attempt = async (fn) => { try { await fn(); return false; } catch { return true; } };
+	const updated = async (res, extra = {}, warning = false) => {
+		warning = await attempt(emitQueueUpdate) || warning;
+		let queue;
+		try { queue = await state.getQueueState(); } catch { warning = true; }
+		res.json({ ...extra, ...(queue || {}), ...(warning ? { warning: 'Операция выполнена, но обновление или журнал недоступны; проверьте состояние очереди' } : {}) });
 	};
 	router.get(
 		"/",
@@ -44,11 +49,12 @@ function createPostgresQueueRouter({
 		requireAuth,
 		wrap(async (req, res) => {
 			const ticket = await actions.callNext();
+            let warning = false;
 			if (ticket) {
-				await emitCalled(ticket);
-				await log(req, "ticket.called", `#${ticket.number}`);
+				warning = await attempt(() => emitCalled(ticket)) || warning;
+                warning = await attempt(() => log(req, "ticket.called", `#${ticket.number}`)) || warning;
 			}
-			await updated(res);
+			await updated(res, {}, warning);
 		}),
 	);
 	router.post(
@@ -60,9 +66,9 @@ function createPostgresQueueRouter({
 			const ticket = await actions.callSpecific(id);
 			if (!ticket)
 				return res.status(404).json({ error: "Талон не найден в очереди" });
-			await emitCalled(ticket);
-			await log(req, "ticket.called", `#${ticket.number}`);
-			await updated(res);
+			let warning = await attempt(() => emitCalled(ticket));
+            warning = await attempt(() => log(req, "ticket.called", `#${ticket.number}`)) || warning;
+			await updated(res, {}, warning);
 		}),
 	);
 	router.post(
@@ -82,8 +88,8 @@ function createPostgresQueueRouter({
 		requireAuth,
 		wrap(async (req, res) => {
 			const ticket = await actions.returnCurrent();
-			if (ticket) await log(req, "ticket.returned", `#${ticket.number}`);
-			await updated(res);
+			const warning = ticket ? await attempt(() => log(req, "ticket.returned", `#${ticket.number}`)) : false;
+			await updated(res, {}, warning);
 		}),
 	);
 	router.post(
@@ -97,8 +103,8 @@ function createPostgresQueueRouter({
 				return res.status(404).json({ error: "Талон не найден" });
 			if (result.result === "already_waiting")
 				return res.status(400).json({ error: "Талон уже в очереди" });
-			await log(req, "ticket.returned", `#${result.ticket.number}`);
-			await updated(res, { success: true });
+			const warning = await attempt(() => log(req, "ticket.returned", `#${result.ticket.number}`));
+			await updated(res, { success: true }, warning);
 		}),
 	);
 	router.post(
@@ -106,18 +112,14 @@ function createPostgresQueueRouter({
 		requireAuth,
 		wrap(async (req, res) => {
 			const count = await actions.returnAll();
-			await log(
-				req,
-				"queue.return_all",
-				`${count} талонов возвращено в очередь`,
-			);
-			await updated(res, { success: true, returned: count });
+			const warning = await attempt(() => log(req, "queue.return_all", `${count} талонов возвращено в очередь`));
+			await updated(res, { success: true, returned: count }, warning);
 		}),
 	);
 	const complete = wrap(async (req, res) => {
 		const ticket = await actions.complete(req.body?.reason);
-		if (ticket) await log(req, "ticket.served", `#${ticket.number}`);
-		await updated(res);
+		const warning = ticket ? await attempt(() => log(req, "ticket.served", `#${ticket.number}`)) : false;
+		await updated(res, {}, warning);
 	});
 	for (const endpoint of ["/complete", "/skip", "/cancel-current"])
 		router.post(endpoint, requireAuth, complete);
@@ -126,9 +128,9 @@ function createPostgresQueueRouter({
 		requireAuth,
 		wrap(async (req, res) => {
 			await actions.reset();
-			await log(req, "queue.reset", "");
-			await emitQueueUpdate();
-			res.json({ success: true });
+			let warning = await attempt(() => log(req, "queue.reset", ""));
+            warning = await attempt(emitQueueUpdate) || warning;
+			res.json({ success: true, ...(warning ? {warning: "Операция выполнена, но обновление или журнал недоступны; проверьте состояние очереди"} : {}) });
 		}),
 	);
 	return router;
