@@ -1,21 +1,13 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const rateLimit = require('express-rate-limit');
 const db = require('../database');
 const { getJwtSecret } = require('../config');
 const { requireAuth } = require('../middleware/requireAuth');
+const { loginLimiter } = require('../middleware/loginLimiter');
 const { emitQueueUpdate } = require('../services/emitQueueUpdate');
 
 const router = express.Router();
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Слишком много попыток входа. Попробуйте через 15 минут.' }
-});
 
 router.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;

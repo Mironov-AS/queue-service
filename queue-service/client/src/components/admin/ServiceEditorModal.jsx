@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../../api";
 import { defaultBookingConfig } from "./bookingDefaults";
+import { copyText } from "../../utils/clipboard";
 import QueueFieldsEditor from "./QueueFieldsEditor";
 import { Icon, P } from "./shared";
 
@@ -71,6 +72,7 @@ export default function ServiceEditorModal({
 	const [tab, setTab] = useState("main");
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
+	const widgetLinkRef = useRef(null);
 	const [saving, setSaving] = useState(false);
 	const [loadingConfig, setLoadingConfig] = useState(bookingEnabled);
 
@@ -715,9 +717,24 @@ export default function ServiceEditorModal({
 													</a>
 													<button
 														type="button"
-														onClick={() => {
-															navigator.clipboard?.writeText(widgetUrl);
-															setNotice("Ссылка на виджет скопирована");
+														onClick={async () => {
+															const result = await copyText(widgetUrl);
+															if (result.ok) {
+																setNotice("Ссылка на виджет скопирована");
+																return;
+															}
+															// Копирование не удалось: не сообщаем об успехе,
+															// а выделяем ссылку, чтобы её можно было
+															// скопировать вручную.
+															const field = widgetLinkRef.current;
+															if (field) {
+																field.focus();
+																field.select();
+																field.setSelectionRange?.(0, field.value.length);
+															}
+															setNotice(
+																"Не удалось скопировать автоматически — ссылка выделена, скопируйте её вручную (Ctrl+C)",
+															);
 														}}
 														className="rounded-lg bg-white px-4 py-2 text-sm text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
 													>
@@ -726,6 +743,7 @@ export default function ServiceEditorModal({
 												</div>
 												<input
 													readOnly
+													ref={widgetLinkRef}
 													aria-label="Ссылка на виджет"
 													className={`${input} bg-white`}
 													value={widgetUrl}
