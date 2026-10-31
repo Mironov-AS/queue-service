@@ -5,7 +5,7 @@ import { ORG_PLACEHOLDERS } from "./LegalPages";
 // очереди. Структура повторяет соглашение стороннего сервиса онлайн-записи,
 // но условия, реквизиты и описание сервиса относятся к нашему предприятию.
 export const AGREEMENT_VERSION = "agreement-2026-10-30-v3";
-export const AGREEMENT_UPDATED = "Редакция от 30 октября 2026 года (v2)";
+export const AGREEMENT_UPDATED = "Редакция от 30 октября 2026 года (v3)";
 
 function LegalLayout({ title, updated, children }) {
 	return (

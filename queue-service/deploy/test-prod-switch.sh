@@ -126,7 +126,26 @@ rm -rf "$root/server.failed" "$root/staged" "$root/work"
 rm -f "$root/fail-new"
 rm -f "$root/backups"/queue-switch-*.db
 # 2. Successful switch of the production logic.
+# Simulate a candidate whose static files were uploaded by another user with
+# restrictive modes: the switch must still leave a tree the service can read.
+chown -R root:root "$root/candidate/public"
+find "$root/candidate/public" -type d -exec chmod 700 {} +
+find "$root/candidate/public" -type f -exec chmod 600 {} +
 bash "$root/engine"
+live_owner=$(stat -c '%u:%g' "$live_src")
+[ "$(stat -c '%u:%g' "$root/server")" = "$live_owner" ] || {
+	echo 'switched tree does not belong to the service account' >&2
+	exit 1
+}
+[ "$(stat -c '%u:%g' "$root/server/public")" = "$live_owner" ] || {
+	echo 'switched public tree does not belong to the service account' >&2
+	exit 1
+}
+runuser -u queueapp -- test -r "$root/server/public/index.html" || {
+	echo 'service user cannot read the switched public tree' >&2
+	exit 1
+}
+echo 'verified ownership normalisation of the switched tree'
 bash "$root/prod-control" check-new
 grep -Fq "EnvironmentFile=$root/booking.env" "/etc/systemd/system/$unit.d/booking.conf"
 systemctl show "$unit" -p EnvironmentFiles --value | grep -Fq "$root/booking.env"

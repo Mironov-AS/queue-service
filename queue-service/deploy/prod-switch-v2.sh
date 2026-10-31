@@ -34,6 +34,19 @@ export SWITCH_BACKUP_DIR=/opt/queue-data/backups
 echo '--- production state before switch'
 systemctl is-active queue-service.service
 curl --fail --silent --max-time 5 http://127.0.0.1:3001/api/queue >/dev/null && echo 'queue API responds'
+# The engine refuses to run while a previous-release copy exists. Rotate it
+# aside instead of deleting it, so an older rollback target stays available.
+if [ -e "$SWITCH_OLD" ]; then
+	stamp=$(date -u +%Y%m%dT%H%M%SZ)
+	mv "$SWITCH_OLD" "${SWITCH_OLD}.$stamp"
+	echo "previous release copy rotated to ${SWITCH_OLD}.$stamp"
+	# keep the two newest rotated copies only
+	mapfile -t rotated < <(ls -1dt "${SWITCH_OLD}".* 2>/dev/null || true)
+	for stale in "${rotated[@]:2}"; do
+		echo "removing stale rotated copy: $stale"
+		rm -rf "$stale"
+	done
+fi
 echo '--- switching'
 bash "$deploy_dir/switch-engine-v2.sh"
 echo '--- production state after switch'

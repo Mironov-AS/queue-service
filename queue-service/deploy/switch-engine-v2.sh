@@ -115,6 +115,12 @@ rollback() {
 trap rollback ERR
 # Copy and validate before stopping; no rollback uses a partial copy.
 cp -a "$CANDIDATE" "$STAGE"
+# The staged tree must stay readable by the service account even when the
+# candidate was uploaded by another user; the uploads subtree keeps its own
+# metadata and is handled separately below.
+live_owner=$(stat -c %U "$LIVE")
+live_group=$(stat -c %G "$LIVE")
+find "$STAGE" -path "$STAGE/uploads" -prune -o -exec chown "$live_owner:$live_group" {} +
 "$CONTROL" validate "$STAGE"
 "$CONTROL" snapshot
 # A failed stop can still have stopped the service; recovery must begin before it.
