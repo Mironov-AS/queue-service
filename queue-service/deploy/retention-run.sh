@@ -32,7 +32,9 @@ else
 		bash "$DEPLOY_DIR/prod-control.sh" snapshot
 	if [ -f /opt/queue-service/secrets/booking.env ]; then
 		# shellcheck disable=SC1090
-		set -a; . /opt/queue-service/secrets/booking.env; set +a
+		set -a
+		. /opt/queue-service/secrets/booking.env
+		set +a
 	fi
 	if [ -n "${BOOKING_DATABASE_URL:-}" ]; then
 		ts="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -51,7 +53,9 @@ fi
 export DATA_DIR SERVER_DIR="${SERVER_DIR:-/opt/queue-service/server}"
 if [ -f /opt/queue-service/secrets/booking.env ]; then
 	# shellcheck disable=SC1090
-	set -a; . /opt/queue-service/secrets/booking.env; set +a
+	set -a
+	. /opt/queue-service/secrets/booking.env
+	set +a
 fi
 if [ "$DRY" = "--dry-run" ]; then
 	node "$DEPLOY_DIR/retention-cleanup.js" --dry-run --days="$DAYS"
@@ -61,12 +65,13 @@ fi
 
 rotate() {
 	# $1 = glob pattern description, files passed as the rest of args (newest first)
-	local kind="$1"; shift
+	local kind="$1"
+	shift
 	local kept=0 f age
 	for f in "$@"; do
 		[ -e "$f" ] || continue
 		kept=$((kept + 1))
-		age=$(( ($(date +%s) - $(stat -c %Y "$f")) / 86400 ))
+		age=$((($(date +%s) - $(stat -c %Y "$f")) / 86400))
 		if [ "$kept" -le 3 ]; then
 			echo "keep $kind (newest 3): $(basename "$f")"
 		elif [ "$age" -gt "$DAYS" ]; then
