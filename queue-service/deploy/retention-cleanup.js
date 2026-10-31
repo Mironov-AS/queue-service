@@ -27,7 +27,9 @@ const dataDir = process.env.DATA_DIR || "/opt/queue-data";
 const dbFile = path.join(dataDir, "queue.db");
 const serverDir = process.env.SERVER_DIR || "/opt/queue-service/server";
 const bookingUrl = process.env.BOOKING_DATABASE_URL || "";
-const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+const cutoff = new Date(Date.now() - days * 86400000)
+	.toISOString()
+	.slice(0, 10);
 
 function loadSqlite() {
 	const Database = require(path.join(serverDir, "node_modules/better-sqlite3"));
@@ -46,24 +48,33 @@ async function main() {
 			"select count(*) n from tickets where date < ? and (name is not null or phone is not null or (field_values is not null and field_values <> '' and field_values <> '[]'))",
 		)
 		.get(cutoff).n;
-	const oldAll = db.prepare("select count(*) n from tickets where date < ?").get(cutoff).n;
+	const oldAll = db
+		.prepare("select count(*) n from tickets where date < ?")
+		.get(cutoff).n;
 	db.close();
 	console.log(`queue database: ${dbFile}`);
-	console.log(`tickets total: ${total}; older than ${days} days (before ${cutoff}): ${oldAll}; with identifiers: ${old}`);
+	console.log(
+		`tickets total: ${total}; older than ${days} days (before ${cutoff}): ${oldAll}; with identifiers: ${old}`,
+	);
 
 	let bookingsOld = null;
 	let bookingsTotal = null;
 	let pool = null;
 	if (bookingUrl) {
 		const { Pool } = require(path.join(serverDir, "node_modules/pg"));
-		pool = new Pool({ connectionString: bookingUrl, connectionTimeoutMillis: 5000 });
+		pool = new Pool({
+			connectionString: bookingUrl,
+			connectionTimeoutMillis: 5000,
+		});
 		const r = await pool.query(
 			"select count(*) filter (where booking_date < $1::date - ($2 || ' days')::interval) as old, count(*) as total from bookings",
 			[cutoff, String(days)],
 		);
 		bookingsOld = Number(r.rows[0].old);
 		bookingsTotal = Number(r.rows[0].total);
-		console.log(`bookings total: ${bookingsTotal}; older than ${days} days with data: ${bookingsOld}`);
+		console.log(
+			`bookings total: ${bookingsTotal}; older than ${days} days with data: ${bookingsOld}`,
+		);
 	}
 
 	if (dryRun) {
