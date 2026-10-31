@@ -231,13 +231,36 @@ server.listen(PORT, "0.0.0.0", async () => {
 	}
 });
 
+let shuttingDown = false;
 function shutdown(signal) {
+	if (shuttingDown) return;
+	shuttingDown = true;
 	console.log(`${signal} received — shutting down gracefully`);
 	server.close(() => {
-		db.close();
+		try {
+			db.close();
+		} catch {
+			/* ignore */
+		}
 		process.exit(0);
 	});
-	setTimeout(() => process.exit(1), 10000);
+	// Keep-alive connections keep the server open and delay the shutdown;
+	// close them explicitly so the service stops cleanly and quickly.
+	setTimeout(() => {
+		try {
+			server.closeAllConnections?.();
+		} catch {
+			/* ignore */
+		}
+	}, 500);
+	setTimeout(() => {
+		try {
+			db.close();
+		} catch {
+			/* ignore */
+		}
+		process.exit(0);
+	}, 5000);
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
