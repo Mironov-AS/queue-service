@@ -4,6 +4,8 @@
 // the booking channel must keep the schedule.
 //
 // Run: node client/scripts/check-service-channels.mjs <tokenFile>
+// Token may also come from ADMIN_TOKEN; targets from CHECK_QUEUE_BASE /
+// CHECK_BOOKING_BASE (defaults: sandbox preview backends on 6620 / 6621).
 import { JSDOM } from "jsdom";
 import { build } from "esbuild";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -11,7 +13,22 @@ import { join } from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const token = readFileSync(process.argv[2], "utf8").trim();
+
+const tokenFile = process.argv[2];
+if (!tokenFile && !process.env.ADMIN_TOKEN) {
+	console.error(
+		"Нужен токен администратора: node client/scripts/check-service-channels.mjs <tokenFile> " +
+			"или переменная окружения ADMIN_TOKEN",
+	);
+	process.exit(2);
+}
+const token = (
+	process.env.ADMIN_TOKEN || readFileSync(tokenFile, "utf8")
+).trim();
+if (!token) {
+	console.error("Токен администратора пуст");
+	process.exit(2);
+}
 const nativeFetch = globalThis.fetch;
 
 const dom = new JSDOM(
@@ -40,11 +57,13 @@ global.localStorage.setItem(
 
 const calls = [];
 const pending = [];
+const queueBase = process.env.CHECK_QUEUE_BASE || "http://127.0.0.1:6620";
+const bookingBase = process.env.CHECK_BOOKING_BASE || "http://127.0.0.1:6621";
 global.fetch = async (input, init = {}) => {
 	const url = String(input);
 	const target = url.startsWith("/api/booking")
-		? `http://127.0.0.1:6621${url}`
-		: `http://127.0.0.1:6620${url}`;
+		? `${bookingBase}${url}`
+		: `${queueBase}${url}`;
 	const headers = new Headers(init.headers || {});
 	headers.set("authorization", `Bearer ${token}`);
 	calls.push({
