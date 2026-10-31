@@ -19,27 +19,36 @@ const consentModule = readFileSync(
 	"utf8",
 );
 
-const clientVersion = (agreement.match(/AGREEMENT_VERSION\s*=\s*"([^"]+)"/) || [])[1];
-const clientLabel = (agreement.match(/AGREEMENT_UPDATED\s*=\s*"([^"]+)"/) || [])[1];
+const clientVersion = (agreement.match(/AGREEMENT_VERSION\s*=\s*"([^"]+)"/) ||
+	[])[1];
+const clientLabel = (agreement.match(/AGREEMENT_UPDATED\s*=\s*"([^"]+)"/) ||
+	[])[1];
 const serverVersion = (consentModule.match(/version:\s*"([^"]+)"/) || [])[1];
-const legalVersions = [...legal.matchAll(/agreement-\d{4}-\d{2}-\d{2}-v\d+/g)].map(
-	(m) => m[0],
-);
+const legalVersions = [
+	...legal.matchAll(/agreement-\d{4}-\d{2}-\d{2}-v\d+/g),
+].map((m) => m[0]);
 
 const problems = [];
-if (!clientVersion) problems.push("в AgreementPage.jsx не найдена AGREEMENT_VERSION");
+if (!clientVersion)
+	problems.push("в AgreementPage.jsx не найдена AGREEMENT_VERSION");
 if (!serverVersion) problems.push("в bookingConsent.js не найден version");
 if (clientVersion && serverVersion && clientVersion !== serverVersion) {
-	problems.push(`версия клиента ${clientVersion} != версия сервера ${serverVersion}`);
+	problems.push(
+		`версия клиента ${clientVersion} != версия сервера ${serverVersion}`,
+	);
 }
 if (clientVersion && legalVersions.some((v) => v !== clientVersion)) {
-	problems.push(`в legal-v3.json встречаются другие версии: ${legalVersions.join(", ")}`);
+	problems.push(
+		`в legal-v3.json встречаются другие версии: ${legalVersions.join(", ")}`,
+	);
 }
 if (clientVersion && clientLabel) {
 	const labelVersion = (clientLabel.match(/\((v\d+)\)/) || [])[1];
 	const expected = "v" + (clientVersion.match(/-v(\d+)$/) || [])[1];
 	if (labelVersion && labelVersion !== expected) {
-		problems.push(`подпись «${clientLabel}» не соответствует версии ${clientVersion}`);
+		problems.push(
+			`подпись «${clientLabel}» не соответствует версии ${clientVersion}`,
+		);
 	}
 }
 if (problems.length) {
